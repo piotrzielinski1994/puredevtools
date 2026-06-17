@@ -16,6 +16,7 @@ export default defineConfig({
         'src/rules/model.ts',
         'src/engine/RequestEngine.ts',
         'src/engine/chrome/dnrTypes.ts',
+        'src/engine/firefox/types.ts',
       ],
       thresholds: {
         lines: 90,
