@@ -25,6 +25,15 @@ npm run lint
 npm test
 ```
 
+## Usage
+
+Open the extension popup for a quick rule list and the global on/off switch, or the options page (`Manage rules…`) for the full editor:
+
+- Add, edit, delete, enable/disable, and reorder rules (priority).
+- Each rule matches by URL (glob or regex), method, resource type, and optional request-header matchers, then applies request/response header changes, redirect, block, response-body rewrite, status override, or a full mock response.
+- Export all rules to a JSON file and import them back (replaces the current set).
+- Rules persist in extension storage and survive browser restarts.
+
 ## Architecture
 
 A single manifest source (`src/manifest/index.ts`) generates both Chrome and Firefox variants. The rule model and UI are browser-agnostic; only the enforcement layer (`RequestEngine`) differs per browser:
