@@ -159,4 +159,40 @@ describe('RuleList', () => {
 
     expect(await screen.findByText(/no rules/i)).toBeInTheDocument();
   });
+
+  it('should render only the name and enabled switch per row in compact mode', async () => {
+    const gateway = createFakeGateway(threeRules());
+    render(
+      <RulesProvider gateway={gateway}>
+        <RuleList compact onEdit={vi.fn()} />
+      </RulesProvider>,
+    );
+
+    await screen.findByText('alpha rule');
+
+    const rows = screen.getAllByRole('listitem');
+    const firstRow = within(rows[0]);
+    expect(firstRow.getByRole('switch', { name: /enabled/i })).toBeInTheDocument();
+    expect(firstRow.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    expect(firstRow.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+    expect(firstRow.queryByRole('button', { name: /move up/i })).not.toBeInTheDocument();
+  });
+
+  it('should still toggle enabled in compact mode', async () => {
+    const gateway = createFakeGateway(threeRules());
+    render(
+      <RulesProvider gateway={gateway}>
+        <RuleList compact onEdit={vi.fn()} />
+      </RulesProvider>,
+    );
+
+    await screen.findByText('alpha rule');
+
+    const rows = screen.getAllByRole('listitem');
+    fireEvent.click(within(rows[0]).getByRole('switch', { name: /enabled/i }));
+
+    await waitFor(() => expect(gateway.update).toHaveBeenCalledTimes(1));
+    const [updated] = gateway.update.mock.calls[0] as [Rule];
+    expect(updated.enabled).toBe(false);
+  });
 });

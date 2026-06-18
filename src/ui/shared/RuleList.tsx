@@ -6,6 +6,7 @@ import { useRules } from './RulesProvider';
 
 export type RuleListProps = {
   onEdit(rule: Rule): void;
+  compact?: boolean;
 };
 
 const actionSummary = (rule: Rule): string => {
@@ -13,7 +14,7 @@ const actionSummary = (rule: Rule): string => {
   return labels.length > 0 ? labels.join(', ') : 'no actions';
 };
 
-export const RuleList = ({ onEdit }: RuleListProps) => {
+export const RuleList = ({ onEdit, compact = false }: RuleListProps) => {
   const { rules, updateRule, removeRule, reorderRules } = useRules();
 
   if (rules.length === 0) {
@@ -53,43 +54,49 @@ export const RuleList = ({ onEdit }: RuleListProps) => {
             <p className={`truncate text-sm font-medium ${rule.enabled ? '' : 'text-muted-foreground line-through'}`}>
               {rule.name}
             </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {rule.matchers.url.pattern || '(any URL)'} · {actionSummary(rule)}
-            </p>
+            {compact ? null : (
+              <p className="truncate text-xs text-muted-foreground">
+                {rule.matchers.url.pattern || '(any URL)'} · {actionSummary(rule)}
+              </p>
+            )}
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Move up: ${rule.name}`}
-            disabled={index === 0}
-            onClick={() => move(index, -1)}
-          >
-            <ArrowUp />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Move down: ${rule.name}`}
-            disabled={index === rules.length - 1}
-            onClick={() => move(index, 1)}
-          >
-            <ArrowDown />
-          </Button>
-          <Button type="button" variant="outline" size="sm" aria-label={`Edit: ${rule.name}`} onClick={() => onEdit(rule)}>
-            <Pencil />
-            Edit
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Delete: ${rule.name}`}
-            onClick={() => confirmRemove(rule)}
-          >
-            <Trash2 />
-          </Button>
+          {compact ? null : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Move up: ${rule.name}`}
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+              >
+                <ArrowUp />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Move down: ${rule.name}`}
+                disabled={index === rules.length - 1}
+                onClick={() => move(index, 1)}
+              >
+                <ArrowDown />
+              </Button>
+              <Button type="button" variant="outline" size="sm" aria-label={`Edit: ${rule.name}`} onClick={() => onEdit(rule)}>
+                <Pencil />
+                Edit
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Delete: ${rule.name}`}
+                onClick={() => confirmRemove(rule)}
+              >
+                <Trash2 />
+              </Button>
+            </>
+          )}
         </li>
       ))}
     </ul>

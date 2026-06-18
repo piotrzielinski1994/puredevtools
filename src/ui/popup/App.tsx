@@ -11,7 +11,7 @@ import { useTheme } from '../shared/useTheme';
 const Summary = () => {
   const { status } = useRules();
   if (status === 'loading') return <p className="text-sm text-muted-foreground">Loading…</p>;
-  return <RuleList onEdit={() => void browser.runtime.openOptionsPage()} />;
+  return <RuleList compact onEdit={() => void browser.runtime.openOptionsPage()} />;
 };
 
 export const App = () => {
