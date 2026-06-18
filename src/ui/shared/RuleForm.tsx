@@ -9,6 +9,7 @@ import type {
   Rule,
   RuleAction,
 } from '../../rules/model';
+import { Accordion } from '../components/ui/accordion';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
@@ -50,13 +51,6 @@ const opToRow = (op: HeaderOp): OpRow =>
 
 const rowToOp = (row: OpRow): HeaderOp =>
   row.op === 'set' ? { op: 'set', name: row.name, value: row.value } : { op: 'remove', name: row.name };
-
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <fieldset className="rounded-lg border bg-card/40 p-4">
-    <legend className="px-1.5 text-sm font-semibold text-foreground">{title}</legend>
-    <div className="flex flex-col gap-3">{children}</div>
-  </fieldset>
-);
 
 const Field = ({ htmlFor, label, children }: { htmlFor: string; label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-1.5">
@@ -160,7 +154,7 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
         void onSubmit();
       }}
     >
-      <Section title="Match">
+      <Accordion title="Match" defaultOpen>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <Field htmlFor="rule-name" label="Name">
             <Input id="rule-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="My rule" />
@@ -205,9 +199,9 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
         </div>
 
         <HeaderMatcherEditor rows={headerMatchers} onChange={setHeaderMatchers} />
-      </Section>
+      </Accordion>
 
-      <Section title="Request actions">
+      <Accordion title="Request actions">
         <label className="inline-flex items-center gap-2 text-sm">
           <Checkbox checked={block} onChange={() => setBlock(!block)} />
           Block the request
@@ -216,9 +210,9 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
           <Input id="rule-redirect" value={redirectUrl} onChange={(event) => setRedirectUrl(event.target.value)} placeholder="https://elsewhere.test/" />
         </Field>
         <HeaderOpEditor legend="Modify request headers" rows={requestOps} onChange={setRequestOps} />
-      </Section>
+      </Accordion>
 
-      <Section title="Response actions">
+      <Accordion title="Response actions">
         <HeaderOpEditor legend="Modify response headers" rows={responseOps} onChange={setResponseOps} />
         <Field htmlFor="rule-status" label="Override status code">
           <Input id="rule-status" type="number" value={status} onChange={(event) => setStatus(event.target.value)} placeholder="200" />
@@ -241,9 +235,9 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
             </small>
           ) : null}
         </div>
-      </Section>
+      </Accordion>
 
-      <Section title="Mock response">
+      <Accordion title="Mock response">
         <label className="inline-flex items-center gap-2 text-sm">
           <Checkbox checked={mockEnabled} onChange={() => setMockEnabled(!mockEnabled)} />
           Return a mock response without forwarding
@@ -267,7 +261,7 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
             <HeaderOpEditor legend="Mock response headers" rows={mockHeaders} onChange={setMockHeaders} />
           </div>
         ) : null}
-      </Section>
+      </Accordion>
 
       {error ? (
         <p role="alert" className="text-sm text-destructive">
