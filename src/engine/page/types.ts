@@ -18,6 +18,7 @@ export type InterceptReport = {
   url: string;
   status: number;
   body: string;
+  contentType?: string;
 };
 
 export type Sink = (report: InterceptReport) => void;

@@ -43,4 +43,9 @@ describe('buildManifest', () => {
     expect(isolated?.run_at).toBe('document_start');
     expect(isolated?.js).toContain('src/content/bridge.ts');
   });
+
+  it('should declare a devtools_page on both targets', () => {
+    expect(buildManifest('chrome').devtools_page).toBe('src/devtools/devtools.html');
+    expect(buildManifest('firefox').devtools_page).toBe('src/devtools/devtools.html');
+  });
 });

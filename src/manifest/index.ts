@@ -23,6 +23,7 @@ export type Manifest = {
   action: { default_popup: string };
   options_ui: { page: string; open_in_tab: boolean };
   content_scripts: ContentScript[];
+  devtools_page: string;
   browser_specific_settings?: { gecko: { id: string; strict_min_version: string } };
 };
 
@@ -44,6 +45,7 @@ const SHARED = {
   action: { default_popup: 'src/ui/popup/index.html' },
   options_ui: { page: 'src/ui/options/index.html', open_in_tab: true },
   content_scripts: CONTENT_SCRIPTS,
+  devtools_page: 'src/devtools/devtools.html',
 } satisfies Partial<Manifest>;
 
 const BACKGROUND_ENTRY = 'src/background/index.ts';

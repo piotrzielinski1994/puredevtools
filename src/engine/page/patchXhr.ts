@@ -112,7 +112,7 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
       this.responseText = interception.body;
       this.response = interception.body;
       this.readyState = DONE;
-      deps.sink({ kind: 'mock', method: this.method, url: this.url, status: interception.status, body: interception.body });
+      deps.sink({ kind: 'mock', method: this.method, url: this.url, status: interception.status, body: interception.body, contentType: interception.contentType });
       this.onreadystatechange?.call(this as unknown as XMLHttpRequest, new Event('readystatechange'));
       this.onload?.call(this as unknown as XMLHttpRequest, new ProgressEvent('load'));
     }

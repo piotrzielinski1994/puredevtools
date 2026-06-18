@@ -18,7 +18,7 @@ export default defineConfig({
     setupFiles: ['./src/ui/test-setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/rules/**', 'src/engine/**', 'src/background/**', 'src/ui/shared/**'],
+      include: ['src/rules/**', 'src/engine/**', 'src/background/**', 'src/ui/shared/**', 'src/devtools/**', 'src/ui/devtools/**', 'src/content/channel.ts'],
       exclude: [
         '**/*.test.{ts,tsx}',
         'src/background/index.ts',
@@ -32,6 +32,9 @@ export default defineConfig({
         'src/engine/page/types.ts',
         'src/content/page-main.ts',
         'src/content/bridge.ts',
+        'src/devtools/types.ts',
+        'src/devtools/devtools.ts',
+        'src/ui/devtools/main.tsx',
       ],
       thresholds: {
         lines: 90,

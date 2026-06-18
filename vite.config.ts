@@ -22,5 +22,10 @@ export default defineConfig({
   build: {
     outDir: `dist/${target}`,
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        'devtools-panel': fileURLToPath(new URL('./src/devtools/panel.html', import.meta.url)),
+      },
+    },
   },
 });

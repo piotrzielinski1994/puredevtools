@@ -34,12 +34,17 @@ Open the extension popup for a quick rule list and the global on/off switch, or 
 - Export all rules to a JSON file and import them back (replaces the current set).
 - Rules persist in extension storage and survive browser restarts.
 
+### ReqHook DevTools panel
+
+Open DevTools (F12) and select the **ReqHook** tab for a Network-style table of **only the intercepted** `fetch`/`XHR` requests for the inspected tab. Each row shows type (mock/rewrite), method, status, and URL; click a row to see the served body (JSON pretty-printed). Filter by URL substring, or Clear the log. This is how you inspect what the UI actually received, since the native Network panel shows pre-interception wire bytes. Note: the panel only records requests made while it is open, and a request whose panel isn't open is not buffered.
+
 ## Architecture
 
 A single manifest source (`src/manifest/index.ts`) generates both Chrome and Firefox variants. The rule model and UI are browser-agnostic; enforcement happens at two layers:
 
 - **Network layer** (per browser): `ChromeEngine` - `declarativeNetRequest` (headers, redirect, block, mock-via-redirect); `FirefoxEngine` - `webRequest` + `filterResponseData` (adds in-flight response-body rewrite).
-- **Page layer** (cross-browser): a MAIN-world content script (`src/content/page-main.ts`) monkey-patches `window.fetch` and `XMLHttpRequest` so that **the running UI actually receives the mocked/rewritten body** (the same mechanism Requestly's extension uses). An ISOLATED-world bridge (`src/content/bridge.ts`) syncs rules from storage into the page. Every served mock/rewrite is logged to the page console as `[ReqHook] mocked GET <url> -> <status>` with the served body, so you can inspect what the UI got even though the native DevTools Network panel cannot show post-interception bytes.
+- **Page layer** (cross-browser): a MAIN-world content script (`src/content/page-main.ts`) monkey-patches `window.fetch` and `XMLHttpRequest` so that **the running UI actually receives the mocked/rewritten body** (the same mechanism Requestly's extension uses). An ISOLATED-world bridge (`src/content/bridge.ts`) syncs rules from storage into the page. Every served mock/rewrite is logged to the page console as `[ReqHook] mocked GET <url> -> <status>` and forwarded to the **ReqHook DevTools panel**.
+- **DevTools panel** (cross-browser): a `devtools_page` registers a "ReqHook" panel (`src/ui/devtools/`) that renders an intercept-only network table. Reports flow page sink -> bridge -> background relay (keyed by the inspected tab id) -> panel, so each panel shows only the traffic for the tab it inspects.
 
 ## Platform limitations
 

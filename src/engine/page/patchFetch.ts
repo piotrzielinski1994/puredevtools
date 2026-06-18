@@ -42,7 +42,7 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
     url: string,
   ): Promise<Response> => {
     if (interception.latencyMs && interception.latencyMs > 0) await deps.delay(interception.latencyMs);
-    deps.sink({ kind: 'mock', method, url, status: interception.status, body: interception.body });
+    deps.sink({ kind: 'mock', method, url, status: interception.status, body: interception.body, contentType: interception.contentType });
     return new Response(interception.body, {
       status: interception.status,
       headers: buildHeaders(interception.headers, interception.contentType),
@@ -57,7 +57,8 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
   ): Promise<Response> => {
     const headers = new Headers(original.headers);
     if (interception.contentType) headers.set('content-type', interception.contentType);
-    deps.sink({ kind: 'rewrite', method, url, status: original.status, body: interception.body });
+    const contentType = interception.contentType ?? original.headers.get('content-type') ?? undefined;
+    deps.sink({ kind: 'rewrite', method, url, status: original.status, body: interception.body, contentType });
     return new Response(interception.body, {
       status: original.status,
       statusText: original.statusText,
