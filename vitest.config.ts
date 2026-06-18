@@ -11,7 +11,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
-    environmentMatchGlobs: [['src/ui/**', 'jsdom']],
+    environmentMatchGlobs: [
+      ['src/ui/**', 'jsdom'],
+      ['src/engine/page/**', 'jsdom'],
+    ],
     setupFiles: ['./src/ui/test-setup.ts'],
     coverage: {
       provider: 'v8',
@@ -26,6 +29,9 @@ export default defineConfig({
         'src/ui/shared/gateway.ts',
         'src/ui/shared/createGateway.ts',
         'src/ui/components/**',
+        'src/engine/page/types.ts',
+        'src/content/page-main.ts',
+        'src/content/bridge.ts',
       ],
       thresholds: {
         lines: 90,

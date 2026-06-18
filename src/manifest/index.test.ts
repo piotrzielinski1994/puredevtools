@@ -33,4 +33,14 @@ describe('buildManifest', () => {
   it('should not add gecko settings to the chrome manifest', () => {
     expect(buildManifest('chrome').browser_specific_settings).toBeUndefined();
   });
+
+  it('should register a MAIN-world page patch and an ISOLATED bridge content script at document_start', () => {
+    const scripts = buildManifest('chrome').content_scripts;
+    const main = scripts.find((script) => script.world === 'MAIN');
+    const isolated = scripts.find((script) => script.world === 'ISOLATED');
+    expect(main?.run_at).toBe('document_start');
+    expect(main?.js).toContain('src/content/page-main.ts');
+    expect(isolated?.run_at).toBe('document_start');
+    expect(isolated?.js).toContain('src/content/bridge.ts');
+  });
 });

@@ -4,6 +4,14 @@ type ManifestBackground =
   | { service_worker: string; type?: 'module' }
   | { scripts: string[]; type?: 'module' };
 
+export type ContentScript = {
+  matches: string[];
+  js: string[];
+  run_at: 'document_start';
+  world?: 'MAIN' | 'ISOLATED';
+  all_frames?: boolean;
+};
+
 export type Manifest = {
   manifest_version: 3;
   name: string;
@@ -14,8 +22,17 @@ export type Manifest = {
   background: ManifestBackground;
   action: { default_popup: string };
   options_ui: { page: string; open_in_tab: boolean };
+  content_scripts: ContentScript[];
   browser_specific_settings?: { gecko: { id: string; strict_min_version: string } };
 };
+
+const PAGE_MAIN_ENTRY = 'src/content/page-main.ts';
+const BRIDGE_ENTRY = 'src/content/bridge.ts';
+
+const CONTENT_SCRIPTS: ContentScript[] = [
+  { matches: ['<all_urls>'], js: [PAGE_MAIN_ENTRY], run_at: 'document_start', world: 'MAIN', all_frames: true },
+  { matches: ['<all_urls>'], js: [BRIDGE_ENTRY], run_at: 'document_start', world: 'ISOLATED', all_frames: true },
+];
 
 const SHARED = {
   manifest_version: 3,
@@ -26,6 +43,7 @@ const SHARED = {
   host_permissions: ['<all_urls>'],
   action: { default_popup: 'src/ui/popup/index.html' },
   options_ui: { page: 'src/ui/options/index.html', open_in_tab: true },
+  content_scripts: CONTENT_SCRIPTS,
 } satisfies Partial<Manifest>;
 
 const BACKGROUND_ENTRY = 'src/background/index.ts';
