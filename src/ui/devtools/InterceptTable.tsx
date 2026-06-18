@@ -22,6 +22,13 @@ const statusTone = (status: number): string => {
   return 'text-emerald-600';
 };
 
+export const formatTime = (timestamp?: number): string => {
+  if (timestamp === undefined) return '';
+  const date = new Date(timestamp);
+  const pad = (value: number): string => value.toString().padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
+
 const DetailSection = ({ title, children }: { title: string; children: string }) => (
   <section>
     <h3 className="border-b px-3 py-1.5 text-xs font-semibold text-muted-foreground">{title}</h3>
@@ -64,6 +71,7 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 bg-muted/60 text-left">
               <tr>
+                <th className="px-3 py-1.5 font-medium">Time</th>
                 <th className="px-3 py-1.5 font-medium">Type</th>
                 <th className="px-3 py-1.5 font-medium">Method</th>
                 <th className="px-3 py-1.5 font-medium">Status</th>
@@ -77,6 +85,7 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
                   onClick={() => setSelectedId(entry.id)}
                   className={`cursor-pointer border-b last:border-b-0 hover:bg-accent/40 ${entry.id === selectedId ? 'bg-accent' : ''}`}
                 >
+                  <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">{formatTime(entry.timestamp)}</td>
                   <td className="px-3 py-1.5">
                     <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                       {entry.kind}
@@ -105,16 +114,27 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
 
         {selected ? (
           <aside className="flex w-2/5 min-w-0 flex-col border-l">
-            <div className="border-b px-3 py-2">
-              <p className="font-mono text-xs font-medium">
-                {selected.method} {selected.status} · {selected.kind}
-              </p>
-              <p className="truncate font-mono text-xs text-muted-foreground" title={selected.url}>
-                {selected.url}
-              </p>
-              {selected.contentType ? (
-                <p className="text-xs text-muted-foreground">{selected.contentType}</p>
-              ) : null}
+            <div className="flex items-start justify-between gap-2 border-b px-3 py-2">
+              <div className="min-w-0">
+                <p className="font-mono text-xs font-medium">
+                  {selected.method} {selected.status} · {selected.kind}
+                </p>
+                <p className="truncate font-mono text-xs text-muted-foreground" title={selected.url}>
+                  {selected.url}
+                </p>
+                {selected.contentType ? (
+                  <p className="text-xs text-muted-foreground">{selected.contentType}</p>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label="Copy response body"
+                onClick={() => void navigator.clipboard?.writeText(selected.body)}
+              >
+                Copy
+              </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
               {selected.requestHeaders && Object.keys(selected.requestHeaders).length > 0 ? (

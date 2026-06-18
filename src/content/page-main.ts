@@ -16,7 +16,8 @@ const sink = (report: InterceptReport): void => {
     'color:inherit',
     report.body,
   );
-  const message: ReportChannelMessage = { source: REPORT_CHANNEL, report };
+  const stamped: InterceptReport = { ...report, timestamp: Date.now() };
+  const message: ReportChannelMessage = { source: REPORT_CHANNEL, report: stamped };
   window.postMessage(message, window.location.origin);
 };
 

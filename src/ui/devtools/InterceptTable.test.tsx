@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { PanelEntry } from '../../devtools/types';
-import { InterceptTable } from './InterceptTable';
+import { InterceptTable, formatTime } from './InterceptTable';
 
 const buildEntry = (overrides: Partial<PanelEntry> = {}): PanelEntry => ({
   id: 1,
@@ -135,5 +135,34 @@ describe('InterceptTable', () => {
     expect(screen.queryByText(/request headers/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/request body/i)).not.toBeInTheDocument();
     expect(screen.getByText(/response body/i)).toBeInTheDocument();
+  });
+
+  it('should render the formatted timestamp in the row', () => {
+    const ts = new Date(2026, 0, 1, 13, 5, 9).getTime();
+    const entries = [buildEntry({ id: 1, url: 'https://api.x/t', timestamp: ts })];
+    render(<InterceptTable entries={entries} onClear={vi.fn()} />);
+    expect(within(dataRows()[0]).getByText('13:05:09')).toBeInTheDocument();
+  });
+
+  it('should copy the response body when Copy is clicked', () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    const entries = [buildEntry({ id: 1, url: 'https://api.x/c', body: '{"copied":1}' })];
+    render(<InterceptTable entries={entries} onClear={vi.fn()} />);
+
+    fireEvent.click(within(dataRows()[0]).getByText('https://api.x/c'));
+    fireEvent.click(screen.getByRole('button', { name: /copy response body/i }));
+
+    expect(writeText).toHaveBeenCalledWith('{"copied":1}');
+  });
+});
+
+describe('formatTime', () => {
+  it('should format a timestamp as HH:MM:SS', () => {
+    expect(formatTime(new Date(2026, 0, 1, 9, 7, 3).getTime())).toBe('09:07:03');
+  });
+
+  it('should return an empty string for an undefined timestamp', () => {
+    expect(formatTime(undefined)).toBe('');
   });
 });

@@ -21,6 +21,7 @@ export type InterceptReport = {
   contentType?: string;
   requestHeaders?: Record<string, string>;
   requestBody?: string;
+  timestamp?: number;
 };
 
 export type Sink = (report: InterceptReport) => void;
