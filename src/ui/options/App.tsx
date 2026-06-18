@@ -9,11 +9,14 @@ import { ImportExport } from '../shared/ImportExport';
 import { RuleForm } from '../shared/RuleForm';
 import { RuleList } from '../shared/RuleList';
 import { RulesProvider, useRules } from '../shared/RulesProvider';
+import { ThemeSwitch } from '../shared/ThemeSwitch';
+import { useTheme } from '../shared/useTheme';
 
 type Editing = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; rule: Rule };
 
 const Manager = () => {
   const { status, error } = useRules();
+  const [theme, setTheme] = useTheme();
   const [editing, setEditing] = useState<Editing>({ mode: 'closed' });
 
   if (status === 'loading') return <p className="text-sm text-muted-foreground">Loading rules…</p>;
@@ -34,7 +37,10 @@ const Manager = () => {
           <h1 className="text-2xl font-bold tracking-tight">ReqHook</h1>
           <p className="text-sm text-muted-foreground">Intercept, rewrite, and mock HTTP traffic.</p>
         </div>
-        <GlobalSwitch />
+        <div className="flex items-center gap-4">
+          <ThemeSwitch theme={theme} onChange={setTheme} />
+          <GlobalSwitch />
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-2">

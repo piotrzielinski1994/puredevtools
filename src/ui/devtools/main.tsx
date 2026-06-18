@@ -4,6 +4,7 @@ import browser from 'webextension-polyfill';
 import { emptyLog, reduceLog } from '../../devtools/reportLog';
 import type { PanelConnectMessage, PanelReportMessage } from '../../devtools/types';
 import { PANEL_PORT_NAME } from '../../devtools/types';
+import { useTheme } from '../shared/useTheme';
 import '../globals.css';
 import { InterceptTable } from './InterceptTable';
 
@@ -20,6 +21,7 @@ const inspectedTabId = (): number | undefined => {
 
 const Panel = () => {
   const [log, dispatch] = useReducer(reduceLog, undefined, emptyLog);
+  useTheme();
 
   useEffect(() => {
     const tabId = inspectedTabId();

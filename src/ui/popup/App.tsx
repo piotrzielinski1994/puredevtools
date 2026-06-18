@@ -6,6 +6,7 @@ import { createGateway } from '../shared/createGateway';
 import { GlobalSwitch } from '../shared/GlobalSwitch';
 import { RuleList } from '../shared/RuleList';
 import { RulesProvider, useRules } from '../shared/RulesProvider';
+import { useTheme } from '../shared/useTheme';
 
 const Summary = () => {
   const { status } = useRules();
@@ -15,6 +16,7 @@ const Summary = () => {
 
 export const App = () => {
   const gateway = useMemo(() => createGateway(), []);
+  useTheme();
   return (
     <main className="w-90 p-4">
       <RulesProvider gateway={gateway}>

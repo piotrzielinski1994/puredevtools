@@ -35,6 +35,7 @@ export default defineConfig({
         'src/devtools/types.ts',
         'src/devtools/devtools.ts',
         'src/ui/devtools/main.tsx',
+        'src/ui/shared/useTheme.ts',
       ],
       thresholds: {
         lines: 90,
