@@ -22,6 +22,13 @@ const statusTone = (status: number): string => {
   return 'text-emerald-600';
 };
 
+const DetailSection = ({ title, children }: { title: string; children: string }) => (
+  <section>
+    <h3 className="border-b px-3 py-1.5 text-xs font-semibold text-muted-foreground">{title}</h3>
+    <pre className="overflow-auto whitespace-pre-wrap wrap-break-word p-3 font-mono text-xs">{children}</pre>
+  </section>
+);
+
 export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
@@ -109,9 +116,19 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
                 <p className="text-xs text-muted-foreground">{selected.contentType}</p>
               ) : null}
             </div>
-            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap wrap-break-word p-3 font-mono text-xs">
-              {prettyBody(selected.body)}
-            </pre>
+            <div className="min-h-0 flex-1 overflow-auto">
+              {selected.requestHeaders && Object.keys(selected.requestHeaders).length > 0 ? (
+                <DetailSection title="Request headers">
+                  {Object.entries(selected.requestHeaders)
+                    .map(([name, value]) => `${name}: ${value}`)
+                    .join('\n')}
+                </DetailSection>
+              ) : null}
+              {selected.requestBody ? (
+                <DetailSection title="Request body">{prettyBody(selected.requestBody)}</DetailSection>
+              ) : null}
+              <DetailSection title="Response body">{prettyBody(selected.body)}</DetailSection>
+            </div>
           </aside>
         ) : null}
       </div>

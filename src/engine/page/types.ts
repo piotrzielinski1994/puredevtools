@@ -19,6 +19,8 @@ export type InterceptReport = {
   status: number;
   body: string;
   contentType?: string;
+  requestHeaders?: Record<string, string>;
+  requestBody?: string;
 };
 
 export type Sink = (report: InterceptReport) => void;

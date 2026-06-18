@@ -315,4 +315,25 @@ describe('createPatchedXhr mock extras', () => {
     expect(headers).toEqual([{ name: 'X-Test', value: 'on' }]);
     expect(aborted).toBe(true);
   });
+
+  it('should report request headers and body for a served mock', async () => {
+    const reports: InterceptReport[] = [];
+    const Patched = createPatchedXhr(
+      createDeps({
+        sink: (report) => reports.push(report),
+        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'ok' }])],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    xhr.setRequestHeader('X-Env', 'staging');
+    xhr.send('{"q":1}');
+
+    await flush();
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0].requestHeaders).toMatchObject({ 'X-Env': 'staging' });
+    expect(reports[0].requestBody).toBe('{"q":1}');
+  });
 });

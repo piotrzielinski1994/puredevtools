@@ -247,4 +247,37 @@ describe('createPatchedFetch header handling and input normalization', () => {
     expect(await res.text()).toBe('url-input');
     expect(reports[0]).toMatchObject({ method: 'GET', url: 'https://api.x/from-url' });
   });
+
+  it('should report request headers and body from the init for a served mock', async () => {
+    const reports: InterceptReport[] = [];
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        sink: (report) => reports.push(report),
+        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'ok' }])],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer abc', 'X-Env': 'staging' },
+      body: '{"q":1}',
+    });
+
+    expect(reports[0].requestHeaders).toMatchObject({ authorization: 'Bearer abc', 'x-env': 'staging' });
+    expect(reports[0].requestBody).toBe('{"q":1}');
+  });
+
+  it('should report request headers from a Request object input', async () => {
+    const reports: InterceptReport[] = [];
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        sink: (report) => reports.push(report),
+        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'ok' }])],
+      }),
+    );
+
+    await fetchImpl(new Request('https://api.x/users', { headers: { 'X-Trace': 'on' } }));
+
+    expect(reports[0].requestHeaders).toMatchObject({ 'x-trace': 'on' });
+  });
 });

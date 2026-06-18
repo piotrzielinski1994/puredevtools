@@ -103,4 +103,37 @@ describe('InterceptTable', () => {
     expect(screen.getByText('not json at all')).toBeInTheDocument();
     expect(screen.getByText('text/plain')).toBeInTheDocument();
   });
+
+  it('should show request headers and request body sections in the detail when present', () => {
+    const entries = [
+      buildEntry({
+        id: 1,
+        url: 'https://api.x/post',
+        method: 'POST',
+        body: '{"resp":1}',
+        requestHeaders: { authorization: 'Bearer abc' },
+        requestBody: '{"req":2}',
+      }),
+    ];
+    render(<InterceptTable entries={entries} onClear={vi.fn()} />);
+
+    fireEvent.click(within(dataRows()[0]).getByText('https://api.x/post'));
+
+    expect(screen.getByText(/request headers/i)).toBeInTheDocument();
+    expect(screen.getByText(/authorization: Bearer abc/)).toBeInTheDocument();
+    expect(screen.getByText(/request body/i)).toBeInTheDocument();
+    expect(screen.getByText(/"req"/)).toBeInTheDocument();
+    expect(screen.getByText(/response body/i)).toBeInTheDocument();
+  });
+
+  it('should omit request sections when the entry has no request data', () => {
+    const entries = [buildEntry({ id: 1, url: 'https://api.x/get' })];
+    render(<InterceptTable entries={entries} onClear={vi.fn()} />);
+
+    fireEvent.click(within(dataRows()[0]).getByText('https://api.x/get'));
+
+    expect(screen.queryByText(/request headers/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/request body/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/response body/i)).toBeInTheDocument();
+  });
 });

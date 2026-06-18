@@ -26,6 +26,8 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
     private method = 'GET';
     private url = '';
     private mockHeaders: Record<string, string> = {};
+    private requestHeaders: Record<string, string> = {};
+    private requestBody: string | undefined;
     private delegate: XMLHttpRequest | undefined;
 
     open(method: string, url: string, ...rest: unknown[]): void {
@@ -42,6 +44,7 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
     }
 
     setRequestHeader(name: string, value: string): void {
+      this.requestHeaders[name] = value;
       this.delegate?.setRequestHeader(name, value);
     }
 
@@ -58,6 +61,7 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
     }
 
     send(body?: Document | XMLHttpRequestBodyInit | null): void {
+      if (typeof body === 'string') this.requestBody = body;
       if (this.delegate) {
         this.forwardDelegate();
         this.delegate.send(body);
@@ -112,7 +116,16 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
       this.responseText = interception.body;
       this.response = interception.body;
       this.readyState = DONE;
-      deps.sink({ kind: 'mock', method: this.method, url: this.url, status: interception.status, body: interception.body, contentType: interception.contentType });
+      deps.sink({
+        kind: 'mock',
+        method: this.method,
+        url: this.url,
+        status: interception.status,
+        body: interception.body,
+        contentType: interception.contentType,
+        requestHeaders: Object.keys(this.requestHeaders).length > 0 ? this.requestHeaders : undefined,
+        requestBody: this.requestBody,
+      });
       this.onreadystatechange?.call(this as unknown as XMLHttpRequest, new Event('readystatechange'));
       this.onload?.call(this as unknown as XMLHttpRequest, new ProgressEvent('load'));
     }

@@ -25,6 +25,23 @@ const methodOf = (input: RequestInfo | URL, init?: RequestInit): string => {
   return 'GET';
 };
 
+const requestHeadersOf = (input: RequestInfo | URL, init?: RequestInit): Record<string, string> | undefined => {
+  const source = init?.headers ?? (input instanceof Request ? input.headers : undefined);
+  if (!source) return undefined;
+  const headers = new Headers(source);
+  const entries: Record<string, string> = {};
+  headers.forEach((value, name) => {
+    entries[name] = value;
+  });
+  return Object.keys(entries).length > 0 ? entries : undefined;
+};
+
+const requestBodyOf = (init?: RequestInit): string | undefined => {
+  const body = init?.body;
+  if (typeof body === 'string') return body;
+  return undefined;
+};
+
 const buildHeaders = (ops: HeaderOp[], contentType?: string): Headers => {
   const headers = new Headers();
   if (contentType) headers.set('content-type', contentType);
@@ -38,11 +55,10 @@ const buildHeaders = (ops: HeaderOp[], contentType?: string): Headers => {
 export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
   const serveMock = async (
     interception: Extract<Interception, { kind: 'mock' }>,
-    method: string,
-    url: string,
+    request: { method: string; url: string; requestHeaders?: Record<string, string>; requestBody?: string },
   ): Promise<Response> => {
     if (interception.latencyMs && interception.latencyMs > 0) await deps.delay(interception.latencyMs);
-    deps.sink({ kind: 'mock', method, url, status: interception.status, body: interception.body, contentType: interception.contentType });
+    deps.sink({ ...request, kind: 'mock', status: interception.status, body: interception.body, contentType: interception.contentType });
     return new Response(interception.body, {
       status: interception.status,
       headers: buildHeaders(interception.headers, interception.contentType),
@@ -52,13 +68,12 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
   const serveRewrite = async (
     interception: Extract<Interception, { kind: 'rewrite' }>,
     original: Response,
-    method: string,
-    url: string,
+    request: { method: string; url: string; requestHeaders?: Record<string, string>; requestBody?: string },
   ): Promise<Response> => {
     const headers = new Headers(original.headers);
     if (interception.contentType) headers.set('content-type', interception.contentType);
     const contentType = interception.contentType ?? original.headers.get('content-type') ?? undefined;
-    deps.sink({ kind: 'rewrite', method, url, status: original.status, body: interception.body, contentType });
+    deps.sink({ ...request, kind: 'rewrite', status: original.status, body: interception.body, contentType });
     return new Response(interception.body, {
       status: original.status,
       statusText: original.statusText,
@@ -69,12 +84,13 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = urlOf(input);
     const method = methodOf(input, init);
+    const request = { method, url, requestHeaders: requestHeadersOf(input, init), requestBody: requestBodyOf(init) };
     const interception = decideInterception(deps.getRules(), { url, method, resourceType: RESOURCE_TYPE }, deps.getGlobalEnabled());
 
-    if (interception.kind === 'mock') return serveMock(interception, method, url);
+    if (interception.kind === 'mock') return serveMock(interception, request);
     if (interception.kind === 'rewrite') {
       const original = await deps.originalFetch(input, init);
-      return serveRewrite(interception, original, method, url);
+      return serveRewrite(interception, original, request);
     }
     return deps.originalFetch(input, init);
   };
