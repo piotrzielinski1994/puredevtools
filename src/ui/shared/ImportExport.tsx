@@ -1,9 +1,12 @@
-import { useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
+import { Download, Upload } from 'lucide-react';
+import { Button } from '../components/ui/button';
 import { useRules } from './RulesProvider';
 
 export const ImportExport = () => {
   const { exportRules, importRules } = useRules();
   const [error, setError] = useState<string | undefined>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -14,15 +17,28 @@ export const ImportExport = () => {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button type="button" onClick={() => void exportRules()}>
+    <div className="flex items-center gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={() => void exportRules()}>
+        <Download />
         Export
-      </button>
-      <label>
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+        <Upload />
         Import
-        <input data-testid="import-input" type="file" accept="application/json" onChange={(event) => void onFile(event)} />
-      </label>
-      {error ? <span role="alert" style={{ color: '#c00' }}>{error}</span> : null}
+      </Button>
+      <input
+        ref={inputRef}
+        data-testid="import-input"
+        type="file"
+        accept="application/json"
+        className="sr-only"
+        onChange={(event) => void onFile(event)}
+      />
+      {error ? (
+        <span role="alert" className="text-sm text-destructive">
+          {error}
+        </span>
+      ) : null}
     </div>
   );
 };

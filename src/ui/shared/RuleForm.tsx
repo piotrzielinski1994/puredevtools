@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Plus, X } from 'lucide-react';
 import type {
   HeaderMatcher,
   HeaderOp,
@@ -8,6 +9,12 @@ import type {
   Rule,
   RuleAction,
 } from '../../rules/model';
+import { Button } from '../components/ui/button';
+import { Checkbox } from '../components/ui/checkbox';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Select } from '../components/ui/select';
+import { Textarea } from '../components/ui/textarea';
 import { useRules } from './RulesProvider';
 
 export type RuleFormProps = {
@@ -43,6 +50,20 @@ const opToRow = (op: HeaderOp): OpRow =>
 
 const rowToOp = (row: OpRow): HeaderOp =>
   row.op === 'set' ? { op: 'set', name: row.name, value: row.value } : { op: 'remove', name: row.name };
+
+const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <fieldset className="rounded-lg border bg-card/40 p-4">
+    <legend className="px-1.5 text-sm font-semibold text-foreground">{title}</legend>
+    <div className="flex flex-col gap-3">{children}</div>
+  </fieldset>
+);
+
+const Field = ({ htmlFor, label, children }: { htmlFor: string; label: string; children: React.ReactNode }) => (
+  <div className="flex flex-col gap-1.5">
+    <Label htmlFor={htmlFor}>{label}</Label>
+    {children}
+  </div>
+);
 
 export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
   const { addRule, updateRule, capabilities } = useRules();
@@ -133,76 +154,78 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
 
   return (
     <form
+      className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         void onSubmit();
       }}
     >
-      <div>
-        <label htmlFor="rule-name">Name</label>
-        <input id="rule-name" value={name} onChange={(event) => setName(event.target.value)} />
-      </div>
-      <div>
-        <label htmlFor="rule-url">URL</label>
-        <input id="rule-url" aria-label="URL pattern" value={pattern} onChange={(event) => setPattern(event.target.value)} />
-      </div>
-      <div>
-        <label htmlFor="rule-kind">Match kind</label>
-        <select id="rule-kind" aria-label="Pattern kind" value={kind} onChange={(event) => setKind(event.target.value as PatternKind)}>
-          <option value="glob">glob</option>
-          <option value="regex">regex</option>
-        </select>
-      </div>
+      <Section title="Match">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <Field htmlFor="rule-name" label="Name">
+            <Input id="rule-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="My rule" />
+          </Field>
+          <Field htmlFor="rule-url" label="URL">
+            <Input id="rule-url" aria-label="URL pattern" value={pattern} onChange={(event) => setPattern(event.target.value)} placeholder="https://example.com/*" />
+          </Field>
+          <Field htmlFor="rule-kind" label="Match kind">
+            <Select id="rule-kind" aria-label="Pattern kind" value={kind} onChange={(event) => setKind(event.target.value as PatternKind)}>
+              <option value="glob">glob</option>
+              <option value="regex">regex</option>
+            </Select>
+          </Field>
+        </div>
 
-      <fieldset>
-        <legend>Methods</legend>
-        {METHODS.map((method) => (
-          <label key={method}>
-            <input type="checkbox" checked={methods.includes(method)} onChange={() => setMethods(toggle(methods, method))} />
-            {method}
-          </label>
-        ))}
-      </fieldset>
+        <div className="flex flex-col gap-1.5">
+          <Label>Methods</Label>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {METHODS.map((method) => (
+              <label key={method} className="inline-flex items-center gap-1.5 text-sm">
+                <Checkbox checked={methods.includes(method)} onChange={() => setMethods(toggle(methods, method))} />
+                {method}
+              </label>
+            ))}
+          </div>
+        </div>
 
-      <fieldset>
-        <legend>Resource types</legend>
-        {RESOURCE_TYPES.map((resourceType) => (
-          <label key={resourceType}>
-            <input
-              type="checkbox"
-              checked={resourceTypes.includes(resourceType)}
-              onChange={() => setResourceTypes(toggle(resourceTypes, resourceType))}
-            />
-            {resourceType}
-          </label>
-        ))}
-      </fieldset>
+        <div className="flex flex-col gap-1.5">
+          <Label>Resource types</Label>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {RESOURCE_TYPES.map((resourceType) => (
+              <label key={resourceType} className="inline-flex items-center gap-1.5 text-sm">
+                <Checkbox
+                  aria-label={resourceType}
+                  checked={resourceTypes.includes(resourceType)}
+                  onChange={() => setResourceTypes(toggle(resourceTypes, resourceType))}
+                />
+                {resourceType}
+              </label>
+            ))}
+          </div>
+        </div>
 
-      <HeaderMatcherEditor rows={headerMatchers} onChange={setHeaderMatchers} />
+        <HeaderMatcherEditor rows={headerMatchers} onChange={setHeaderMatchers} />
+      </Section>
 
-      <fieldset>
-        <legend>Request actions</legend>
-        <label>
-          <input type="checkbox" checked={block} onChange={() => setBlock(!block)} />
+      <Section title="Request actions">
+        <label className="inline-flex items-center gap-2 text-sm">
+          <Checkbox checked={block} onChange={() => setBlock(!block)} />
           Block the request
         </label>
-        <div>
-          <label htmlFor="rule-redirect">Redirect URL</label>
-          <input id="rule-redirect" value={redirectUrl} onChange={(event) => setRedirectUrl(event.target.value)} />
-        </div>
+        <Field htmlFor="rule-redirect" label="Redirect URL">
+          <Input id="rule-redirect" value={redirectUrl} onChange={(event) => setRedirectUrl(event.target.value)} placeholder="https://elsewhere.test/" />
+        </Field>
         <HeaderOpEditor legend="Modify request headers" rows={requestOps} onChange={setRequestOps} />
-      </fieldset>
+      </Section>
 
-      <fieldset>
-        <legend>Response actions</legend>
+      <Section title="Response actions">
         <HeaderOpEditor legend="Modify response headers" rows={responseOps} onChange={setResponseOps} />
-        <div>
-          <label htmlFor="rule-status">Override status code</label>
-          <input id="rule-status" type="number" value={status} onChange={(event) => setStatus(event.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="rule-rewrite-body">Rewrite response body</label>
-          <textarea
+        <Field htmlFor="rule-status" label="Override status code">
+          <Input id="rule-status" type="number" value={status} onChange={(event) => setStatus(event.target.value)} placeholder="200" />
+        </Field>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="rule-rewrite-body">Rewrite response body</Label>
+          <Textarea
             id="rule-rewrite-body"
             data-testid="body-rewrite-toggle"
             aria-label="Rewrite response body"
@@ -210,41 +233,53 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
             aria-disabled={!capabilities.responseBodyRewrite}
             value={rewriteBody}
             onChange={(event) => setRewriteBody(event.target.value)}
+            placeholder='{"rewritten": true}'
           />
           {!capabilities.responseBodyRewrite ? (
-            <small title="Chrome cannot rewrite response bodies; this is Firefox-only.">
+            <small className="text-xs text-muted-foreground" title="Chrome cannot rewrite response bodies; this is Firefox-only.">
               Disabled - response-body rewrite is Firefox-only.
             </small>
           ) : null}
         </div>
-      </fieldset>
+      </Section>
 
-      <fieldset>
-        <legend>Mock response</legend>
-        <label>
-          <input type="checkbox" checked={mockEnabled} onChange={() => setMockEnabled(!mockEnabled)} />
+      <Section title="Mock response">
+        <label className="inline-flex items-center gap-2 text-sm">
+          <Checkbox checked={mockEnabled} onChange={() => setMockEnabled(!mockEnabled)} />
           Return a mock response without forwarding
         </label>
         {mockEnabled ? (
-          <div>
-            <label htmlFor="mock-status">Mock status</label>
-            <input id="mock-status" type="number" value={mockStatus} onChange={(event) => setMockStatus(event.target.value)} />
-            <label htmlFor="mock-ctype">Mock content type</label>
-            <input id="mock-ctype" value={mockContentType} onChange={(event) => setMockContentType(event.target.value)} />
-            <label htmlFor="mock-body">Mock body</label>
-            <textarea id="mock-body" value={mockBody} onChange={(event) => setMockBody(event.target.value)} />
-            <label htmlFor="mock-latency">Mock latency (ms)</label>
-            <input id="mock-latency" type="number" value={mockLatency} onChange={(event) => setMockLatency(event.target.value)} />
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field htmlFor="mock-status" label="Mock status">
+                <Input id="mock-status" type="number" value={mockStatus} onChange={(event) => setMockStatus(event.target.value)} />
+              </Field>
+              <Field htmlFor="mock-ctype" label="Mock content type">
+                <Input id="mock-ctype" value={mockContentType} onChange={(event) => setMockContentType(event.target.value)} />
+              </Field>
+              <Field htmlFor="mock-latency" label="Mock latency (ms)">
+                <Input id="mock-latency" type="number" value={mockLatency} onChange={(event) => setMockLatency(event.target.value)} />
+              </Field>
+            </div>
+            <Field htmlFor="mock-body" label="Mock body">
+              <Textarea id="mock-body" value={mockBody} onChange={(event) => setMockBody(event.target.value)} placeholder='{"ok": true}' />
+            </Field>
             <HeaderOpEditor legend="Mock response headers" rows={mockHeaders} onChange={setMockHeaders} />
           </div>
         ) : null}
-      </fieldset>
+      </Section>
 
-      {error ? <p role="alert" style={{ color: '#c00' }}>{error}</p> : null}
-      <button type="submit">Save</button>
-      <button type="button" onClick={onDone}>
-        Cancel
-      </button>
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button type="submit">Save</Button>
+        <Button type="button" variant="outline" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 };
@@ -253,28 +288,31 @@ const HeaderMatcherEditor = ({ rows, onChange }: { rows: MatcherRow[]; onChange(
   const update = (index: number, patch: Partial<MatcherRow>) =>
     onChange(rows.map((row, position) => (position === index ? { ...row, ...patch } : row)));
   return (
-    <fieldset>
-      <legend>Request header matchers</legend>
+    <div className="flex flex-col gap-2">
+      <Label>Request header matchers</Label>
       {rows.map((row, index) => (
-        <div key={index}>
-          <input aria-label={`Header matcher name ${index}`} value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
-          <select aria-label={`Header matcher mode ${index}`} value={row.mode} onChange={(event) => update(index, { mode: event.target.value as MatcherRow['mode'] })}>
+        <div key={index} className="flex flex-wrap items-center gap-2">
+          <Input className="w-40" aria-label={`Header matcher name ${index}`} placeholder="Header name" value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
+          <Select className="w-28" aria-label={`Header matcher mode ${index}`} value={row.mode} onChange={(event) => update(index, { mode: event.target.value as MatcherRow['mode'] })}>
             <option value="present">present</option>
             <option value="equals">equals</option>
             <option value="contains">contains</option>
-          </select>
+          </Select>
           {row.mode !== 'present' ? (
-            <input aria-label={`Header matcher value ${index}`} value={row.value} onChange={(event) => update(index, { value: event.target.value })} />
+            <Input className="w-40" aria-label={`Header matcher value ${index}`} placeholder="Value" value={row.value} onChange={(event) => update(index, { value: event.target.value })} />
           ) : null}
-          <button type="button" aria-label={`Remove header matcher ${index}`} onClick={() => onChange(rows.filter((_, position) => position !== index))}>
-            ✕
-          </button>
+          <Button type="button" variant="ghost" size="icon" aria-label={`Remove header matcher ${index}`} onClick={() => onChange(rows.filter((_, position) => position !== index))}>
+            <X />
+          </Button>
         </div>
       ))}
-      <button type="button" onClick={() => onChange([...rows, { name: '', mode: 'present', value: '' }])}>
-        Add header matcher
-      </button>
-    </fieldset>
+      <div>
+        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { name: '', mode: 'present', value: '' }])}>
+          <Plus />
+          Add header matcher
+        </Button>
+      </div>
+    </div>
   );
 };
 
@@ -282,26 +320,29 @@ const HeaderOpEditor = ({ legend, rows, onChange }: { legend: string; rows: OpRo
   const update = (index: number, patch: Partial<OpRow>) =>
     onChange(rows.map((row, position) => (position === index ? { ...row, ...patch } : row)));
   return (
-    <fieldset>
-      <legend>{legend}</legend>
+    <div className="flex flex-col gap-2">
+      <Label>{legend}</Label>
       {rows.map((row, index) => (
-        <div key={index}>
-          <select aria-label={`${legend} op ${index}`} value={row.op} onChange={(event) => update(index, { op: event.target.value as OpRow['op'] })}>
+        <div key={index} className="flex flex-wrap items-center gap-2">
+          <Select className="w-28" aria-label={`${legend} op ${index}`} value={row.op} onChange={(event) => update(index, { op: event.target.value as OpRow['op'] })}>
             <option value="set">set</option>
             <option value="remove">remove</option>
-          </select>
-          <input aria-label={`${legend} name ${index}`} value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
+          </Select>
+          <Input className="w-40" aria-label={`${legend} name ${index}`} placeholder="Header name" value={row.name} onChange={(event) => update(index, { name: event.target.value })} />
           {row.op === 'set' ? (
-            <input aria-label={`${legend} value ${index}`} value={row.value} onChange={(event) => update(index, { value: event.target.value })} />
+            <Input className="w-40" aria-label={`${legend} value ${index}`} placeholder="Value" value={row.value} onChange={(event) => update(index, { value: event.target.value })} />
           ) : null}
-          <button type="button" aria-label={`Remove ${legend} ${index}`} onClick={() => onChange(rows.filter((_, position) => position !== index))}>
-            ✕
-          </button>
+          <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${legend} ${index}`} onClick={() => onChange(rows.filter((_, position) => position !== index))}>
+            <X />
+          </Button>
         </div>
       ))}
-      <button type="button" onClick={() => onChange([...rows, { op: 'set', name: '', value: '' }])}>
-        Add {legend.toLowerCase()}
-      </button>
-    </fieldset>
+      <div>
+        <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { op: 'set', name: '', value: '' }])}>
+          <Plus />
+          Add {legend.toLowerCase()}
+        </Button>
+      </div>
+    </div>
   );
 };

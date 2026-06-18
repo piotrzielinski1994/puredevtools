@@ -1,6 +1,12 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',
@@ -19,6 +25,7 @@ export default defineConfig({
         'src/engine/firefox/types.ts',
         'src/ui/shared/gateway.ts',
         'src/ui/shared/createGateway.ts',
+        'src/ui/components/**',
       ],
       thresholds: {
         lines: 90,
