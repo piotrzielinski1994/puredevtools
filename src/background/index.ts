@@ -13,8 +13,14 @@ type FirefoxWebRequest = WebRequestApi & {
   filterResponseData: (requestId: string) => StreamFilter;
 };
 
+const nativeWebRequest = (globalThis as unknown as {
+  browser?: { webRequest?: Partial<FirefoxWebRequest> };
+}).browser?.webRequest;
+
+const nativeFilterResponseData = nativeWebRequest?.filterResponseData?.bind(nativeWebRequest);
+const hasFilterResponseData = typeof nativeFilterResponseData === 'function';
+
 const firefoxWebRequest = browser.webRequest as unknown as Partial<FirefoxWebRequest>;
-const hasFilterResponseData = typeof firefoxWebRequest.filterResponseData === 'function';
 
 const repository = new RuleRepository(browser.storage.local);
 
@@ -23,8 +29,9 @@ const engine = selectEngine({
   chrome: () => new ChromeEngine(browser.declarativeNetRequest as unknown as DnrApi),
   firefox: () => {
     const webRequest = firefoxWebRequest as FirefoxWebRequest;
+    const filterResponseData = nativeFilterResponseData ?? ((requestId: string) => webRequest.filterResponseData(requestId));
     return new FirefoxEngine(webRequest, {
-      filterResponseData: (requestId: string) => webRequest.filterResponseData(requestId),
+      filterResponseData,
       delay: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
     });
   },

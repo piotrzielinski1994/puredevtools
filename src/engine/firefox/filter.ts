@@ -9,7 +9,7 @@ export const attachBodyRewrite = (
   filter.ondata = () => undefined;
   const flush = () => {
     filter.write(new TextEncoder().encode(replacement));
-    filter.disconnect();
+    filter.close();
   };
   filter.onstop = () => {
     if (latencyMs && delay) {

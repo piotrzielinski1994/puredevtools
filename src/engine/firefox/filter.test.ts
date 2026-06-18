@@ -55,11 +55,12 @@ describe('attachBodyRewrite (AC-006, TC-007)', () => {
     expect(written).toBe('{"replaced":true}');
   });
 
-  it('should call disconnect after writing the replacement', () => {
+  it('should close the filter after writing the replacement so the original body is suppressed', () => {
     const filter = createFakeFilter();
     attachBodyRewrite(filter, 'replacement');
     filter.onstop?.();
-    expect(filter.disconnectCount).toBe(1);
+    expect(filter.closeCount).toBe(1);
+    expect(filter.disconnectCount).toBe(0);
   });
 
   it('should discard the original body chunks so the response is fully replaced', () => {
@@ -92,6 +93,6 @@ describe('attachBodyRewrite (AC-006, TC-007)', () => {
     await Promise.resolve();
     expect(delays).toEqual([200]);
     expect(filter.writes.map(decode).join('')).toBe('LATE');
-    expect(filter.disconnectCount).toBe(1);
+    expect(filter.closeCount).toBe(1);
   });
 });

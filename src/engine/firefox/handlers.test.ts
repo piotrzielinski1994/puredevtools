@@ -200,7 +200,7 @@ describe('buildBeforeRequest (AC-003, AC-004, TC-003, TC-004, TC-005)', () => {
     expect(result).toBeUndefined();
     deps.filter.onstop?.();
     expect(new TextDecoder().decode(deps.filter.writes[0])).toBe('{"mock":true}');
-    expect(deps.filter.disconnected).toBe(true);
+    expect(deps.filter.closed).toBe(true);
   });
 
   it('should prefer block over redirect and mock within the same matching rule', () => {
@@ -309,7 +309,7 @@ describe('buildBeforeRequest (AC-003, AC-004, TC-003, TC-004, TC-005)', () => {
     fakeFilter.onstop?.();
     expect(fakeFilter.writes).toHaveLength(1);
     expect(new TextDecoder().decode(fakeFilter.writes[0])).toBe('<p>new</p>');
-    expect(fakeFilter.disconnected).toBe(true);
+    expect(fakeFilter.closed).toBe(true);
   });
 
   it('should not call filterResponseData if no rewriteBody (or terminal) action matches', () => {
