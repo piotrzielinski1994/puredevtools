@@ -79,4 +79,19 @@ describe('attachBodyRewrite (AC-006, TC-007)', () => {
     filter.onstop?.();
     expect(filter.writes.map(decode).join('')).toBe('EMPTY-BODY-CASE');
   });
+
+  it('should delay the write by latencyMs when a delay function is provided', async () => {
+    const filter = createFakeFilter();
+    const delays: number[] = [];
+    attachBodyRewrite(filter, 'LATE', 200, async (ms) => {
+      delays.push(ms);
+    });
+    filter.onstop?.();
+    expect(filter.writes).toHaveLength(0);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(delays).toEqual([200]);
+    expect(filter.writes.map(decode).join('')).toBe('LATE');
+    expect(filter.disconnectCount).toBe(1);
+  });
 });

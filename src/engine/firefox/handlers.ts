@@ -1,6 +1,5 @@
 import type { HeaderOp, Rule, RuleAction, RequestDescriptor } from '../../rules/model';
 import { matchesRequest } from '../../rules/match';
-import { encodeDataUrl } from '../chrome/dataUrl';
 import { attachBodyRewrite } from './filter';
 import type {
   BeforeRequestDetails,
@@ -67,10 +66,8 @@ export const buildBeforeRequest =
     if (redirect) return { redirectUrl: redirect.url };
     const mock = firstAction<Extract<RuleAction, { type: 'mock' }>>(rule, 'mock');
     if (mock) {
-      const response = {
-        redirectUrl: encodeDataUrl({ status: mock.status, body: mock.body, contentType: mock.contentType }),
-      };
-      return mock.latencyMs ? deps.delay(mock.latencyMs).then(() => response) : response;
+      attachBodyRewrite(deps.filterResponseData(details.requestId), mock.body, mock.latencyMs, deps.delay);
+      return undefined;
     }
     const rewrite = firstAction<Extract<RuleAction, { type: 'rewriteBody' }>>(rule, 'rewriteBody');
     if (rewrite) {
@@ -85,6 +82,9 @@ export const buildHeadersReceived =
   (details: HeadersReceivedDetails): BlockingResponse | undefined => {
     const rule = findMatchingRule(rules, details);
     if (!rule) return undefined;
+    const mock = firstAction<Extract<RuleAction, { type: 'mock' }>>(rule, 'mock');
+    if (mock) return mockResponse(mock);
+
     const headerAction = firstAction<Extract<RuleAction, { type: 'modifyResponseHeaders' }>>(rule, 'modifyResponseHeaders');
     const statusAction = firstAction<Extract<RuleAction, { type: 'setStatus' }>>(rule, 'setStatus');
     if (!headerAction && !statusAction) return undefined;
@@ -94,3 +94,13 @@ export const buildHeadersReceived =
     if (statusAction) response.statusLine = `HTTP/1.1 ${statusAction.status}`;
     return response;
   };
+
+const mockResponse = (mock: Extract<RuleAction, { type: 'mock' }>): BlockingResponse => {
+  const baseHeaders: WebRequestHeader[] = mock.contentType
+    ? [{ name: 'Content-Type', value: mock.contentType }]
+    : [];
+  return {
+    statusLine: `HTTP/1.1 ${mock.status}`,
+    responseHeaders: applyHeaderOps(baseHeaders, mock.headers),
+  };
+};

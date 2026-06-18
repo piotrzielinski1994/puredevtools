@@ -186,18 +186,21 @@ describe('buildBeforeRequest (AC-003, AC-004, TC-003, TC-004, TC-005)', () => {
     expect(sync(handler(beforeRequestDetails()))?.redirectUrl).toBe('https://elsewhere.example.com/');
   });
 
-  it('should return a data: redirectUrl for a matching mock rule so the origin is not contacted', () => {
+  it('should rewrite the body in-flight for a matching mock rule keeping the original URL', () => {
+    const deps = createFakeDeps();
     const handler = buildBeforeRequest(
       [
         buildRule([
           { type: 'mock', status: 200, headers: [], body: '{"mock":true}', contentType: 'application/json' },
         ]),
       ],
-      createFakeDeps(),
+      deps,
     );
     const result = sync(handler(beforeRequestDetails()));
-    expect(result?.redirectUrl).toMatch(/^data:/);
-    expect(decodeURIComponent(result?.redirectUrl ?? '')).toContain('mock');
+    expect(result).toBeUndefined();
+    deps.filter.onstop?.();
+    expect(new TextDecoder().decode(deps.filter.writes[0])).toBe('{"mock":true}');
+    expect(deps.filter.disconnected).toBe(true);
   });
 
   it('should prefer block over redirect and mock within the same matching rule', () => {
@@ -262,22 +265,11 @@ describe('buildBeforeRequest (AC-003, AC-004, TC-003, TC-004, TC-005)', () => {
     expect(sync(handler(beforeRequestDetails()))).toBeUndefined();
   });
 
-  it('should return a promise that resolves to the data url redirect when the mock has latencyMs', async () => {
-    const handler = buildBeforeRequest(
-      [buildRule([{ type: 'mock', status: 200, headers: [], body: '{"m":1}', latencyMs: 250 }])],
-      createFakeDeps(),
-    );
-    const result = handler(beforeRequestDetails());
-    expect(result).toBeInstanceOf(Promise);
-    const resolved = await result;
-    expect(resolved?.redirectUrl).toMatch(/^data:/);
-    expect(decodeURIComponent(resolved?.redirectUrl ?? '')).toContain('{"m":1}');
-  });
-
-  it('should call deps.delay with the configured latency for a mock with latencyMs', async () => {
+  it('should delay the mocked body write by the configured latencyMs on stop', async () => {
     const delays: number[] = [];
+    const fakeFilter = createFakeFilter();
     const deps: HandlerDeps = {
-      filterResponseData: () => createFakeFilter(),
+      filterResponseData: () => fakeFilter,
       delay: async (ms) => {
         delays.push(ms);
       },
@@ -286,8 +278,13 @@ describe('buildBeforeRequest (AC-003, AC-004, TC-003, TC-004, TC-005)', () => {
       [buildRule([{ type: 'mock', status: 200, headers: [], body: '{"m":1}', latencyMs: 250 }])],
       deps,
     );
-    await handler(beforeRequestDetails());
+    const result = sync(handler(beforeRequestDetails()));
+    expect(result).toBeUndefined();
+    fakeFilter.onstop?.();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(delays).toEqual([250]);
+    expect(new TextDecoder().decode(fakeFilter.writes[0])).toBe('{"m":1}');
   });
 
   it('should attach a body rewrite to the response filter for a matching rewriteBody rule', () => {
@@ -392,6 +389,36 @@ describe('buildHeadersReceived (AC-005, TC-006)', () => {
     const result = handler(headersReceivedDetails());
     expect(findHeader(result?.responseHeaders, 'X-Resp')?.value).toBe('on');
     expect(result?.statusLine).toContain('418');
+  });
+
+  it('should set the mock status line and content-type header for a matching mock rule', () => {
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'mock', status: 201, headers: [], body: '{"m":1}', contentType: 'application/json' }])],
+      createFakeDeps(),
+    );
+    const result = handler(headersReceivedDetails());
+    expect(result?.statusLine).toContain('201');
+    expect(findHeader(result?.responseHeaders, 'Content-Type')?.value).toBe('application/json');
+  });
+
+  it('should apply custom mock response headers on top of the content-type', () => {
+    const handler = buildHeadersReceived(
+      [
+        buildRule([
+          {
+            type: 'mock',
+            status: 200,
+            headers: [{ op: 'set', name: 'X-Mock', value: 'yes' }],
+            body: '{}',
+            contentType: 'application/json',
+          },
+        ]),
+      ],
+      createFakeDeps(),
+    );
+    const result = handler(headersReceivedDetails());
+    expect(findHeader(result?.responseHeaders, 'X-Mock')?.value).toBe('yes');
+    expect(findHeader(result?.responseHeaders, 'Content-Type')?.value).toBe('application/json');
   });
 
   it('should return undefined if no rule matches the request', () => {

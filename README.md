@@ -44,8 +44,9 @@ A single manifest source (`src/manifest/index.ts`) generates both Chrome and Fir
 ## Platform limitations
 
 - **Response-body rewrite is Firefox-only.** Chrome MV3 `declarativeNetRequest` cannot modify a response body, so on Chrome the body-rewrite action is shown **disabled** in the UI. Chrome can still mock a full response by redirecting to a `data:` URL.
-- **Chrome mock fidelity.** A `data:` URL redirect always resolves as HTTP 200 and carries no custom response headers, so a mock's custom status code, response headers, and artificial latency are not enforceable on Chrome. The engine surfaces these as `unsupported` (`mockStatus`, `mockHeaders`, `latency`) rather than dropping them silently; the body and content-type are honored. Firefox enforces all of them.
+- **Mock fidelity differs per browser.**
+  - **Firefox** mocks the response in-flight via `filterResponseData`: the original URL is preserved, the real body is discarded, and the mock's body, content-type, custom status code, custom response headers, and artificial latency are all honored. The origin request is still issued, but its body never reaches the page.
+  - **Chrome** can only mock by redirecting to a `data:` URL, which changes the address bar, always resolves as HTTP 200, and carries no custom response headers. The body and content-type are honored; custom status, response headers, and latency are surfaced as `unsupported` (`mockStatus`, `mockHeaders`, `latency`) rather than dropped silently.
 - **DNR dynamic-rule cap (Chrome):** dynamic rules are capped (`declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_RULES`). Rule counts beyond the cap are surfaced as an error rather than silently dropped.
 - **URL matching:** both glob (`*`, `?`) and regex are supported for v1.
-- **Mock fidelity (both browsers).** Mocks are served by redirecting to a `data:` URL, which is always HTTP 200 and carries no custom response headers. A mock's body and content-type are honored on both browsers; its custom status code and response headers are not. Firefox additionally rewrites real response bodies in-flight via `filterResponseData`.
 - **Rule precedence:** within a single request, the first enabled rule (by priority) that matches wins; header modifications from later matching rules are not accumulated in v1.
