@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { InterceptReport } from '../engine/page/types';
 import type { PanelReportMessage, RelayPort } from './types';
-import { ReportRelay } from './relay';
+import { ReportRelay, MAX_BUFFERED } from './relay';
 
 type FakePort = {
   posted: PanelReportMessage[];
@@ -96,5 +96,64 @@ describe('ReportRelay', () => {
 
     expect(oldPort.posted).toHaveLength(0);
     expect(newPort.posted).toEqual([{ type: 'report', report }]);
+  });
+
+  it('should flush reports buffered before the panel connected on register', () => {
+    const relay = new ReportRelay();
+    const early = buildReport({ url: 'https://api.x/early' });
+    relay.dispatch(1, early);
+
+    const port = makePort();
+    relay.register(1, asPort(port));
+
+    expect(port.posted).toEqual([{ type: 'report', report: early }]);
+  });
+
+  it('should preserve buffered order and then deliver live reports', () => {
+    const relay = new ReportRelay();
+    const first = buildReport({ url: 'https://api.x/1' });
+    const second = buildReport({ url: 'https://api.x/2' });
+    relay.dispatch(1, first);
+    relay.dispatch(1, second);
+
+    const port = makePort();
+    relay.register(1, asPort(port));
+    const live = buildReport({ url: 'https://api.x/3' });
+    relay.dispatch(1, live);
+
+    expect(port.posted.map((m) => m.report.url)).toEqual([
+      'https://api.x/1',
+      'https://api.x/2',
+      'https://api.x/3',
+    ]);
+  });
+
+  it('should not replay the buffer to a second port registered after the first drained it', () => {
+    const relay = new ReportRelay();
+    relay.dispatch(1, buildReport({ url: 'https://api.x/early' }));
+
+    const first = makePort();
+    relay.register(1, asPort(first));
+    first.fireDisconnect();
+
+    const second = makePort();
+    relay.register(1, asPort(second));
+
+    expect(second.posted).toHaveLength(0);
+  });
+
+  it('should cap the buffer at MAX_BUFFERED dropping the oldest', () => {
+    const relay = new ReportRelay();
+    const total = MAX_BUFFERED + 10;
+    for (let index = 0; index < total; index += 1) {
+      relay.dispatch(1, buildReport({ url: `https://api.x/${index}` }));
+    }
+
+    const port = makePort();
+    relay.register(1, asPort(port));
+
+    expect(port.posted).toHaveLength(MAX_BUFFERED);
+    expect(port.posted[0].report.url).toBe(`https://api.x/${total - MAX_BUFFERED}`);
+    expect(port.posted[MAX_BUFFERED - 1].report.url).toBe(`https://api.x/${total - 1}`);
   });
 });

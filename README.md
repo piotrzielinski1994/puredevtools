@@ -36,7 +36,7 @@ Open the extension popup for a quick rule list and the global on/off switch, or 
 
 ### ReqHook DevTools panel
 
-Open DevTools (F12) and select the **ReqHook** tab for a Network-style table of **only the intercepted** `fetch`/`XHR` requests for the inspected tab. Each row shows type (mock/rewrite), method, status, and URL; click a row to see the served body (JSON pretty-printed). Filter by URL substring, or Clear the log. This is how you inspect what the UI actually received, since the native Network panel shows pre-interception wire bytes. Note: the panel only records requests made while it is open, and a request whose panel isn't open is not buffered.
+Open DevTools (F12) and select the **ReqHook** tab for a Network-style table of **only the intercepted** `fetch`/`XHR` requests for the inspected tab. Each row shows type (mock/rewrite), method, status, and URL; click a row to see the request headers, request body, and the served response body (JSON pretty-printed). Filter by URL substring, or Clear the log. This is how you inspect what the UI actually received, since the native Network panel shows pre-interception wire bytes. The background buffers up to the last 100 intercepts per tab, so reports fired before you open the panel are flushed in when it connects.
 
 ## Architecture
 

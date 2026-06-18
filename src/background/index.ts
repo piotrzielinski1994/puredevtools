@@ -85,6 +85,8 @@ browser.runtime.onConnect.addListener((port) => {
   port.onMessage.addListener(onInit);
 });
 
+browser.tabs.onRemoved.addListener((tabId) => relay.unregister(tabId));
+
 browser.runtime.onStartup.addListener(() => void controller.reapply());
 browser.runtime.onInstalled.addListener(() => void controller.reapply());
 
