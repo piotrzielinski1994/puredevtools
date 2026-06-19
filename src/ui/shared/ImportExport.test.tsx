@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import type { Capabilities } from '../../engine/RequestEngine';
+import type { ApplyDiagnostics, Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import type { ImportOutcome, UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
@@ -10,6 +10,7 @@ type FakeGateway = UiGateway & {
   getAll: ReturnType<typeof vi.fn>;
   getGlobalEnabled: ReturnType<typeof vi.fn>;
   getCapabilities: ReturnType<typeof vi.fn>;
+  getDiagnostics: ReturnType<typeof vi.fn>;
   add: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -27,6 +28,9 @@ const createFakeGateway = (
   getCapabilities: vi
     .fn<() => Promise<Capabilities>>()
     .mockResolvedValue({ responseBodyRewrite: true, artificialLatency: true }),
+  getDiagnostics: vi
+    .fn<() => Promise<ApplyDiagnostics>>()
+    .mockResolvedValue({ errors: [], unsupported: [] }),
   add: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
   update: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
   remove: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),

@@ -1,5 +1,5 @@
 import browser from 'webextension-polyfill';
-import type { Capabilities } from '../../engine/RequestEngine';
+import type { ApplyDiagnostics, Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import { exportRules, importRules } from '../../rules/portable';
 import { mergeRules } from '../../rules/merge';
@@ -33,6 +33,10 @@ export const createGateway = (): UiGateway => {
     getCapabilities: async (): Promise<Capabilities> => {
       const response = (await browser.runtime.sendMessage({ type: 'getCapabilities' } satisfies Message)) as MessageResponse;
       return response.ok && response.type === 'capabilities' ? response.capabilities : DISABLED_CAPABILITIES;
+    },
+    getDiagnostics: async (): Promise<ApplyDiagnostics> => {
+      const response = (await browser.runtime.sendMessage({ type: 'getDiagnostics' } satisfies Message)) as MessageResponse;
+      return response.ok && response.type === 'diagnostics' ? response.diagnostics : { errors: [], unsupported: [] };
     },
     add: (rule) => repository.add(rule),
     update: (rule) => repository.update(rule),

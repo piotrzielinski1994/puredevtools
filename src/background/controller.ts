@@ -36,6 +36,8 @@ export class BackgroundController {
     switch (message.type) {
       case 'getCapabilities':
         return { ok: true, type: 'capabilities', capabilities: this.deps.engine.capabilities() };
+      case 'getDiagnostics':
+        return { ok: true, type: 'diagnostics', diagnostics: this.deps.engine.diagnostics?.() ?? { errors: [], unsupported: [] } };
       case 'reapply':
         return this.tryReapply();
       default:

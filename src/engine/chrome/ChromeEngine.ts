@@ -1,5 +1,5 @@
 import type { Rule } from '../../rules/model';
-import type { Capabilities, RequestEngine } from '../RequestEngine';
+import type { ApplyDiagnostics, Capabilities, RequestEngine } from '../RequestEngine';
 import type { DnrRule } from './dnrTypes';
 import { translateRules } from './translateToDnr';
 
@@ -9,6 +9,8 @@ export type DnrApi = {
 };
 
 export class ChromeEngine implements RequestEngine {
+  private lastDiagnostics: ApplyDiagnostics = { errors: [], unsupported: [] };
+
   constructor(private readonly dnr: DnrApi) {}
 
   capabilities(): Capabilities {
@@ -16,11 +18,17 @@ export class ChromeEngine implements RequestEngine {
   }
 
   async apply(rules: Rule[], globalEnabled: boolean): Promise<void> {
-    const { dnrRules } = translateRules(rules, globalEnabled);
+    const { dnrRules, errors, unsupported } = translateRules(rules, globalEnabled);
+    this.lastDiagnostics = { errors, unsupported: [...new Set(unsupported)] };
     await this.replace(dnrRules);
   }
 
+  diagnostics(): ApplyDiagnostics {
+    return this.lastDiagnostics;
+  }
+
   async clear(): Promise<void> {
+    this.lastDiagnostics = { errors: [], unsupported: [] };
     await this.replace([]);
   }
 

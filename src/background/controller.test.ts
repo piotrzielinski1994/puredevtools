@@ -280,6 +280,33 @@ describe('BackgroundController.handleMessage getCapabilities (AC-004)', () => {
   });
 });
 
+describe('BackgroundController.handleMessage getDiagnostics', () => {
+  it('should return the engine diagnostics when the engine provides them', async () => {
+    const engine = { ...createRecordingEngine(), diagnostics: () => ({ errors: ['boom'], unsupported: ['latency'] }) };
+    const controller = new BackgroundController({
+      repository: createFakeRepository([buildRule()], true),
+      engine,
+      storageChanges: createCapturingSubscriber(),
+      scheduler: createImmediateScheduler(),
+    });
+    await controller.start();
+    const response = await controller.handleMessage({ type: 'getDiagnostics' });
+    expect(response).toEqual({ ok: true, type: 'diagnostics', diagnostics: { errors: ['boom'], unsupported: ['latency'] } });
+  });
+
+  it('should fall back to empty diagnostics when the engine omits the method', async () => {
+    const controller = new BackgroundController({
+      repository: createFakeRepository([buildRule()], true),
+      engine: createRecordingEngine(),
+      storageChanges: createCapturingSubscriber(),
+      scheduler: createImmediateScheduler(),
+    });
+    await controller.start();
+    const response = await controller.handleMessage({ type: 'getDiagnostics' });
+    expect(response).toEqual({ ok: true, type: 'diagnostics', diagnostics: { errors: [], unsupported: [] } });
+  });
+});
+
 describe('BackgroundController.handleMessage reapply (AC-005)', () => {
   it('should resolve with a reapplied response (TC-007)', async () => {
     const controller = new BackgroundController({

@@ -16,7 +16,7 @@ import { useTheme } from '../shared/useTheme';
 type Editing = { mode: 'closed' } | { mode: 'create' } | { mode: 'edit'; rule: Rule };
 
 const Manager = () => {
-  const { status, error } = useRules();
+  const { status, error, diagnostics } = useRules();
   const [theme, setTheme] = useTheme();
   const [editing, setEditing] = useState<Editing>({ mode: 'closed' });
   const [filter, setFilter] = useState('');
@@ -52,6 +52,24 @@ const Manager = () => {
         </Button>
         <ImportExport />
       </div>
+
+      {diagnostics.errors.length > 0 ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          <p className="mb-1 font-semibold">These rules could not be applied:</p>
+          <ul className="list-disc pl-4">
+            {diagnostics.errors.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {diagnostics.unsupported.length > 0 ? (
+        <div role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+          <p className="mb-1 font-semibold">Not enforceable on this browser:</p>
+          <p>{diagnostics.unsupported.join(', ')}</p>
+        </div>
+      ) : null}
 
       {isEditing ? (
         <Card>

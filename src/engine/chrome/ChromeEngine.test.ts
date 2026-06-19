@@ -120,3 +120,37 @@ describe('ChromeEngine.clear', () => {
     expect(dnr.calls[0].removeRuleIds).toEqual([]);
   });
 });
+
+describe('ChromeEngine.diagnostics', () => {
+  it('should start with empty diagnostics', () => {
+    const engine = new ChromeEngine(createFakeDnrApi());
+    expect(engine.diagnostics()).toEqual({ errors: [], unsupported: [] });
+  });
+
+  it('should report an error for an invalid regex rule after apply', async () => {
+    const engine = new ChromeEngine(createFakeDnrApi());
+    await engine.apply([buildRule([{ type: 'block' }], { url: { pattern: '[', kind: 'regex' } })], true);
+    expect(engine.diagnostics().errors).toHaveLength(1);
+    expect(engine.diagnostics().errors[0]).toMatch(/invalid regex/i);
+  });
+
+  it('should report deduped unsupported features for a Chrome mock with custom status', async () => {
+    const engine = new ChromeEngine(createFakeDnrApi());
+    await engine.apply(
+      [buildRule([{ type: 'mock', status: 503, headers: [{ op: 'set', name: 'X', value: 'y' }], body: '{}', latencyMs: 100 }])],
+      true,
+    );
+    const { unsupported } = engine.diagnostics();
+    expect(unsupported).toContain('mockStatus');
+    expect(unsupported).toContain('mockHeaders');
+    expect(unsupported).toContain('latency');
+    expect(unsupported.length).toBe(new Set(unsupported).size);
+  });
+
+  it('should clear diagnostics on clear', async () => {
+    const engine = new ChromeEngine(createFakeDnrApi());
+    await engine.apply([buildRule([{ type: 'block' }], { url: { pattern: '[', kind: 'regex' } })], true);
+    await engine.clear();
+    expect(engine.diagnostics()).toEqual({ errors: [], unsupported: [] });
+  });
+});

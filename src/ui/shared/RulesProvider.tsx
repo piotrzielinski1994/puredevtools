@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { Capabilities } from '../../engine/RequestEngine';
+import type { ApplyDiagnostics, Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import { cloneRule } from '../../rules/clone';
 import type { ImportMode, ImportOutcome, UiGateway } from './gateway';
@@ -8,6 +8,7 @@ export type RulesContextValue = {
   rules: Rule[];
   globalEnabled: boolean;
   capabilities: Capabilities;
+  diagnostics: ApplyDiagnostics;
   status: 'loading' | 'ready' | 'error';
   error?: string;
   addRule(rule: Rule): Promise<void>;
@@ -28,6 +29,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
   const [rules, setRules] = useState<Rule[]>([]);
   const [globalEnabled, setGlobalEnabled] = useState(true);
   const [capabilities, setCapabilities] = useState<Capabilities>(DISABLED_CAPABILITIES);
+  const [diagnostics, setDiagnostics] = useState<ApplyDiagnostics>({ errors: [], unsupported: [] });
   const [status, setStatus] = useState<RulesContextValue['status']>('loading');
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -35,6 +37,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     const [loadedRules, loadedGlobal] = await Promise.all([gateway.getAll(), gateway.getGlobalEnabled()]);
     setRules(loadedRules);
     setGlobalEnabled(loadedGlobal);
+    setDiagnostics(await gateway.getDiagnostics().catch(() => ({ errors: [], unsupported: [] })));
   }, [gateway]);
 
   useEffect(() => {
@@ -128,6 +131,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     rules,
     globalEnabled,
     capabilities,
+    diagnostics,
     status,
     error,
     addRule,
