@@ -36,6 +36,35 @@ const isValidRegex = (pattern: string): boolean => {
   }
 };
 
+export type CapabilityInput = {
+  responseBodyRewrite: boolean;
+  artificialLatency: boolean;
+  rewriteBody: string;
+  mockEnabled: boolean;
+  mockStatus: string;
+  mockLatency: string;
+  mockHeaderCount: number;
+};
+
+export const capabilityWarnings = (input: CapabilityInput): string[] => {
+  const warnings: string[] = [];
+  if (!input.responseBodyRewrite && input.rewriteBody.trim() !== '') {
+    warnings.push('Response-body rewrite is Firefox-only; it will be ignored on Chrome.');
+  }
+  if (input.mockEnabled && !input.artificialLatency) {
+    if (input.mockStatus.trim() !== '' && Number(input.mockStatus) !== 200) {
+      warnings.push('Chrome mocks always return HTTP 200; the custom status code will not be enforced.');
+    }
+    if (input.mockHeaderCount > 0) {
+      warnings.push('Chrome mocks carry no custom response headers; mock headers will not be enforced.');
+    }
+    if (Number(input.mockLatency) > 0) {
+      warnings.push('Artificial latency is Firefox-only; it will be ignored on Chrome.');
+    }
+  }
+  return warnings;
+};
+
 type MatcherRow = { name: string; mode: 'present' | 'equals' | 'contains'; value: string };
 type OpRow = { op: 'set' | 'remove'; name: string; value: string };
 
@@ -173,6 +202,16 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
     onDone();
   };
 
+  const warnings = capabilityWarnings({
+    responseBodyRewrite: capabilities.responseBodyRewrite,
+    artificialLatency: capabilities.artificialLatency,
+    rewriteBody,
+    mockEnabled,
+    mockStatus,
+    mockLatency,
+    mockHeaderCount: mockHeaders.filter((row) => row.name.trim() !== '').length,
+  });
+
   return (
     <form
       className="flex flex-col gap-5"
@@ -301,6 +340,16 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
         ) : null}
       </Accordion>
 
+      {warnings.length > 0 ? (
+        <div role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+          <p className="mb-1 font-semibold">Platform limitations on this browser:</p>
+          <ul className="list-disc pl-4">
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}

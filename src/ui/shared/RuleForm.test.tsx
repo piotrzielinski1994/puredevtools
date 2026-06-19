@@ -474,4 +474,27 @@ describe('RuleForm', () => {
 
     expect(await screen.findByText(/does not match/i)).toBeInTheDocument();
   });
+
+  it('should show a platform-limitation warning for body rewrite when the capability is off (Chrome)', async () => {
+    const gateway = createFakeGateway({ responseBodyRewrite: false, artificialLatency: false });
+    renderForm(gateway);
+
+    await screen.findByRole('button', { name: /save/i });
+
+    fireEvent.change(screen.getByTestId('body-rewrite-toggle'), { target: { value: '<p>x</p>' } });
+
+    expect(await screen.findByText(/platform limitations on this browser/i)).toBeInTheDocument();
+    expect(screen.getByText(/it will be ignored on chrome/i)).toBeInTheDocument();
+  });
+
+  it('should not show platform warnings when the platform supports the features (Firefox)', async () => {
+    const gateway = createFakeGateway({ responseBodyRewrite: true, artificialLatency: true });
+    renderForm(gateway);
+
+    await screen.findByRole('button', { name: /save/i });
+
+    fireEvent.change(screen.getByTestId('body-rewrite-toggle'), { target: { value: '<p>x</p>' } });
+
+    expect(screen.queryByText(/platform limitations/i)).not.toBeInTheDocument();
+  });
 });
