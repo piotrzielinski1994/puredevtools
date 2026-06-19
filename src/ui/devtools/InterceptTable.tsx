@@ -29,6 +29,19 @@ export const formatTime = (timestamp?: number): string => {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 };
 
+const shellQuote = (value: string): string => `'${value.replace(/'/g, "'\\''")}'`;
+
+export const toCurl = (entry: PanelEntry): string => {
+  const parts = ['curl'];
+  if (entry.method.toUpperCase() !== 'GET') parts.push('-X', entry.method.toUpperCase());
+  Object.entries(entry.requestHeaders ?? {}).forEach(([name, value]) => {
+    parts.push('-H', shellQuote(`${name}: ${value}`));
+  });
+  if (entry.requestBody) parts.push('--data', shellQuote(entry.requestBody));
+  parts.push(shellQuote(entry.url));
+  return parts.join(' ');
+};
+
 const DetailSection = ({ title, children }: { title: string; children: string }) => (
   <section>
     <h3 className="border-b px-3 py-1.5 text-xs font-semibold text-muted-foreground">{title}</h3>
@@ -126,15 +139,26 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
                   <p className="text-xs text-muted-foreground">{selected.contentType}</p>
                 ) : null}
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Copy response body"
-                onClick={() => void navigator.clipboard?.writeText(selected.body)}
-              >
-                Copy
-              </Button>
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Copy response body"
+                  onClick={() => void navigator.clipboard?.writeText(selected.body)}
+                >
+                  Copy
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-label="Copy as cURL"
+                  onClick={() => void navigator.clipboard?.writeText(toCurl(selected))}
+                >
+                  cURL
+                </Button>
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
               {selected.requestHeaders && Object.keys(selected.requestHeaders).length > 0 ? (

@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { PanelEntry } from '../../devtools/types';
-import { InterceptTable, formatTime } from './InterceptTable';
+import { InterceptTable, formatTime, toCurl } from './InterceptTable';
 
 const buildEntry = (overrides: Partial<PanelEntry> = {}): PanelEntry => ({
   id: 1,
@@ -164,5 +164,48 @@ describe('formatTime', () => {
 
   it('should return an empty string for an undefined timestamp', () => {
     expect(formatTime(undefined)).toBe('');
+  });
+});
+
+describe('toCurl', () => {
+  it('should build a plain GET without -X', () => {
+    expect(toCurl(buildEntry({ method: 'GET', url: 'https://api.x/u', requestHeaders: undefined, requestBody: undefined }))).toBe(
+      "curl 'https://api.x/u'",
+    );
+  });
+
+  it('should include method, headers and body for a POST', () => {
+    const curl = toCurl(
+      buildEntry({
+        method: 'POST',
+        url: 'https://api.x/u',
+        requestHeaders: { authorization: 'Bearer abc' },
+        requestBody: '{"q":1}',
+      }),
+    );
+    expect(curl).toContain('-X POST');
+    expect(curl).toContain("-H 'authorization: Bearer abc'");
+    expect(curl).toContain(`--data '{"q":1}'`);
+    expect(curl).toContain("'https://api.x/u'");
+  });
+
+  it('should escape single quotes in values', () => {
+    const curl = toCurl(buildEntry({ method: 'POST', url: 'https://api.x/u', requestBody: "it's" }));
+    expect(curl).toContain("'it'\\''s'");
+  });
+});
+
+describe('InterceptTable cURL button', () => {
+  it('should copy a cURL command for the selected entry', () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    const entries = [buildEntry({ id: 1, url: 'https://api.x/c', method: 'POST', requestBody: '{"a":1}' })];
+    render(<InterceptTable entries={entries} onClear={vi.fn()} />);
+
+    fireEvent.click(within(dataRows()[0]).getByText('https://api.x/c'));
+    fireEvent.click(screen.getByRole('button', { name: /copy as curl/i }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain('-X POST');
   });
 });
