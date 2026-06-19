@@ -160,3 +160,23 @@ describe('RuleRepository.setGlobalEnabled', () => {
     expect(await repo.getGlobalEnabled()).toBe(false);
   });
 });
+
+describe('RuleRepository.replaceAll', () => {
+  it('should overwrite the stored rules in a single write sorted by priority', async () => {
+    const area = createFakeStorageArea();
+    const repo = new RuleRepository(area);
+    await repo.add(buildRule({ id: 'old', priority: 0 }));
+
+    await repo.replaceAll([buildRule({ id: 'b', priority: 1 }), buildRule({ id: 'a', priority: 0 })]);
+
+    const stored = await repo.getAll();
+    expect(stored.map((rule) => rule.id)).toEqual(['a', 'b']);
+  });
+
+  it('should replace with an empty set when given no rules', async () => {
+    const repo = new RuleRepository(createFakeStorageArea());
+    await repo.add(buildRule({ id: 'a' }));
+    await repo.replaceAll([]);
+    expect(await repo.getAll()).toEqual([]);
+  });
+});

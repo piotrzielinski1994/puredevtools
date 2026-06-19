@@ -3,6 +3,8 @@ import type { Rule } from '../../rules/model';
 
 export type ImportOutcome = { ok: true } | { ok: false; error: string };
 
+export type ImportMode = 'replace' | 'merge';
+
 export type UiGateway = {
   getAll(): Promise<Rule[]>;
   getGlobalEnabled(): Promise<boolean>;
@@ -13,5 +15,5 @@ export type UiGateway = {
   reorder(ids: string[]): Promise<void>;
   setGlobalEnabled(enabled: boolean): Promise<void>;
   exportToFile(): Promise<void>;
-  importFromFile(json: string): Promise<ImportOutcome>;
+  importFromFile(json: string, mode: ImportMode): Promise<ImportOutcome>;
 };

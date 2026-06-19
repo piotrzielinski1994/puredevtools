@@ -2,6 +2,7 @@ import browser from 'webextension-polyfill';
 import type { Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import { exportRules, importRules } from '../../rules/portable';
+import { mergeRules } from '../../rules/merge';
 import { RuleRepository } from '../../rules/storage';
 import type { Message, MessageResponse } from '../../shared/messages';
 import type { ImportOutcome, UiGateway } from './gateway';
@@ -21,13 +22,8 @@ const download = (json: string) => {
 export const createGateway = (): UiGateway => {
   const repository = new RuleRepository(browser.storage.local);
 
-  const persist = async (importedRules: Rule[], globalEnabled: boolean) => {
-    const current = await repository.getAll();
-    await Promise.all(current.map((rule) => repository.remove(rule.id)));
-    await importedRules.reduce(async (chain, rule) => {
-      await chain;
-      await repository.add(rule);
-    }, Promise.resolve());
+  const persist = async (rules: Rule[], globalEnabled: boolean) => {
+    await repository.replaceAll(rules);
     await repository.setGlobalEnabled(globalEnabled);
   };
 
@@ -47,9 +43,14 @@ export const createGateway = (): UiGateway => {
       const [rules, globalEnabled] = await Promise.all([repository.getAll(), repository.getGlobalEnabled()]);
       download(exportRules({ version: 1, globalEnabled, rules }));
     },
-    importFromFile: async (json): Promise<ImportOutcome> => {
+    importFromFile: async (json, mode): Promise<ImportOutcome> => {
       const result = importRules(json);
       if (!result.ok) return { ok: false, error: result.error };
+      if (mode === 'merge') {
+        const current = await repository.getAll();
+        await persist(mergeRules(current, result.state.rules), await repository.getGlobalEnabled());
+        return { ok: true };
+      }
       await persist(result.state.rules, result.state.globalEnabled);
       return { ok: true };
     },

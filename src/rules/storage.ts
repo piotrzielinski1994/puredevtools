@@ -49,6 +49,10 @@ export class RuleRepository {
     await this.area.set({ [STORAGE_KEYS.globalEnabled]: enabled });
   }
 
+  async replaceAll(rules: Rule[]): Promise<void> {
+    await this.persist([...rules].sort(byPriority));
+  }
+
   private async persist(rules: Rule[]): Promise<void> {
     await this.area.set({ [STORAGE_KEYS.rules]: rules });
   }

@@ -72,7 +72,21 @@ describe('ImportExport', () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => expect(gateway.importFromFile).toHaveBeenCalledTimes(1));
-    expect(gateway.importFromFile).toHaveBeenCalledWith(json);
+    expect(gateway.importFromFile).toHaveBeenCalledWith(json, 'replace');
+  });
+
+  it('should call gateway.importFromFile with merge mode when Merge is used', async () => {
+    const gateway = createFakeGateway({ ok: true });
+    renderImportExport(gateway);
+
+    fireEvent.click(await screen.findByRole('button', { name: /import rules \(merge\)/i }));
+
+    const input = screen.getByTestId('import-input');
+    const json = '{"version":1,"rules":[]}';
+    fireEvent.change(input, { target: { files: [makeJsonFile(json)] } });
+
+    await waitFor(() => expect(gateway.importFromFile).toHaveBeenCalledTimes(1));
+    expect(gateway.importFromFile).toHaveBeenCalledWith(json, 'merge');
   });
 
   it('should render an error message when import resolves ok:false (AC-007 import invalid)', async () => {

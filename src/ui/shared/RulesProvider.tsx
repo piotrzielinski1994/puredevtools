@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import type { Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import { cloneRule } from '../../rules/clone';
-import type { ImportOutcome, UiGateway } from './gateway';
+import type { ImportMode, ImportOutcome, UiGateway } from './gateway';
 
 export type RulesContextValue = {
   rules: Rule[];
@@ -17,7 +17,7 @@ export type RulesContextValue = {
   reorderRules(ids: string[]): Promise<void>;
   toggleGlobal(enabled: boolean): Promise<void>;
   exportRules(): Promise<void>;
-  importRules(json: string): Promise<ImportOutcome>;
+  importRules(json: string, mode?: ImportMode): Promise<ImportOutcome>;
 };
 
 const RulesContext = createContext<RulesContextValue | undefined>(undefined);
@@ -116,8 +116,8 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
   const exportRules = useCallback(() => gateway.exportToFile(), [gateway]);
 
   const importRules = useCallback(
-    async (json: string) => {
-      const outcome = await gateway.importFromFile(json);
+    async (json: string, mode: ImportMode = 'replace') => {
+      const outcome = await gateway.importFromFile(json, mode);
       if (outcome.ok) await refresh();
       return outcome;
     },
