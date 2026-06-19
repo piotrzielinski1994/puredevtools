@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import type { Rule } from '../../rules/model';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { createGateway } from '../shared/createGateway';
 import { GlobalSwitch } from '../shared/GlobalSwitch';
@@ -18,6 +19,7 @@ const Manager = () => {
   const { status, error } = useRules();
   const [theme, setTheme] = useTheme();
   const [editing, setEditing] = useState<Editing>({ mode: 'closed' });
+  const [filter, setFilter] = useState('');
 
   if (status === 'loading') return <p className="text-sm text-muted-foreground">Loading rules…</p>;
   if (status === 'error') {
@@ -64,7 +66,15 @@ const Manager = () => {
           </CardContent>
         </Card>
       ) : (
-        <RuleList onEdit={(rule) => setEditing({ mode: 'edit', rule })} />
+        <>
+          <Input
+            aria-label="Search rules"
+            placeholder="Search rules by name or URL"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+          />
+          <RuleList filter={filter} onEdit={(rule) => setEditing({ mode: 'edit', rule })} />
+        </>
       )}
     </div>
   );

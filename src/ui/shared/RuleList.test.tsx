@@ -195,4 +195,58 @@ describe('RuleList', () => {
     const [updated] = gateway.update.mock.calls[0] as [Rule];
     expect(updated.enabled).toBe(false);
   });
+
+  it('should add a cloned rule with a fresh id and (copy) name when Duplicate is clicked', async () => {
+    const gateway = createFakeGateway(threeRules());
+    renderList(gateway);
+
+    await screen.findByText('alpha rule');
+
+    const rows = screen.getAllByRole('listitem');
+    fireEvent.click(within(rows[0]).getByRole('button', { name: /duplicate/i }));
+
+    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
+    const [added] = gateway.add.mock.calls[0] as [Rule];
+    expect(added.id).toBe('a-copy');
+    expect(added.name).toBe('alpha rule (copy)');
+  });
+
+  it('should show only rules matching the filter by name or url', async () => {
+    const gateway = createFakeGateway(threeRules());
+    render(
+      <RulesProvider gateway={gateway}>
+        <RuleList filter="bravo" onEdit={vi.fn()} />
+      </RulesProvider>,
+    );
+
+    await screen.findByText('bravo rule');
+    expect(screen.queryByText('alpha rule')).not.toBeInTheDocument();
+    expect(screen.queryByText('charlie rule')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('should show a no-match message when the filter matches nothing', async () => {
+    const gateway = createFakeGateway(threeRules());
+    render(
+      <RulesProvider gateway={gateway}>
+        <RuleList filter="zzz-nope" onEdit={vi.fn()} />
+      </RulesProvider>,
+    );
+
+    expect(await screen.findByText(/no rules match/i)).toBeInTheDocument();
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+  });
+
+  it('should disable reorder while a filter is active', async () => {
+    const gateway = createFakeGateway(threeRules());
+    render(
+      <RulesProvider gateway={gateway}>
+        <RuleList filter="rule" onEdit={vi.fn()} />
+      </RulesProvider>,
+    );
+
+    await screen.findByText('alpha rule');
+    const rows = screen.getAllByRole('listitem');
+    expect(within(rows[1]).getByRole('button', { name: /move up/i })).toBeDisabled();
+  });
 });

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
+import { cloneRule } from '../../rules/clone';
 import type { ImportOutcome, UiGateway } from './gateway';
 
 export type RulesContextValue = {
@@ -11,6 +12,7 @@ export type RulesContextValue = {
   error?: string;
   addRule(rule: Rule): Promise<void>;
   updateRule(rule: Rule): Promise<void>;
+  duplicateRule(rule: Rule): Promise<void>;
   removeRule(id: string): Promise<void>;
   reorderRules(ids: string[]): Promise<void>;
   toggleGlobal(enabled: boolean): Promise<void>;
@@ -72,6 +74,21 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     [gateway, refresh],
   );
 
+  const duplicateRule = useCallback(
+    async (rule: Rule) => {
+      const taken = new Set(rules.map((existing) => existing.id));
+      let suffix = 1;
+      let newId = `${rule.id}-copy`;
+      while (taken.has(newId)) {
+        suffix += 1;
+        newId = `${rule.id}-copy-${suffix}`;
+      }
+      await gateway.add(cloneRule(rule, newId));
+      await refresh();
+    },
+    [gateway, refresh, rules],
+  );
+
   const removeRule = useCallback(
     async (id: string) => {
       await gateway.remove(id);
@@ -115,6 +132,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     error,
     addRule,
     updateRule,
+    duplicateRule,
     removeRule,
     reorderRules,
     toggleGlobal,
