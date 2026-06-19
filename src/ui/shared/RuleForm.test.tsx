@@ -436,4 +436,42 @@ describe('RuleForm', () => {
     const mockAction = rule.actions.find((action) => action.type === 'mock');
     expect(mockAction?.type === 'mock' ? mockAction.headers : []).toContainEqual({ op: 'set', name: 'X-Mock', value: 'yes' });
   });
+
+  it('should block save and show an error for an invalid regex pattern', async () => {
+    const gateway = createFakeGateway();
+    renderForm(gateway);
+
+    await screen.findByRole('button', { name: /save/i });
+
+    fireEvent.change(getUrlPatternInput(), { target: { value: '[' } });
+    fireEvent.change(getKindSelect(), { target: { value: 'regex' } });
+    fireEvent.click(getSaveButton());
+
+    expect(await screen.findByText(/invalid regular expression/i)).toBeInTheDocument();
+    expect(gateway.add).not.toHaveBeenCalled();
+  });
+
+  it('should report a positive match in the URL tester', async () => {
+    const gateway = createFakeGateway();
+    renderForm(gateway);
+
+    await screen.findByRole('button', { name: /save/i });
+
+    fireEvent.change(getUrlPatternInput(), { target: { value: 'https://api.test.dev/*' } });
+    fireEvent.change(screen.getByLabelText(/test url/i), { target: { value: 'https://api.test.dev/users' } });
+
+    expect(await screen.findByText(/matches/i)).toBeInTheDocument();
+  });
+
+  it('should report a non-match in the URL tester', async () => {
+    const gateway = createFakeGateway();
+    renderForm(gateway);
+
+    await screen.findByRole('button', { name: /save/i });
+
+    fireEvent.change(getUrlPatternInput(), { target: { value: 'https://api.test.dev/*' } });
+    fireEvent.change(screen.getByLabelText(/test url/i), { target: { value: 'https://other.dev/x' } });
+
+    expect(await screen.findByText(/does not match/i)).toBeInTheDocument();
+  });
 });

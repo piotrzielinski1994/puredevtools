@@ -9,6 +9,7 @@ import type {
   Rule,
   RuleAction,
 } from '../../rules/model';
+import { matchUrl } from '../../rules/match';
 import { Accordion } from '../components/ui/accordion';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
@@ -25,6 +26,15 @@ export type RuleFormProps = {
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const RESOURCE_TYPES: ResourceType[] = ['xmlhttprequest', 'script', 'image', 'stylesheet', 'font', 'media', 'sub_frame', 'main_frame', 'other'];
+
+const isValidRegex = (pattern: string): boolean => {
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 type MatcherRow = { name: string; mode: 'present' | 'equals' | 'contains'; value: string };
 type OpRow = { op: 'set' | 'remove'; name: string; value: string };
@@ -59,11 +69,24 @@ const Field = ({ htmlFor, label, children }: { htmlFor: string; label: string; c
   </div>
 );
 
+const MatchHint = ({ pattern, kind, url }: { pattern: string; kind: PatternKind; url: string }) => {
+  const result = matchUrl(pattern, kind, url);
+  if (!result.ok) {
+    return <p role="status" className="text-xs text-destructive">Invalid pattern: {result.error}</p>;
+  }
+  return (
+    <p role="status" className={`text-xs ${result.matched ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+      {result.matched ? '✓ matches' : '✗ does not match'}
+    </p>
+  );
+};
+
 export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
   const { addRule, updateRule, capabilities } = useRules();
   const [name, setName] = useState(initial?.name ?? '');
   const [pattern, setPattern] = useState(initial?.matchers.url.pattern ?? '');
   const [kind, setKind] = useState<PatternKind>(initial?.matchers.url.kind ?? 'glob');
+  const [testUrl, setTestUrl] = useState('');
   const [methods, setMethods] = useState<HttpMethod[]>(initial?.matchers.methods ?? []);
   const [resourceTypes, setResourceTypes] = useState<ResourceType[]>(initial?.matchers.resourceTypes ?? []);
   const [headerMatchers, setHeaderMatchers] = useState<MatcherRow[]>(
@@ -124,6 +147,10 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
       setError('URL pattern is required.');
       return;
     }
+    if (kind === 'regex' && !isValidRegex(pattern)) {
+      setError('Invalid regular expression.');
+      return;
+    }
     setError(undefined);
 
     const matchers: Rule['matchers'] = {
@@ -169,6 +196,17 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
             </Select>
           </Field>
         </div>
+
+        <Field htmlFor="rule-test-url" label="Try a URL against this rule">
+          <Input
+            id="rule-test-url"
+            aria-label="Test URL"
+            value={testUrl}
+            onChange={(event) => setTestUrl(event.target.value)}
+            placeholder="https://example.com/path"
+          />
+          {testUrl.trim() !== '' ? <MatchHint pattern={pattern} kind={kind} url={testUrl} /> : null}
+        </Field>
 
         <div className="flex flex-col gap-1.5">
           <Label>Methods</Label>
