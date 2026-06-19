@@ -28,6 +28,8 @@ const firefoxWebRequest = browser.webRequest as unknown as Partial<FirefoxWebReq
 
 const repository = new RuleRepository(browser.storage.local);
 
+const relay = new ReportRelay();
+
 const engine = selectEngine({
   hasFilterResponseData,
   chrome: () => new ChromeEngine(browser.declarativeNetRequest as unknown as DnrApi),
@@ -37,6 +39,8 @@ const engine = selectEngine({
     return new FirefoxEngine(webRequest, {
       filterResponseData,
       delay: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
+      report: (tabId, report) => relay.dispatch(tabId, report),
+      now: () => Date.now(),
     });
   },
 });
@@ -55,8 +59,6 @@ const controller = new BackgroundController({
     schedule: (task) => queueMicrotask(task),
   },
 });
-
-const relay = new ReportRelay();
 
 type ReportEnvelope = { type: typeof REPORT_MESSAGE; report: InterceptReport };
 

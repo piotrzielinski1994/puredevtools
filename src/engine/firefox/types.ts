@@ -1,4 +1,5 @@
 import type { ResourceType } from '../../rules/model';
+import type { InterceptReport } from '../page/types';
 
 export type WebRequestHeader = { name: string; value?: string };
 
@@ -21,6 +22,7 @@ export type HeadersReceivedDetails = {
   url: string;
   method: string;
   type: ResourceType;
+  tabId?: number;
   statusCode: number;
   statusLine?: string;
   responseHeaders?: WebRequestHeader[];
@@ -47,4 +49,6 @@ export type StreamFilter = {
 export type HandlerDeps = {
   filterResponseData: (requestId: string) => StreamFilter;
   delay: (ms: number) => Promise<void>;
+  report?: (tabId: number, report: InterceptReport) => void;
+  now?: () => number;
 };

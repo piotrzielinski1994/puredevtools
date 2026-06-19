@@ -78,12 +78,20 @@ export const buildBeforeRequest =
   };
 
 export const buildHeadersReceived =
-  (rules: Rule[], _deps: HandlerDeps) =>
+  (rules: Rule[], deps: HandlerDeps) =>
   (details: HeadersReceivedDetails): BlockingResponse | undefined => {
     const rule = findMatchingRule(rules, details);
     if (!rule) return undefined;
     const mock = firstAction<Extract<RuleAction, { type: 'mock' }>>(rule, 'mock');
-    if (mock) return mockResponse(mock);
+    if (mock) {
+      reportInterception(deps, details, { kind: 'mock', status: mock.status, body: mock.body, contentType: mock.contentType });
+      return mockResponse(mock);
+    }
+
+    const rewrite = firstAction<Extract<RuleAction, { type: 'rewriteBody' }>>(rule, 'rewriteBody');
+    if (rewrite) {
+      reportInterception(deps, details, { kind: 'rewrite', status: details.statusCode, body: rewrite.body, contentType: rewrite.contentType });
+    }
 
     const headerAction = firstAction<Extract<RuleAction, { type: 'modifyResponseHeaders' }>>(rule, 'modifyResponseHeaders');
     const statusAction = firstAction<Extract<RuleAction, { type: 'setStatus' }>>(rule, 'setStatus');
@@ -94,6 +102,26 @@ export const buildHeadersReceived =
     if (statusAction) response.statusLine = `HTTP/1.1 ${statusAction.status}`;
     return response;
   };
+
+const reportInterception = (
+  deps: HandlerDeps,
+  details: HeadersReceivedDetails,
+  intercepted: { kind: 'mock' | 'rewrite'; status: number; body: string; contentType?: string },
+): void => {
+  if (!deps.report) return;
+  if (details.type === 'xmlhttprequest') return;
+  const tabId = details.tabId;
+  if (tabId === undefined || tabId < 0) return;
+  deps.report(tabId, {
+    kind: intercepted.kind,
+    method: details.method,
+    url: details.url,
+    status: intercepted.status,
+    body: intercepted.body,
+    contentType: intercepted.contentType,
+    timestamp: deps.now?.(),
+  });
+};
 
 const mockResponse = (mock: Extract<RuleAction, { type: 'mock' }>): BlockingResponse => {
   const baseHeaders: WebRequestHeader[] = mock.contentType

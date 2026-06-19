@@ -442,3 +442,104 @@ describe('buildHeadersReceived (AC-005, TC-006)', () => {
     expect(handler(headersReceivedDetails())).toBeUndefined();
   });
 });
+
+type ReportCall = { tabId: number; report: import('../page/types').InterceptReport };
+
+const createReportingDeps = (): HandlerDeps & { reports: ReportCall[] } => {
+  const reports: ReportCall[] = [];
+  return {
+    reports,
+    filterResponseData: () => createFakeFilter(),
+    delay: async () => undefined,
+    report: (tabId, report) => reports.push({ tabId, report }),
+    now: () => 1700000000000,
+  };
+};
+
+describe('buildHeadersReceived intercept reporting (Firefox panel feed)', () => {
+  it('should report a mock interception with status, body and url for the tab', () => {
+    const deps = createReportingDeps();
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'mock', status: 201, headers: [], body: '{"m":1}', contentType: 'application/json' }])],
+      deps,
+    );
+    handler(headersReceivedDetails({ tabId: 7, type: 'main_frame' }));
+    expect(deps.reports).toHaveLength(1);
+    expect(deps.reports[0]).toEqual({
+      tabId: 7,
+      report: {
+        kind: 'mock',
+        method: 'GET',
+        url: 'https://api.example.com/v1/users',
+        status: 201,
+        body: '{"m":1}',
+        contentType: 'application/json',
+        timestamp: 1700000000000,
+      },
+    });
+  });
+
+  it('should report a rewrite interception using the original status code', () => {
+    const deps = createReportingDeps();
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'rewriteBody', body: '<p>new</p>', contentType: 'text/html' }])],
+      deps,
+    );
+    handler(headersReceivedDetails({ tabId: 3, type: 'main_frame', statusCode: 200 }));
+    expect(deps.reports).toHaveLength(1);
+    expect(deps.reports[0].report).toMatchObject({
+      kind: 'rewrite',
+      status: 200,
+      body: '<p>new</p>',
+      contentType: 'text/html',
+    });
+  });
+
+  it('should not report xmlhttprequest interceptions (page patch owns those)', () => {
+    const deps = createReportingDeps();
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'mock', status: 200, headers: [], body: '{}' }])],
+      deps,
+    );
+    handler(headersReceivedDetails({ tabId: 7, type: 'xmlhttprequest' }));
+    expect(deps.reports).toHaveLength(0);
+  });
+
+  it('should not report when there is no tab id', () => {
+    const deps = createReportingDeps();
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'mock', status: 200, headers: [], body: '{}' }])],
+      deps,
+    );
+    handler(headersReceivedDetails({ type: 'main_frame' }));
+    expect(deps.reports).toHaveLength(0);
+  });
+
+  it('should not report when the tab id is -1 (non-tab request)', () => {
+    const deps = createReportingDeps();
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'mock', status: 200, headers: [], body: '{}' }])],
+      deps,
+    );
+    handler(headersReceivedDetails({ tabId: -1, type: 'main_frame' }));
+    expect(deps.reports).toHaveLength(0);
+  });
+
+  it('should not report for a non-intercepting rule (header-only)', () => {
+    const deps = createReportingDeps();
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'setStatus', status: 500 }])],
+      deps,
+    );
+    handler(headersReceivedDetails({ tabId: 7, type: 'main_frame' }));
+    expect(deps.reports).toHaveLength(0);
+  });
+
+  it('should not throw when no report sink is provided', () => {
+    const handler = buildHeadersReceived(
+      [buildRule([{ type: 'mock', status: 200, headers: [], body: '{}' }])],
+      createFakeDeps(),
+    );
+    expect(() => handler(headersReceivedDetails({ tabId: 7, type: 'main_frame' }))).not.toThrow();
+  });
+});
