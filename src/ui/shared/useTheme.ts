@@ -5,7 +5,7 @@ import { applyTheme, normalizeTheme, DEFAULT_THEME, type Theme } from './theme';
 
 const readTheme = async (): Promise<Theme> => {
   const stored = await browser.storage.local.get([STORAGE_KEYS.theme]);
-  return normalizeTheme(stored[STORAGE_KEYS.theme]);
+  return normalizeTheme(stored?.[STORAGE_KEYS.theme]);
 };
 
 const writeTheme = async (theme: Theme): Promise<void> => {
@@ -28,11 +28,13 @@ export const useTheme = (): [Theme, (theme: Theme) => void] => {
   useEffect(() => {
     let active = true;
     const root = document.documentElement;
-    void readTheme().then((stored) => {
-      if (!active) return;
-      setTheme(stored);
-      applyTheme(stored, root);
-    });
+    void readTheme()
+      .then((stored) => {
+        if (!active) return;
+        setTheme(stored);
+        applyTheme(stored, root);
+      })
+      .catch(() => undefined);
     const unsubscribe = subscribeTheme((next) => {
       setTheme(next);
       applyTheme(next, root);

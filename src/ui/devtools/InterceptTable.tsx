@@ -63,18 +63,22 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <div className="flex items-center gap-2 border-b px-3 py-2">
-        <Button type="button" variant="outline" size="sm" onClick={onClear}>
+      <div className="flex h-9 items-stretch border-b bg-muted/30">
+        <button
+          type="button"
+          className="border-r border-r-border px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          onClick={onClear}
+        >
           Clear
-        </Button>
+        </button>
         <Input
           aria-label="Filter by URL"
           placeholder="Filter URLs"
-          className="h-8 max-w-xs"
+          className="h-full max-w-xs border-0 border-r border-r-border font-mono shadow-none focus-visible:ring-0"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
         />
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className="ml-auto flex items-center px-3 text-xs text-muted-foreground">
           {visible.length} intercepted
         </span>
       </div>
@@ -100,7 +104,7 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
                 >
                   <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">{formatTime(entry.timestamp)}</td>
                   <td className="px-3 py-1.5">
-                    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                    <span className="bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                       {entry.kind}
                     </span>
                   </td>

@@ -4,27 +4,27 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeSwitch } from './ThemeSwitch';
 
 describe('ThemeSwitch', () => {
-  it('should reflect the current theme as a checked switch when dark', () => {
+  it('should offer switching to light when the current theme is dark', () => {
     render(<ThemeSwitch theme="dark" onChange={vi.fn()} />);
-    expect(screen.getByRole('switch', { name: /dark mode/i })).toBeChecked();
+    expect(screen.getByRole('button', { name: /switch to light theme/i })).toBeInTheDocument();
   });
 
-  it('should reflect light theme as an unchecked switch', () => {
+  it('should offer switching to dark when the current theme is light', () => {
     render(<ThemeSwitch theme="light" onChange={vi.fn()} />);
-    expect(screen.getByRole('switch', { name: /dark mode/i })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /switch to dark theme/i })).toBeInTheDocument();
   });
 
-  it('should call onChange with dark when toggled on from light', () => {
+  it('should call onChange with dark when clicked from light', () => {
     const onChange = vi.fn();
     render(<ThemeSwitch theme="light" onChange={onChange} />);
-    fireEvent.click(screen.getByRole('switch', { name: /dark mode/i }));
+    fireEvent.click(screen.getByRole('button', { name: /switch to dark theme/i }));
     expect(onChange).toHaveBeenCalledWith('dark');
   });
 
-  it('should call onChange with light when toggled off from dark', () => {
+  it('should call onChange with light when clicked from dark', () => {
     const onChange = vi.fn();
     render(<ThemeSwitch theme="dark" onChange={onChange} />);
-    fireEvent.click(screen.getByRole('switch', { name: /dark mode/i }));
+    fireEvent.click(screen.getByRole('button', { name: /switch to light theme/i }));
     expect(onChange).toHaveBeenCalledWith('light');
   });
 });

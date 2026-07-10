@@ -26,9 +26,9 @@ export const RuleList = ({ onEdit, compact = false, filter = '' }: RuleListProps
 
   if (rules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
+      <div className="px-3 py-6 text-center">
         <p className="text-sm font-medium">No rules yet.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Add one to start intercepting requests.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Add one to start intercepting requests.</p>
       </div>
     );
   }
@@ -38,8 +38,8 @@ export const RuleList = ({ onEdit, compact = false, filter = '' }: RuleListProps
 
   if (visible.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center">
-        <p className="text-sm text-muted-foreground">No rules match “{filter.trim()}”.</p>
+      <div className="px-3 py-6 text-center">
+        <p className="text-xs text-muted-foreground">No rules match “{filter.trim()}”.</p>
       </div>
     );
   }
@@ -57,13 +57,13 @@ export const RuleList = ({ onEdit, compact = false, filter = '' }: RuleListProps
   };
 
   return (
-    <ul className="flex list-none flex-col gap-2 p-0">
+    <ul className="flex list-none flex-col p-0">
       {visible.map((rule) => {
         const index = rules.indexOf(rule);
         return (
           <li
             key={rule.id}
-            className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors hover:bg-accent/40"
+            className="group flex items-center gap-2 border-b border-b-border px-2 py-1.5 transition-colors last:border-b-0 hover:bg-accent/40"
           >
             <Switch
               aria-label={`Enabled: ${rule.name}`}
@@ -76,12 +76,12 @@ export const RuleList = ({ onEdit, compact = false, filter = '' }: RuleListProps
               </p>
               {compact ? null : (
                 <p className="truncate text-xs text-muted-foreground">
-                  {rule.matchers.url.pattern || '(any URL)'} · {actionSummary(rule)}
+                  <span className="font-mono">{rule.matchers.url.pattern || '(any URL)'}</span> · {actionSummary(rule)}
                 </p>
               )}
             </div>
             {compact ? null : (
-              <>
+              <div className="hidden shrink-0 items-center gap-0.5 group-focus-within:flex group-hover:flex">
                 <Button
                   type="button"
                   variant="ghost"
@@ -102,9 +102,8 @@ export const RuleList = ({ onEdit, compact = false, filter = '' }: RuleListProps
                 >
                   <ArrowDown />
                 </Button>
-                <Button type="button" variant="outline" size="sm" aria-label={`Edit: ${rule.name}`} onClick={() => onEdit(rule)}>
+                <Button type="button" variant="ghost" size="icon" aria-label={`Edit: ${rule.name}`} onClick={() => onEdit(rule)}>
                   <Pencil />
-                  Edit
                 </Button>
                 <Button
                   type="button"
@@ -124,7 +123,7 @@ export const RuleList = ({ onEdit, compact = false, filter = '' }: RuleListProps
                 >
                   <Trash2 />
                 </Button>
-              </>
+              </div>
             )}
           </li>
         );

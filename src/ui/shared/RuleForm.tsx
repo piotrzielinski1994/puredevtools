@@ -226,7 +226,7 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
             <Input id="rule-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="My rule" />
           </Field>
           <Field htmlFor="rule-url" label="URL">
-            <Input id="rule-url" aria-label="URL pattern" value={pattern} onChange={(event) => setPattern(event.target.value)} placeholder="https://example.com/*" />
+            <Input id="rule-url" aria-label="URL pattern" className="font-mono" value={pattern} onChange={(event) => setPattern(event.target.value)} placeholder="https://example.com/*" />
           </Field>
           <Field htmlFor="rule-kind" label="Match kind">
             <Select id="rule-kind" aria-label="Pattern kind" value={kind} onChange={(event) => setKind(event.target.value as PatternKind)}>
@@ -240,6 +240,7 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
           <Input
             id="rule-test-url"
             aria-label="Test URL"
+            className="font-mono"
             value={testUrl}
             onChange={(event) => setTestUrl(event.target.value)}
             placeholder="https://example.com/path"
@@ -341,7 +342,7 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
       </Accordion>
 
       {warnings.length > 0 ? (
-        <div role="status" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+        <div role="status" className="border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
           <p className="mb-1 font-semibold">Platform limitations on this browser:</p>
           <ul className="list-disc pl-4">
             {warnings.map((warning) => (

@@ -7,6 +7,10 @@ Briefing for Claude Code. Read [README.md](README.md) first - build/dev commands
 - Keep replies short and to the point. No filler, no pleasantries, no recap of what the user just said.
 - Status updates fit in one or two sentences.
 
+## UI / design
+
+- Read [docs/design.md](docs/design.md) before any UI change - the visual contract (ported from `requi`). Key rules: no rounded corners anywhere (`--radius` pinned to `0`; strip `rounded-full`/`rounded-xl`/`rounded-[..]`), flush bars (zero gap/padding, 1px dividers), `font-mono` for data, neutral `--primary`. The token source is `src/ui/globals.css`; all three surfaces (options, popup, DevTools panel) share it.
+
 ## Stack
 
 - **Browser extension**, Manifest V3, one codebase targeting **Chromium (MV3) and Firefox**.

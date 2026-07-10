@@ -27,7 +27,7 @@ npm test
 
 ## Usage
 
-Open the extension popup for a quick rule list and the global on/off switch, or the options page (`Manage rules…`) for the full editor:
+Open the extension popup for a quick rule list and the global on/off switch, or the options page (`Manage rules…`) for the full editor. The options page is a master-detail workspace: the left sidebar always lists every rule, while the right area opens each rule you edit as a tab (open several at once, switch between them; open tabs are session-only). With no tab open it shows a "Select a rule to edit" hint. From here you can:
 
 - Add, edit, delete, enable/disable, and reorder rules (priority).
 - Each rule matches by URL (glob or regex), method, resource type, and optional request-header matchers, then applies request/response header changes, redirect, block, response-body rewrite, status override, or a full mock response.
