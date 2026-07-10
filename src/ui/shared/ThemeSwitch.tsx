@@ -1,5 +1,4 @@
 import { Moon, Sun } from 'lucide-react';
-import { Switch } from '../components/ui/switch';
 import type { Theme } from './theme';
 
 export type ThemeSwitchProps = {
@@ -10,13 +9,13 @@ export type ThemeSwitchProps = {
 export const ThemeSwitch = ({ theme, onChange }: ThemeSwitchProps) => {
   const isDark = theme === 'dark';
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium">
+    <button
+      type="button"
+      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      className="text-muted-foreground hover:text-foreground"
+      onClick={() => onChange(isDark ? 'light' : 'dark')}
+    >
       {isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
-      <Switch
-        aria-label="Dark mode"
-        checked={isDark}
-        onChange={() => onChange(isDark ? 'light' : 'dark')}
-      />
-    </label>
+    </button>
   );
 };

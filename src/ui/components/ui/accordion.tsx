@@ -11,7 +11,7 @@ export type AccordionProps = {
 export const Accordion = ({ title, defaultOpen = false, children }: AccordionProps) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-lg border bg-card/40">
+    <div className="border bg-card/40">
       <button
         type="button"
         aria-expanded={open}
