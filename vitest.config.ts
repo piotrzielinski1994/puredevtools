@@ -28,6 +28,7 @@ export default defineConfig({
         'src/engine/firefox/types.ts',
         'src/ui/shared/gateway.ts',
         'src/ui/shared/createGateway.ts',
+        'src/ui/shared/test-gateway.ts',
         'src/ui/components/**',
         'src/engine/page/types.ts',
         'src/content/page-main.ts',

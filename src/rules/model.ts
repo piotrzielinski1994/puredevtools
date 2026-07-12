@@ -26,10 +26,23 @@ export type Rule = {
   id: string;
   name: string;
   enabled: boolean;
-  priority: number;
   matchers: Matchers;
   actions: RuleAction[];
 };
+
+export type RuleNode = { kind: 'rule'; rule: Rule };
+
+export type FolderNode = {
+  kind: 'folder';
+  id: string;
+  name: string;
+  collapsed: boolean;
+  children: TreeNode[];
+};
+
+export type TreeNode = RuleNode | FolderNode;
+
+export type Workspace = TreeNode[];
 
 export type RequestDescriptor = {
   url: string;

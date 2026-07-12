@@ -1,42 +1,90 @@
 import { STORAGE_KEYS } from '../shared/constants';
-import type { Rule } from './model';
+import type { Rule, TreeNode } from './model';
+import {
+  addFolderNode,
+  flatten,
+  insertNode,
+  moveNode as moveTreeNode,
+  newFolderId,
+  removeNode as removeTreeNode,
+  renameFolder as renameTreeFolder,
+  toggleCollapse as toggleTreeCollapse,
+  updateRuleInTree,
+  type MoveTarget,
+} from './tree';
 
 export type StorageArea = {
   get(keys: string[]): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
 };
 
-const byPriority = (a: Rule, b: Rule): number => a.priority - b.priority;
+const isRuleNode = (value: unknown): value is TreeNode =>
+  typeof value === 'object' && value !== null && 'kind' in value;
+
+const stripPriority = (rule: Record<string, unknown>): Rule => {
+  const rest = { ...rule };
+  delete rest.priority;
+  return rest as unknown as Rule;
+};
+
+const migrateLegacy = (rules: unknown[]): TreeNode[] =>
+  rules.map((rule) => ({ kind: 'rule', rule: stripPriority(rule as Record<string, unknown>) }));
 
 export class RuleRepository {
   constructor(private readonly area: StorageArea) {}
 
-  async getAll(): Promise<Rule[]> {
+  async getWorkspace(): Promise<TreeNode[]> {
     const stored = await this.area.get([STORAGE_KEYS.rules]);
-    const rules = stored[STORAGE_KEYS.rules];
-    if (!Array.isArray(rules)) return [];
-    return [...(rules as Rule[])].sort(byPriority);
+    const value = stored[STORAGE_KEYS.rules];
+    if (!Array.isArray(value)) return [];
+    if (value.length === 0) return [];
+    if (value.every((entry) => isRuleNode(entry))) return value as TreeNode[];
+    return migrateLegacy(value);
   }
 
-  async add(rule: Rule): Promise<void> {
-    const rules = await this.getAll();
-    await this.persist([...rules, rule]);
+  async getAll(): Promise<Rule[]> {
+    return flatten(await this.getWorkspace());
   }
 
-  async update(rule: Rule): Promise<void> {
-    const rules = await this.getAll();
-    await this.persist(rules.map((existing) => (existing.id === rule.id ? rule : existing)));
+  async saveWorkspace(tree: TreeNode[]): Promise<void> {
+    await this.persist(tree);
   }
 
-  async remove(id: string): Promise<void> {
-    const rules = await this.getAll();
-    await this.persist(rules.filter((rule) => rule.id !== id));
+  async addRuleNode(rule: Rule): Promise<void> {
+    const tree = await this.getWorkspace();
+    await this.persist(insertNode(tree, { kind: 'rule', rule }, { parentId: null, index: tree.length }));
   }
 
-  async reorder(ids: string[]): Promise<void> {
-    const rules = await this.getAll();
-    const reordered = rules.map((rule) => ({ ...rule, priority: ids.indexOf(rule.id) }));
-    await this.persist(reordered);
+  async updateRule(rule: Rule): Promise<void> {
+    const tree = await this.getWorkspace();
+    await this.persist(updateRuleInTree(tree, rule));
+  }
+
+  async removeNode(id: string): Promise<void> {
+    const tree = await this.getWorkspace();
+    await this.persist(removeTreeNode(tree, id).tree);
+  }
+
+  async moveNode(dragId: string, target: MoveTarget): Promise<void> {
+    const tree = await this.getWorkspace();
+    await this.persist(moveTreeNode(tree, dragId, target));
+  }
+
+  async addFolder(parentId: string | null): Promise<string> {
+    const tree = await this.getWorkspace();
+    const id = newFolderId(tree);
+    await this.persist(addFolderNode(tree, parentId, id));
+    return id;
+  }
+
+  async renameFolder(id: string, name: string): Promise<void> {
+    const tree = await this.getWorkspace();
+    await this.persist(renameTreeFolder(tree, id, name));
+  }
+
+  async toggleCollapse(id: string): Promise<void> {
+    const tree = await this.getWorkspace();
+    await this.persist(toggleTreeCollapse(tree, id));
   }
 
   async getGlobalEnabled(): Promise<boolean> {
@@ -49,11 +97,11 @@ export class RuleRepository {
     await this.area.set({ [STORAGE_KEYS.globalEnabled]: enabled });
   }
 
-  async replaceAll(rules: Rule[]): Promise<void> {
-    await this.persist([...rules].sort(byPriority));
+  async replaceAll(tree: TreeNode[]): Promise<void> {
+    await this.persist(tree);
   }
 
-  private async persist(rules: Rule[]): Promise<void> {
-    await this.area.set({ [STORAGE_KEYS.rules]: rules });
+  private async persist(tree: TreeNode[]): Promise<void> {
+    await this.area.set({ [STORAGE_KEYS.rules]: tree });
   }
 }

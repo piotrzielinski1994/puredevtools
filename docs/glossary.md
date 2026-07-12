@@ -23,3 +23,19 @@ _Avoid_: capture (reserve for read-only observation), proxying
 ### Response override
 Replacing the response headers and/or body a page receives, after forwarding the real request. The only tampering ReqHook does; the original status is preserved.
 _Avoid_: mock, stub, tamper (rewrite = the body-only sub-action of an override)
+
+### Workspace
+The ordered tree of nodes that holds all rules - the single source of truth the UI edits and storage persists. A mix of folders and loose rules at the root, nested arbitrarily deep.
+_Avoid_: rule list, ruleset, collection (reserve "list" for the flattened form)
+
+### Tree node
+One entry in the workspace: either a Folder node or a Rule node (discriminated on `kind`).
+_Avoid_: item, entry, element
+
+### Folder
+A named, collapsible tree node that groups other tree nodes (rules and subfolders). Organizational only - it carries no matching or override behavior of its own.
+_Avoid_: group, directory, category, bucket
+
+### Flatten
+Producing the ordered `Rule[]` the engine matches against by walking the workspace depth-first, pre-order. A folder contributes its rules in its own slot, recursively; collapsed state does not affect the result. Flatten order = match precedence (first enabled match wins).
+_Avoid_: serialize, resolve, expand

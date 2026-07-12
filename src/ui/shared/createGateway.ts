@@ -1,5 +1,6 @@
 import browser from 'webextension-polyfill';
-import type { Rule } from '../../rules/model';
+import type { TreeNode } from '../../rules/model';
+import { cloneRule } from '../../rules/clone';
 import { exportRules, importRules } from '../../rules/portable';
 import { mergeRules } from '../../rules/merge';
 import { RuleRepository } from '../../rules/storage';
@@ -18,32 +19,39 @@ const download = (json: string) => {
 export const createGateway = (): UiGateway => {
   const repository = new RuleRepository(browser.storage.local);
 
-  const persist = async (rules: Rule[], globalEnabled: boolean) => {
-    await repository.replaceAll(rules);
+  const persist = async (workspace: TreeNode[], globalEnabled: boolean) => {
+    await repository.replaceAll(workspace);
     await repository.setGlobalEnabled(globalEnabled);
   };
 
   return {
-    getAll: () => repository.getAll(),
+    getWorkspace: () => repository.getWorkspace(),
     getGlobalEnabled: () => repository.getGlobalEnabled(),
-    add: (rule) => repository.add(rule),
-    update: (rule) => repository.update(rule),
-    remove: (id) => repository.remove(id),
-    reorder: (ids) => repository.reorder(ids),
+    addRule: (rule) => repository.addRuleNode(rule),
+    updateRule: (rule) => repository.updateRule(rule),
+    duplicateRule: (rule, newId) => repository.addRuleNode(cloneRule(rule, newId)),
+    removeNode: (id) => repository.removeNode(id),
+    moveNode: (dragId, target) => repository.moveNode(dragId, target),
+    addFolder: (parentId) => repository.addFolder(parentId),
+    renameFolder: (id, name) => repository.renameFolder(id, name),
+    toggleCollapse: (id) => repository.toggleCollapse(id),
     setGlobalEnabled: (enabled) => repository.setGlobalEnabled(enabled),
     exportToFile: async () => {
-      const [rules, globalEnabled] = await Promise.all([repository.getAll(), repository.getGlobalEnabled()]);
-      download(exportRules({ version: 1, globalEnabled, rules }));
+      const [workspace, globalEnabled] = await Promise.all([
+        repository.getWorkspace(),
+        repository.getGlobalEnabled(),
+      ]);
+      download(exportRules({ globalEnabled, workspace }));
     },
     importFromFile: async (json, mode): Promise<ImportOutcome> => {
       const result = importRules(json);
       if (!result.ok) return { ok: false, error: result.error };
       if (mode === 'merge') {
-        const current = await repository.getAll();
-        await persist(mergeRules(current, result.state.rules), await repository.getGlobalEnabled());
+        const current = await repository.getWorkspace();
+        await persist(mergeRules(current, result.state.workspace), await repository.getGlobalEnabled());
         return { ok: true };
       }
-      await persist(result.state.rules, result.state.globalEnabled);
+      await persist(result.state.workspace, result.state.globalEnabled);
       return { ok: true };
     },
   };

@@ -34,6 +34,7 @@ Briefing for Claude Code. Read [README.md](README.md) first - build/dev commands
 
 - Every message between contexts (page sink -> content bridge -> background relay -> DevTools panel) is validated with `zod` on receipt. Never trust an unparsed payload.
 - Rules are data (serializable, `zod`-schema'd in `src/rules/schema.ts`), stored via `browser.storage`; the page layer applies rules, the UI edits them. Import/export round-trips through the same schema. The matchers schema is `.strict()` so a stored/imported rule carrying a removed field (e.g. `resourceTypes`) fails import.
+- The stored source of truth is a **workspace tree** (`FolderNode | RuleNode`, arbitrary nesting, mixed root - `src/rules/tree.ts`, `schema.ts`), NOT a flat `Rule[]`. `RuleRepository.getAll()` returns `flatten(workspace)` (DFS pre-order), so the engine (`decide.ts` first-match over the ordered array), `content/bridge.ts`, and `match.ts` stay tree-agnostic - preserve that flat ordered contract when touching storage. `Rule` has no `priority`; tree position is the sole ordering and equals match precedence. The sidebar DnD ports requi with `@dnd-kit/core` core primitives only (per-row `useDraggable`+`useDroppable` + manual drop projection in `tree-locate.ts`), never `@dnd-kit/sortable`. Deleting a folder deletes its whole subtree. See [docs/adr.md](docs/adr.md) 2026-07-12.
 
 ## Learning from conversation
 

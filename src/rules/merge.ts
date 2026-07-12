@@ -1,20 +1,41 @@
-import type { Rule } from './model';
+import type { TreeNode } from './model';
+import { nodeId } from './tree';
 
-export const mergeRules = (current: Rule[], imported: Rule[]): Rule[] => {
-  const taken = new Set(current.map((rule) => rule.id));
-  const appended = imported.map((rule) => {
-    if (!taken.has(rule.id)) {
-      taken.add(rule.id);
-      return rule;
-    }
-    let suffix = 1;
-    let newId = `${rule.id}-imported`;
-    while (taken.has(newId)) {
-      suffix += 1;
-      newId = `${rule.id}-imported-${suffix}`;
-    }
-    taken.add(newId);
-    return { ...rule, id: newId };
-  });
-  return [...current, ...appended].map((rule, index) => ({ ...rule, priority: index }));
+const uniqueId = (id: string, taken: Set<string>): string => {
+  if (!taken.has(id)) {
+    taken.add(id);
+    return id;
+  }
+  const base = `${id}-imported`;
+  let suffix = 1;
+  let candidate = base;
+  while (taken.has(candidate)) {
+    suffix += 1;
+    candidate = `${base}-${suffix}`;
+  }
+  taken.add(candidate);
+  return candidate;
+};
+
+const reId = (node: TreeNode, taken: Set<string>): TreeNode => {
+  if (node.kind === 'rule') {
+    return { kind: 'rule', rule: { ...node.rule, id: uniqueId(node.rule.id, taken) } };
+  }
+  return {
+    ...node,
+    id: uniqueId(node.id, taken),
+    children: node.children.map((child) => reId(child, taken)),
+  };
+};
+
+export const mergeRules = (current: TreeNode[], imported: TreeNode[]): TreeNode[] => {
+  const taken = new Set<string>();
+  const collect = (nodes: TreeNode[]): void =>
+    nodes.forEach((node) => {
+      taken.add(nodeId(node));
+      if (node.kind === 'folder') collect(node.children);
+    });
+  collect(current);
+  const appended = imported.map((node) => reId(node, taken));
+  return [...current, ...appended];
 };

@@ -9,7 +9,6 @@ const buildRule = (
   id: 'rule-1',
   name: 'test rule',
   enabled: true,
-  priority: 0,
   matchers,
   actions,
 });
