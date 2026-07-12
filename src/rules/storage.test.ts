@@ -30,7 +30,7 @@ const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
   enabled: true,
   priority: 0,
   matchers: { url: { pattern: 'https://api.example.com/*', kind: 'glob' } },
-  actions: [{ type: 'block' }],
+  actions: [{ type: 'rewriteBody', body: 'x' }],
   ...overrides,
 });
 

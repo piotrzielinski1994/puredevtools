@@ -10,9 +10,8 @@ const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
   matchers: {
     url: { pattern: 'https://api.x/*', kind: 'glob' },
     methods: ['GET', 'POST'],
-    requestHeaders: [{ name: 'authorization', contains: 'Bearer' }],
   },
-  actions: [{ type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] }],
+  actions: [{ type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] }],
   ...overrides,
 });
 
@@ -30,7 +29,7 @@ describe('cloneRule', () => {
     expect(clone.matchers.url).toEqual({ pattern: 'https://api.x/*', kind: 'glob' });
     expect(clone.matchers.methods).toEqual(['GET', 'POST']);
     expect(clone.actions).toEqual([
-      { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+      { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
     ]);
   });
 
@@ -38,7 +37,7 @@ describe('cloneRule', () => {
     const original = buildRule();
     const clone = cloneRule(original, 'rule-2');
     clone.matchers.methods?.push('DELETE');
-    clone.actions.push({ type: 'block' });
+    clone.actions.push({ type: 'rewriteBody', body: 'z' });
     expect(original.matchers.methods).toEqual(['GET', 'POST']);
     expect(original.actions).toHaveLength(1);
   });

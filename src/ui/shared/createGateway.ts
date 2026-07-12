@@ -1,13 +1,9 @@
 import browser from 'webextension-polyfill';
-import type { ApplyDiagnostics, Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import { exportRules, importRules } from '../../rules/portable';
 import { mergeRules } from '../../rules/merge';
 import { RuleRepository } from '../../rules/storage';
-import type { Message, MessageResponse } from '../../shared/messages';
 import type { ImportOutcome, UiGateway } from './gateway';
-
-const DISABLED_CAPABILITIES: Capabilities = { responseBodyRewrite: false, artificialLatency: false };
 
 const download = (json: string) => {
   const blob = new Blob([json], { type: 'application/json' });
@@ -30,14 +26,6 @@ export const createGateway = (): UiGateway => {
   return {
     getAll: () => repository.getAll(),
     getGlobalEnabled: () => repository.getGlobalEnabled(),
-    getCapabilities: async (): Promise<Capabilities> => {
-      const response = (await browser.runtime.sendMessage({ type: 'getCapabilities' } satisfies Message)) as MessageResponse;
-      return response.ok && response.type === 'capabilities' ? response.capabilities : DISABLED_CAPABILITIES;
-    },
-    getDiagnostics: async (): Promise<ApplyDiagnostics> => {
-      const response = (await browser.runtime.sendMessage({ type: 'getDiagnostics' } satisfies Message)) as MessageResponse;
-      return response.ok && response.type === 'diagnostics' ? response.diagnostics : { errors: [], unsupported: [] };
-    },
     add: (rule) => repository.add(rule),
     update: (rule) => repository.update(rule),
     remove: (id) => repository.remove(id),

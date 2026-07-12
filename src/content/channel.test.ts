@@ -23,7 +23,7 @@ describe('isRulesSyncMessage', () => {
 });
 
 describe('isReportChannelMessage', () => {
-  const report: InterceptReport = { kind: 'mock', method: 'GET', url: 'https://api.x/u', status: 200, body: '{}' };
+  const report: InterceptReport = { kind: 'rewrite', method: 'GET', url: 'https://api.x/u', status: 200, body: '{}' };
 
   it('should accept a well-formed report message', () => {
     expect(isReportChannelMessage({ source: REPORT_CHANNEL, report })).toBe(true);

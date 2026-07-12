@@ -6,7 +6,7 @@ import { InterceptTable, formatTime, toCurl } from './InterceptTable';
 
 const buildEntry = (overrides: Partial<PanelEntry> = {}): PanelEntry => ({
   id: 1,
-  kind: 'mock',
+  kind: 'rewrite',
   method: 'GET',
   url: 'https://api.x/users',
   status: 201,
@@ -16,9 +16,9 @@ const buildEntry = (overrides: Partial<PanelEntry> = {}): PanelEntry => ({
 });
 
 const threeEntries = (): PanelEntry[] => [
-  buildEntry({ id: 1, kind: 'mock', method: 'GET', url: 'https://api.x/users', status: 201, body: '{"a":1}' }),
-  buildEntry({ id: 2, kind: 'rewrite', method: 'POST', url: 'https://api.x/orders', status: 200, body: 'plain text' }),
-  buildEntry({ id: 3, kind: 'mock', method: 'DELETE', url: 'https://cdn.y/asset.js', status: 404, body: '{"b":2}' }),
+  buildEntry({ id: 1, method: 'GET', url: 'https://api.x/users', status: 201, body: '{"a":1}' }),
+  buildEntry({ id: 2, method: 'POST', url: 'https://api.x/orders', status: 200, body: 'plain text' }),
+  buildEntry({ id: 3, method: 'DELETE', url: 'https://cdn.y/asset.js', status: 404, body: '{"b":2}' }),
 ];
 
 const dataRows = (): HTMLElement[] =>

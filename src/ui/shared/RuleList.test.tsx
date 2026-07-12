@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import type { ApplyDiagnostics, Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import type { ImportOutcome, UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
@@ -12,15 +11,13 @@ const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
   enabled: true,
   priority: 0,
   matchers: { url: { pattern: 'https://api.example.com/*', kind: 'glob' } },
-  actions: [{ type: 'block' }],
+  actions: [{ type: 'rewriteBody', body: 'x' }],
   ...overrides,
 });
 
 type FakeGateway = UiGateway & {
   getAll: ReturnType<typeof vi.fn>;
   getGlobalEnabled: ReturnType<typeof vi.fn>;
-  getCapabilities: ReturnType<typeof vi.fn>;
-  getDiagnostics: ReturnType<typeof vi.fn>;
   add: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -30,17 +27,9 @@ type FakeGateway = UiGateway & {
   importFromFile: ReturnType<typeof vi.fn>;
 };
 
-const createFakeGateway = (
-  rules: Rule[],
-  capabilities: Capabilities = { responseBodyRewrite: true, artificialLatency: true },
-  globalEnabled = true,
-): FakeGateway => ({
+const createFakeGateway = (rules: Rule[], globalEnabled = true): FakeGateway => ({
   getAll: vi.fn<() => Promise<Rule[]>>().mockResolvedValue(rules),
   getGlobalEnabled: vi.fn<() => Promise<boolean>>().mockResolvedValue(globalEnabled),
-  getCapabilities: vi.fn<() => Promise<Capabilities>>().mockResolvedValue(capabilities),
-  getDiagnostics: vi
-    .fn<() => Promise<ApplyDiagnostics>>()
-    .mockResolvedValue({ errors: [], unsupported: [] }),
   add: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
   update: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
   remove: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),
@@ -63,12 +52,15 @@ const renderList = (gateway: UiGateway, onEdit = vi.fn()) =>
     </RulesProvider>,
   );
 
+const openMenu = (row: HTMLElement) => fireEvent.contextMenu(row);
+const menuItem = (name: RegExp) => screen.getByRole('menuitem', { name });
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe('RuleList', () => {
-  it('should render all rules in priority order with controls per row (AC-001)', async () => {
+  it('should render all rules in priority order with a switch per row (AC-001)', async () => {
     const gateway = createFakeGateway(threeRules());
     renderList(gateway);
 
@@ -79,13 +71,57 @@ describe('RuleList', () => {
 
     const rows = screen.getAllByRole('listitem');
     expect(rows).toHaveLength(3);
+    expect(within(rows[0]).getByRole('switch', { name: /enabled/i })).toBeInTheDocument();
+  });
 
-    const firstRow = within(rows[0]);
-    expect(firstRow.getByRole('button', { name: /edit/i })).toBeInTheDocument();
-    expect(firstRow.getByRole('button', { name: /delete/i })).toBeInTheDocument();
-    expect(firstRow.getByRole('button', { name: /move up/i })).toBeInTheDocument();
-    expect(firstRow.getByRole('button', { name: /move down/i })).toBeInTheDocument();
-    expect(firstRow.getByRole('switch', { name: /enabled/i })).toBeInTheDocument();
+  it('should not show any row action until the row is right-clicked (AC-001)', async () => {
+    const gateway = createFakeGateway(threeRules());
+    renderList(gateway);
+
+    await screen.findByText('alpha rule');
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /edit/i })).not.toBeInTheDocument();
+  });
+
+  it('should open a context menu with all row actions on right-click (AC-001)', async () => {
+    const gateway = createFakeGateway(threeRules());
+    renderList(gateway);
+
+    await screen.findByText('alpha rule');
+
+    openMenu(screen.getAllByRole('listitem')[0]);
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(menuItem(/move up/i)).toBeInTheDocument();
+    expect(menuItem(/move down/i)).toBeInTheDocument();
+    expect(menuItem(/edit/i)).toBeInTheDocument();
+    expect(menuItem(/duplicate/i)).toBeInTheDocument();
+    expect(menuItem(/delete/i)).toBeInTheDocument();
+  });
+
+  it('should close the context menu on Escape', async () => {
+    const gateway = createFakeGateway(threeRules());
+    renderList(gateway);
+
+    await screen.findByText('alpha rule');
+    openMenu(screen.getAllByRole('listitem')[0]);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('should call onEdit when the row name is clicked (AC-001)', async () => {
+    const gateway = createFakeGateway(threeRules());
+    const onEdit = vi.fn();
+    renderList(gateway, onEdit);
+
+    await screen.findByText('alpha rule');
+    fireEvent.click(screen.getByRole('button', { name: /edit: alpha rule/i }));
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect((onEdit.mock.calls[0][0] as Rule).id).toBe('a');
   });
 
   it('should call gateway.update with enabled flipped when the toggle is clicked (AC-002)', async () => {
@@ -95,8 +131,7 @@ describe('RuleList', () => {
     await screen.findByText('alpha rule');
 
     const rows = screen.getAllByRole('listitem');
-    const toggle = within(rows[0]).getByRole('switch', { name: /enabled/i });
-    fireEvent.click(toggle);
+    fireEvent.click(within(rows[0]).getByRole('switch', { name: /enabled/i }));
 
     await waitFor(() => expect(gateway.update).toHaveBeenCalledTimes(1));
     const [updated] = gateway.update.mock.calls[0] as [Rule];
@@ -104,30 +139,32 @@ describe('RuleList', () => {
     expect(updated.enabled).toBe(false);
   });
 
-  it('should call gateway.reorder with the new id order when move up is clicked (AC-005)', async () => {
+  it('should call gateway.reorder with the new id order when Move up is chosen (AC-005)', async () => {
     const gateway = createFakeGateway(threeRules());
     renderList(gateway);
 
     await screen.findByText('alpha rule');
 
-    const rows = screen.getAllByRole('listitem');
-    const moveUp = within(rows[1]).getByRole('button', { name: /move up/i });
-    fireEvent.click(moveUp);
+    openMenu(screen.getAllByRole('listitem')[1]);
+    fireEvent.click(menuItem(/move up/i));
 
     await waitFor(() => expect(gateway.reorder).toHaveBeenCalledTimes(1));
     const [ids] = gateway.reorder.mock.calls[0] as [string[]];
     expect(ids).toEqual(['b', 'a', 'c']);
   });
 
-  it('should disable move up on the first row and move down on the last row (AC-005 boundary)', async () => {
+  it('should disable Move up on the first row and Move down on the last row (AC-005 boundary)', async () => {
     const gateway = createFakeGateway(threeRules());
     renderList(gateway);
 
     await screen.findByText('alpha rule');
 
-    const rows = screen.getAllByRole('listitem');
-    expect(within(rows[0]).getByRole('button', { name: /move up/i })).toBeDisabled();
-    expect(within(rows[2]).getByRole('button', { name: /move down/i })).toBeDisabled();
+    openMenu(screen.getAllByRole('listitem')[0]);
+    expect(menuItem(/move up/i)).toBeDisabled();
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    openMenu(screen.getAllByRole('listitem')[2]);
+    expect(menuItem(/move down/i)).toBeDisabled();
   });
 
   it('should call gateway.remove after confirm returns true (AC-006)', async () => {
@@ -137,8 +174,8 @@ describe('RuleList', () => {
 
     await screen.findByText('alpha rule');
 
-    const rows = screen.getAllByRole('listitem');
-    fireEvent.click(within(rows[0]).getByRole('button', { name: /delete/i }));
+    openMenu(screen.getAllByRole('listitem')[0]);
+    fireEvent.click(menuItem(/delete/i));
 
     await waitFor(() => expect(gateway.remove).toHaveBeenCalledTimes(1));
     expect(gateway.remove).toHaveBeenCalledWith('a');
@@ -151,8 +188,8 @@ describe('RuleList', () => {
 
     await screen.findByText('alpha rule');
 
-    const rows = screen.getAllByRole('listitem');
-    fireEvent.click(within(rows[0]).getByRole('button', { name: /delete/i }));
+    openMenu(screen.getAllByRole('listitem')[0]);
+    fireEvent.click(menuItem(/delete/i));
 
     expect(gateway.remove).not.toHaveBeenCalled();
   });
@@ -164,7 +201,7 @@ describe('RuleList', () => {
     expect(await screen.findByText(/no rules/i)).toBeInTheDocument();
   });
 
-  it('should render only the name and enabled switch per row in compact mode', async () => {
+  it('should not open a context menu in compact mode', async () => {
     const gateway = createFakeGateway(threeRules());
     render(
       <RulesProvider gateway={gateway}>
@@ -175,11 +212,9 @@ describe('RuleList', () => {
     await screen.findByText('alpha rule');
 
     const rows = screen.getAllByRole('listitem');
-    const firstRow = within(rows[0]);
-    expect(firstRow.getByRole('switch', { name: /enabled/i })).toBeInTheDocument();
-    expect(firstRow.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
-    expect(firstRow.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
-    expect(firstRow.queryByRole('button', { name: /move up/i })).not.toBeInTheDocument();
+    expect(within(rows[0]).getByRole('switch', { name: /enabled/i })).toBeInTheDocument();
+    openMenu(rows[0]);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('should still toggle enabled in compact mode', async () => {
@@ -200,14 +235,14 @@ describe('RuleList', () => {
     expect(updated.enabled).toBe(false);
   });
 
-  it('should add a cloned rule with a fresh id and (copy) name when Duplicate is clicked', async () => {
+  it('should add a cloned rule with a fresh id and (copy) name when Duplicate is chosen', async () => {
     const gateway = createFakeGateway(threeRules());
     renderList(gateway);
 
     await screen.findByText('alpha rule');
 
-    const rows = screen.getAllByRole('listitem');
-    fireEvent.click(within(rows[0]).getByRole('button', { name: /duplicate/i }));
+    openMenu(screen.getAllByRole('listitem')[0]);
+    fireEvent.click(menuItem(/duplicate/i));
 
     await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
     const [added] = gateway.add.mock.calls[0] as [Rule];
@@ -250,7 +285,7 @@ describe('RuleList', () => {
     );
 
     await screen.findByText('alpha rule');
-    const rows = screen.getAllByRole('listitem');
-    expect(within(rows[1]).getByRole('button', { name: /move up/i })).toBeDisabled();
+    openMenu(screen.getAllByRole('listitem')[1]);
+    expect(menuItem(/move up/i)).toBeDisabled();
   });
 });

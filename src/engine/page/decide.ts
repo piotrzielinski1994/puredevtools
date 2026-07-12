@@ -8,20 +8,15 @@ const firstAction = <T extends RuleAction['type']>(rule: Rule, type: T): Extract
   rule.actions.find((action): action is Extract<RuleAction, { type: T }> => action.type === type);
 
 const toInterception = (rule: Rule): Interception => {
-  const mock = firstAction(rule, 'mock');
-  if (mock) {
-    return {
-      kind: 'mock',
-      status: mock.status,
-      body: mock.body,
-      contentType: mock.contentType,
-      headers: mock.headers,
-      latencyMs: mock.latencyMs,
-    };
-  }
+  const headers = firstAction(rule, 'modifyResponseHeaders');
   const rewrite = firstAction(rule, 'rewriteBody');
-  if (rewrite) return { kind: 'rewrite', body: rewrite.body, contentType: rewrite.contentType };
-  return PASSTHROUGH;
+  if (!headers && !rewrite) return PASSTHROUGH;
+  return {
+    kind: 'override',
+    headerOps: headers?.headers ?? [],
+    body: rewrite?.body,
+    contentType: rewrite?.contentType,
+  };
 };
 
 export const decideInterception = (

@@ -25,9 +25,9 @@ describe('buildManifest', () => {
     expect(chrome.description).toBe(firefox.description);
   });
 
-  it('should request DNR permissions on chrome and webRequest permissions on firefox', () => {
-    expect(buildManifest('chrome').permissions).toContain('declarativeNetRequest');
-    expect(buildManifest('firefox').permissions).toContain('webRequest');
+  it('should request only the storage permission on both engines (AC-008)', () => {
+    expect(buildManifest('chrome').permissions).toEqual(['storage']);
+    expect(buildManifest('firefox').permissions).toEqual(['storage']);
   });
 
   it('should not add gecko settings to the chrome manifest', () => {

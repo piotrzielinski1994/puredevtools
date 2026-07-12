@@ -10,7 +10,7 @@ const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
   enabled: true,
   priority: 0,
   matchers: { url: { pattern: 'https://api.example.com/*', kind: 'glob' } },
-  actions: [{ type: 'block' }],
+  actions: [{ type: 'rewriteBody', body: 'x' }],
   ...overrides,
 });
 
@@ -86,6 +86,20 @@ describe('importRules', () => {
     const result = importRules(JSON.stringify(state));
     expect(result.ok).toBe(false);
   });
+
+  it('should reject a portable file carrying a removed action type such as mock (AC-010, TC-007)', () => {
+    const json =
+      '{"version":1,"globalEnabled":true,"rules":[{"id":"a","name":"x","enabled":true,"priority":0,"matchers":{"url":{"pattern":"https://api.x/*","kind":"glob"}},"actions":[{"type":"mock","status":200,"headers":[],"body":"{}"}]}]}';
+    const result = importRules(json);
+    expect(result.ok).toBe(false);
+  });
+
+  it('should reject a portable file carrying a removed matcher such as resourceTypes (AC-010)', () => {
+    const json =
+      '{"version":1,"globalEnabled":true,"rules":[{"id":"a","name":"x","enabled":true,"priority":0,"matchers":{"url":{"pattern":"https://api.x/*","kind":"glob"},"resourceTypes":["image"]},"actions":[{"type":"rewriteBody","body":"x"}]}]}';
+    const result = importRules(json);
+    expect(result.ok).toBe(false);
+  });
 });
 
 describe('export -> import round-trip', () => {
@@ -99,14 +113,13 @@ describe('export -> import round-trip', () => {
           matchers: {
             url: { pattern: '^https://api\\.test/', kind: 'regex' },
             methods: ['GET', 'POST'],
-            requestHeaders: [{ name: 'authorization', contains: 'Bearer' }],
           },
-          actions: [{ type: 'redirect', url: 'https://mock.test' }],
+          actions: [{ type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] }],
         }),
         buildRule({
           id: 'r2',
           priority: 1,
-          actions: [{ type: 'mock', status: 200, headers: [], body: '{}', contentType: 'application/json' }],
+          actions: [{ type: 'rewriteBody', body: '{}', contentType: 'application/json' }],
         }),
       ],
     });

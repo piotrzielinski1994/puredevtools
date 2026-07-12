@@ -28,7 +28,7 @@ const makePort = (): FakePort => {
 };
 
 const buildReport = (overrides: Partial<InterceptReport> = {}): InterceptReport => ({
-  kind: 'mock',
+  kind: 'rewrite',
   method: 'GET',
   url: 'https://api.example.com/users',
   status: 200,

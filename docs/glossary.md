@@ -17,13 +17,9 @@ A user-defined, serializable declaration that some traffic matching a condition 
 _Avoid_: filter, hook, config entry, modifier
 
 ### Interception
-Catching a request or response in flight so it can be inspected or changed before it reaches its destination (server or page).
+Catching a `fetch`/`XHR` response in flight so it can be changed before the page's callback sees it. The real request is always forwarded first.
 _Avoid_: capture (reserve for read-only observation), proxying
 
-### Tamper
-Editing an intercepted request or response - its method, URL, headers, or body - before it continues.
-_Avoid_: mutate, patch, override (override = stub)
-
-### Stub
-Short-circuiting a request with a canned response so the real network call never happens.
-_Avoid_: mock, fake, override
+### Response override
+Replacing the response headers and/or body a page receives, after forwarding the real request. The only tampering ReqHook does; the original status is preserved.
+_Avoid_: mock, stub, tamper (rewrite = the body-only sub-action of an override)
