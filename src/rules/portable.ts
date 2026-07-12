@@ -1,12 +1,10 @@
-import { EXPORT_VERSION } from '../shared/constants';
 import { portableSchema, type PortableState } from './schema';
 
 export type ImportResult =
   | { ok: true; state: PortableState }
   | { ok: false; error: string };
 
-export const exportRules = (state: PortableState): string =>
-  JSON.stringify({ ...state, version: EXPORT_VERSION });
+export const exportRules = (state: PortableState): string => JSON.stringify(state);
 
 export const importRules = (json: string): ImportResult => {
   const parsed = parseJson(json);

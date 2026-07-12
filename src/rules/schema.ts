@@ -1,12 +1,16 @@
 import { z } from 'zod';
 import type {
+  FolderNode,
   HeaderOp,
   HttpMethod,
   Matchers,
   PatternKind,
   Rule,
   RuleAction,
+  RuleNode,
+  TreeNode,
 } from './model';
+import { walkRuleIds } from './tree';
 
 const patternKind = z.enum(['glob', 'regex']) satisfies z.ZodType<PatternKind>;
 
@@ -37,23 +41,47 @@ const ruleAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('rewriteBody'), body: z.string(), contentType: z.string().optional() }),
 ]) satisfies z.ZodType<RuleAction>;
 
-export const ruleSchema = z.object({
-  id: z.string().min(1),
-  name: z.string(),
-  enabled: z.boolean(),
-  priority: z.number().int(),
-  matchers,
-  actions: z.array(ruleAction),
-}) satisfies z.ZodType<Rule>;
+export const ruleSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string(),
+    enabled: z.boolean(),
+    matchers,
+    actions: z.array(ruleAction),
+  })
+  .strict() satisfies z.ZodType<Rule>;
+
+const ruleNodeSchema = z
+  .object({ kind: z.literal('rule'), rule: ruleSchema })
+  .strict() satisfies z.ZodType<RuleNode>;
+
+const folderNodeSchema: z.ZodType<FolderNode> = z.lazy(() =>
+  z
+    .object({
+      kind: z.literal('folder'),
+      id: z.string().min(1),
+      name: z.string(),
+      collapsed: z.boolean(),
+      children: z.array(treeNodeSchema),
+    })
+    .strict(),
+);
+
+const treeNodeSchema: z.ZodType<TreeNode> = z.union([ruleNodeSchema, folderNodeSchema]);
+
+export const workspaceSchema = z.array(treeNodeSchema);
 
 export const portableSchema = z
   .object({
-    version: z.number().int(),
     globalEnabled: z.boolean(),
-    rules: z.array(ruleSchema),
+    workspace: workspaceSchema,
   })
-  .refine((state) => new Set(state.rules.map((rule) => rule.id)).size === state.rules.length, {
-    message: 'Duplicate rule ids are not allowed.',
-  });
+  .refine(
+    (state) => {
+      const ids = walkRuleIds(state.workspace);
+      return new Set(ids).size === ids.length;
+    },
+    { message: 'Duplicate rule ids are not allowed.' },
+  );
 
 export type PortableState = z.infer<typeof portableSchema>;

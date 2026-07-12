@@ -1,9 +1,10 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { Rule } from '../../rules/model';
-import { cloneRule } from '../../rules/clone';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import type { Rule, TreeNode } from '../../rules/model';
+import { flatten, type MoveTarget } from '../../rules/tree';
 import type { ImportMode, ImportOutcome, UiGateway } from './gateway';
 
 export type RulesContextValue = {
+  workspace: TreeNode[];
   rules: Rule[];
   globalEnabled: boolean;
   status: 'loading' | 'ready' | 'error';
@@ -11,8 +12,11 @@ export type RulesContextValue = {
   addRule(rule: Rule): Promise<void>;
   updateRule(rule: Rule): Promise<void>;
   duplicateRule(rule: Rule): Promise<void>;
-  removeRule(id: string): Promise<void>;
-  reorderRules(ids: string[]): Promise<void>;
+  removeNode(id: string): Promise<void>;
+  moveNode(dragId: string, target: MoveTarget): Promise<void>;
+  addFolder(parentId: string | null): Promise<string>;
+  renameFolder(id: string, name: string): Promise<void>;
+  toggleCollapse(id: string): Promise<void>;
   toggleGlobal(enabled: boolean): Promise<void>;
   exportRules(): Promise<void>;
   importRules(json: string, mode?: ImportMode): Promise<ImportOutcome>;
@@ -20,15 +24,31 @@ export type RulesContextValue = {
 
 const RulesContext = createContext<RulesContextValue | undefined>(undefined);
 
+const nextCopyId = (rules: Rule[], baseId: string): string => {
+  const taken = new Set(rules.map((rule) => rule.id));
+  let candidate = `${baseId}-copy`;
+  let suffix = 1;
+  while (taken.has(candidate)) {
+    suffix += 1;
+    candidate = `${baseId}-copy-${suffix}`;
+  }
+  return candidate;
+};
+
 export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; children: ReactNode }) => {
-  const [rules, setRules] = useState<Rule[]>([]);
+  const [workspace, setWorkspace] = useState<TreeNode[]>([]);
   const [globalEnabled, setGlobalEnabled] = useState(true);
   const [status, setStatus] = useState<RulesContextValue['status']>('loading');
   const [error, setError] = useState<string | undefined>(undefined);
 
+  const rules = useMemo(() => flatten(workspace), [workspace]);
+
   const refresh = useCallback(async () => {
-    const [loadedRules, loadedGlobal] = await Promise.all([gateway.getAll(), gateway.getGlobalEnabled()]);
-    setRules(loadedRules);
+    const [loadedWorkspace, loadedGlobal] = await Promise.all([
+      gateway.getWorkspace(),
+      gateway.getGlobalEnabled(),
+    ]);
+    setWorkspace(loadedWorkspace);
     setGlobalEnabled(loadedGlobal);
   }, [gateway]);
 
@@ -53,7 +73,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
 
   const addRule = useCallback(
     async (rule: Rule) => {
-      await gateway.add(rule);
+      await gateway.addRule(rule);
       await refresh();
     },
     [gateway, refresh],
@@ -61,7 +81,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
 
   const updateRule = useCallback(
     async (rule: Rule) => {
-      await gateway.update(rule);
+      await gateway.updateRule(rule);
       await refresh();
     },
     [gateway, refresh],
@@ -69,30 +89,48 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
 
   const duplicateRule = useCallback(
     async (rule: Rule) => {
-      const taken = new Set(rules.map((existing) => existing.id));
-      let suffix = 1;
-      let newId = `${rule.id}-copy`;
-      while (taken.has(newId)) {
-        suffix += 1;
-        newId = `${rule.id}-copy-${suffix}`;
-      }
-      await gateway.add(cloneRule(rule, newId));
+      await gateway.duplicateRule(rule, nextCopyId(rules, rule.id));
       await refresh();
     },
     [gateway, refresh, rules],
   );
 
-  const removeRule = useCallback(
+  const removeNode = useCallback(
     async (id: string) => {
-      await gateway.remove(id);
+      await gateway.removeNode(id);
       await refresh();
     },
     [gateway, refresh],
   );
 
-  const reorderRules = useCallback(
-    async (ids: string[]) => {
-      await gateway.reorder(ids);
+  const moveNode = useCallback(
+    async (dragId: string, target: MoveTarget) => {
+      await gateway.moveNode(dragId, target);
+      await refresh();
+    },
+    [gateway, refresh],
+  );
+
+  const addFolder = useCallback(
+    async (parentId: string | null) => {
+      const id = await gateway.addFolder(parentId);
+      await refresh();
+      return id;
+    },
+    [gateway, refresh],
+  );
+
+  const renameFolder = useCallback(
+    async (id: string, name: string) => {
+      await gateway.renameFolder(id, name);
+      await refresh();
+    },
+    [gateway, refresh],
+  );
+
+  const toggleCollapse = useCallback(
+    async (id: string) => {
+      await gateway.toggleCollapse(id);
       await refresh();
     },
     [gateway, refresh],
@@ -118,6 +156,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
   );
 
   const value: RulesContextValue = {
+    workspace,
     rules,
     globalEnabled,
     status,
@@ -125,8 +164,11 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     addRule,
     updateRule,
     duplicateRule,
-    removeRule,
-    reorderRules,
+    removeNode,
+    moveNode,
+    addFolder,
+    renameFolder,
+    toggleCollapse,
     toggleGlobal,
     exportRules,
     importRules,

@@ -6,7 +6,6 @@ const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
   id: 'rule-1',
   name: 'original',
   enabled: true,
-  priority: 0,
   matchers: {
     url: { pattern: 'https://api.x/*', kind: 'glob' },
     methods: ['GET', 'POST'],

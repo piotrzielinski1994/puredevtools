@@ -1,33 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { Rule } from '../../rules/model';
-import type { ImportOutcome, UiGateway } from './gateway';
+import type { UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
 import { RuleForm } from './RuleForm';
-
-type FakeGateway = UiGateway & {
-  getAll: ReturnType<typeof vi.fn>;
-  getGlobalEnabled: ReturnType<typeof vi.fn>;
-  add: ReturnType<typeof vi.fn>;
-  update: ReturnType<typeof vi.fn>;
-  remove: ReturnType<typeof vi.fn>;
-  reorder: ReturnType<typeof vi.fn>;
-  setGlobalEnabled: ReturnType<typeof vi.fn>;
-  exportToFile: ReturnType<typeof vi.fn>;
-  importFromFile: ReturnType<typeof vi.fn>;
-};
-
-const createFakeGateway = (): FakeGateway => ({
-  getAll: vi.fn<() => Promise<Rule[]>>().mockResolvedValue([]),
-  getGlobalEnabled: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
-  add: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
-  update: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
-  remove: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),
-  reorder: vi.fn<(ids: string[]) => Promise<void>>().mockResolvedValue(undefined),
-  setGlobalEnabled: vi.fn<(enabled: boolean) => Promise<void>>().mockResolvedValue(undefined),
-  exportToFile: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-  importFromFile: vi.fn<(json: string) => Promise<ImportOutcome>>().mockResolvedValue({ ok: true }),
-});
+import { createFakeGateway } from './test-gateway';
 
 const renderForm = (gateway: UiGateway, onDone = vi.fn(), initial?: Rule) =>
   render(
@@ -51,7 +28,6 @@ const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
   id: 'rule-1',
   name: 'existing rule',
   enabled: true,
-  priority: 0,
   matchers: { url: { pattern: 'https://example.com/*', kind: 'glob' } },
   actions: [],
   ...overrides,
@@ -107,7 +83,7 @@ describe('RuleForm', () => {
     expect(screen.queryByRole('button', { name: /add header matcher/i })).not.toBeInTheDocument();
   });
 
-  it('should call gateway.add with the typed name and url pattern then call onDone on valid submit (AC-007)', async () => {
+  it('should call gateway.addRule with the typed name and url pattern then call onDone on valid submit (AC-007)', async () => {
     const gateway = createFakeGateway();
     const onDone = vi.fn();
     renderForm(gateway, onDone);
@@ -117,14 +93,14 @@ describe('RuleForm', () => {
     fireEvent.change(getUrlPatternInput(), { target: { value: 'https://api.test.dev/*' } });
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
-    const [created] = gateway.add.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    const [created] = gateway.addRule.mock.calls[0] as [Rule];
     expect(created.name).toBe('my new rule');
     expect(created.matchers.url.pattern).toBe('https://api.test.dev/*');
     await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
 
-  it('should show an inline validation error and NOT call gateway.add when url pattern is empty', async () => {
+  it('should show an inline validation error and NOT call gateway.addRule when url pattern is empty', async () => {
     const gateway = createFakeGateway();
     const onDone = vi.fn();
     renderForm(gateway, onDone);
@@ -134,7 +110,7 @@ describe('RuleForm', () => {
     fireEvent.click(getSaveButton());
 
     expect(await screen.findByText(/required|invalid|pattern/i)).toBeInTheDocument();
-    expect(gateway.add).not.toHaveBeenCalled();
+    expect(gateway.addRule).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
   });
 
@@ -175,11 +151,11 @@ describe('RuleForm', () => {
     fireEvent.change(getNameInput(), { target: { value: 'new name' } });
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.update).toHaveBeenCalledTimes(1));
-    const [updated] = gateway.update.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
+    const [updated] = gateway.updateRule.mock.calls[0] as [Rule];
     expect(updated.id).toBe('edit-me');
     expect(updated.name).toBe('new name');
-    expect(gateway.add).not.toHaveBeenCalled();
+    expect(gateway.addRule).not.toHaveBeenCalled();
     await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
 
@@ -193,8 +169,8 @@ describe('RuleForm', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'POST' }));
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
-    const [created] = gateway.add.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    const [created] = gateway.addRule.mock.calls[0] as [Rule];
     expect(created.matchers.methods).toContain('GET');
     expect(created.matchers.methods).toContain('POST');
   });
@@ -208,8 +184,8 @@ describe('RuleForm', () => {
     selectOption(getKindSelect(), /regex/i);
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
-    const [created] = gateway.add.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    const [created] = gateway.addRule.mock.calls[0] as [Rule];
     expect(created.matchers.url.kind).toBe('regex');
   });
 
@@ -223,8 +199,8 @@ describe('RuleForm', () => {
     fireEvent.change(getBody(), { target: { value: '<p>x</p>' } });
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
-    const [created] = gateway.add.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    const [created] = gateway.addRule.mock.calls[0] as [Rule];
     expect(created.actions).toContainEqual({ type: 'rewriteBody', body: '<p>x</p>' });
   });
 
@@ -236,8 +212,8 @@ describe('RuleForm', () => {
     fireEvent.change(getUrlPatternInput(), { target: { value: 'https://api.test.dev/*' } });
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
-    const [created] = gateway.add.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    const [created] = gateway.addRule.mock.calls[0] as [Rule];
     expect(created.actions.some((action) => action.type === 'rewriteBody')).toBe(false);
   });
 
@@ -253,8 +229,8 @@ describe('RuleForm', () => {
     fireEvent.change(screen.getByLabelText(/Modify response headers name 0/i), { target: { value: 'Set-Cookie' } });
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
-    const [rule] = gateway.add.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    const [rule] = gateway.addRule.mock.calls[0] as [Rule];
     expect(rule.actions).toContainEqual({
       type: 'modifyResponseHeaders',
       headers: [{ op: 'remove', name: 'Set-Cookie' }],
@@ -274,8 +250,8 @@ describe('RuleForm', () => {
     fireEvent.change(screen.getByLabelText(/Modify response headers value 0/i), { target: { value: 'on' } });
     fireEvent.click(getSaveButton());
 
-    await waitFor(() => expect(gateway.add).toHaveBeenCalledTimes(1));
-    const [rule] = gateway.add.mock.calls[0] as [Rule];
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    const [rule] = gateway.addRule.mock.calls[0] as [Rule];
     expect(rule.actions).toContainEqual({ type: 'rewriteBody', body: 'new-body' });
     expect(rule.actions).toContainEqual({
       type: 'modifyResponseHeaders',
@@ -293,7 +269,7 @@ describe('RuleForm', () => {
     fireEvent.click(getSaveButton());
 
     expect(await screen.findByText(/invalid regular expression/i)).toBeInTheDocument();
-    expect(gateway.add).not.toHaveBeenCalled();
+    expect(gateway.addRule).not.toHaveBeenCalled();
   });
 
   it('should report a positive match in the URL tester', async () => {

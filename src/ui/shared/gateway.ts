@@ -1,16 +1,21 @@
-import type { Rule } from '../../rules/model';
+import type { Rule, TreeNode } from '../../rules/model';
+import type { MoveTarget } from '../../rules/tree';
 
 export type ImportOutcome = { ok: true } | { ok: false; error: string };
 
 export type ImportMode = 'replace' | 'merge';
 
 export type UiGateway = {
-  getAll(): Promise<Rule[]>;
+  getWorkspace(): Promise<TreeNode[]>;
   getGlobalEnabled(): Promise<boolean>;
-  add(rule: Rule): Promise<void>;
-  update(rule: Rule): Promise<void>;
-  remove(id: string): Promise<void>;
-  reorder(ids: string[]): Promise<void>;
+  addRule(rule: Rule): Promise<void>;
+  updateRule(rule: Rule): Promise<void>;
+  duplicateRule(rule: Rule, newId: string): Promise<void>;
+  removeNode(id: string): Promise<void>;
+  moveNode(dragId: string, target: MoveTarget): Promise<void>;
+  addFolder(parentId: string | null): Promise<string>;
+  renameFolder(id: string, name: string): Promise<void>;
+  toggleCollapse(id: string): Promise<void>;
   setGlobalEnabled(enabled: boolean): Promise<void>;
   exportToFile(): Promise<void>;
   importFromFile(json: string, mode: ImportMode): Promise<ImportOutcome>;

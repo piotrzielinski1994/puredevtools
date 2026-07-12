@@ -1,33 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import type { Rule } from '../../rules/model';
-import type { ImportOutcome, UiGateway } from './gateway';
+import type { UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
 import { GlobalSwitch } from './GlobalSwitch';
+import { createFakeGateway as createBaseGateway } from './test-gateway';
 
-type FakeGateway = UiGateway & {
-  getAll: ReturnType<typeof vi.fn>;
-  getGlobalEnabled: ReturnType<typeof vi.fn>;
-  add: ReturnType<typeof vi.fn>;
-  update: ReturnType<typeof vi.fn>;
-  remove: ReturnType<typeof vi.fn>;
-  reorder: ReturnType<typeof vi.fn>;
-  setGlobalEnabled: ReturnType<typeof vi.fn>;
-  exportToFile: ReturnType<typeof vi.fn>;
-  importFromFile: ReturnType<typeof vi.fn>;
-};
-
-const createFakeGateway = (globalEnabled: boolean): FakeGateway => ({
-  getAll: vi.fn<() => Promise<Rule[]>>().mockResolvedValue([]),
-  getGlobalEnabled: vi.fn<() => Promise<boolean>>().mockResolvedValue(globalEnabled),
-  add: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
-  update: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
-  remove: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),
-  reorder: vi.fn<(ids: string[]) => Promise<void>>().mockResolvedValue(undefined),
-  setGlobalEnabled: vi.fn<(enabled: boolean) => Promise<void>>().mockResolvedValue(undefined),
-  exportToFile: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
-  importFromFile: vi.fn<(json: string) => Promise<ImportOutcome>>().mockResolvedValue({ ok: true }),
-});
+const createFakeGateway = (globalEnabled: boolean) => createBaseGateway([], globalEnabled);
 
 const renderSwitch = (gateway: UiGateway) =>
   render(

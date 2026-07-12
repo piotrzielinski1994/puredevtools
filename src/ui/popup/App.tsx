@@ -4,14 +4,14 @@ import browser from 'webextension-polyfill';
 import { Button } from '../components/ui/button';
 import { createGateway } from '../shared/createGateway';
 import { GlobalSwitch } from '../shared/GlobalSwitch';
-import { RuleList } from '../shared/RuleList';
+import { PopupTree } from './PopupTree';
 import { RulesProvider, useRules } from '../shared/RulesProvider';
 import { useTheme } from '../shared/useTheme';
 
 const Summary = () => {
   const { status } = useRules();
   if (status === 'loading') return <p className="text-sm text-muted-foreground">Loading…</p>;
-  return <RuleList compact onEdit={() => void browser.runtime.openOptionsPage()} />;
+  return <PopupTree onEdit={() => void browser.runtime.openOptionsPage()} />;
 };
 
 export const App = () => {

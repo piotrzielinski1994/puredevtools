@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { GlobalSwitch } from './GlobalSwitch';
 import { RuleForm } from './RuleForm';
-import { RuleList } from './RuleList';
+import { SidebarTree } from './SidebarTree';
 import { RuleTabs } from './RuleTabs';
 import { ThemeSwitch } from './ThemeSwitch';
 import { useOpenTabs, DRAFT_KEY } from './useOpenTabs';
@@ -60,9 +60,7 @@ export const OptionsWorkspace = () => {
                 onChange={(event) => setFilter(event.target.value)}
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <RuleList filter={filter} onEdit={(rule) => open(rule.id)} />
-            </div>
+            <SidebarTree filter={filter} onEdit={(ruleId) => open(ruleId)} />
           </aside>
 
           <div

@@ -138,7 +138,6 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
       id: initial?.id ?? makeId(name || pattern),
       name: name || pattern,
       enabled: initial?.enabled ?? true,
-      priority: initial?.priority ?? 0,
       matchers,
       actions: buildActions(),
     };
