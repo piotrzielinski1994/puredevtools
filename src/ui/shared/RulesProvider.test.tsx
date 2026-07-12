@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import type { ApplyDiagnostics, Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import type { ImportOutcome, UiGateway } from './gateway';
 import { RulesProvider, useRules } from './RulesProvider';
@@ -8,8 +7,6 @@ import { RulesProvider, useRules } from './RulesProvider';
 type FakeGateway = UiGateway & {
   getAll: ReturnType<typeof vi.fn>;
   getGlobalEnabled: ReturnType<typeof vi.fn>;
-  getCapabilities: ReturnType<typeof vi.fn>;
-  getDiagnostics: ReturnType<typeof vi.fn>;
   add: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -22,12 +19,6 @@ type FakeGateway = UiGateway & {
 const createFakeGateway = (overrides: Partial<FakeGateway> = {}): FakeGateway => ({
   getAll: vi.fn<() => Promise<Rule[]>>().mockResolvedValue([]),
   getGlobalEnabled: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
-  getCapabilities: vi
-    .fn<() => Promise<Capabilities>>()
-    .mockResolvedValue({ responseBodyRewrite: true, artificialLatency: true }),
-  getDiagnostics: vi
-    .fn<() => Promise<ApplyDiagnostics>>()
-    .mockResolvedValue({ errors: [], unsupported: [] }),
   add: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
   update: vi.fn<(rule: Rule) => Promise<void>>().mockResolvedValue(undefined),
   remove: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),
@@ -53,23 +44,6 @@ const renderProbe = (gateway: UiGateway) =>
   render(
     <RulesProvider gateway={gateway}>
       <StatusProbe />
-    </RulesProvider>,
-  );
-
-const CapProbe = () => {
-  const { status, capabilities } = useRules();
-  return (
-    <div>
-      <span data-testid="status">{status}</span>
-      <span data-testid="rewrite">{String(capabilities.responseBodyRewrite)}</span>
-    </div>
-  );
-};
-
-const renderCapProbe = (gateway: UiGateway) =>
-  render(
-    <RulesProvider gateway={gateway}>
-      <CapProbe />
     </RulesProvider>,
   );
 
@@ -116,15 +90,5 @@ describe('RulesProvider load lifecycle (UI states)', () => {
 
     await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('error'));
     expect(screen.getByTestId('error')).toHaveTextContent('boom');
-  });
-
-  it('should fall back to disabled capabilities if getCapabilities rejects', async () => {
-    const gateway = createFakeGateway({
-      getCapabilities: vi.fn<() => Promise<Capabilities>>().mockRejectedValue(new Error('caps down')),
-    });
-    renderCapProbe(gateway);
-
-    await waitFor(() => expect(screen.getByTestId('status')).toHaveTextContent('ready'));
-    expect(screen.getByTestId('rewrite')).toHaveTextContent('false');
   });
 });

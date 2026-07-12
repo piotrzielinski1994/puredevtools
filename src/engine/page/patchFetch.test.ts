@@ -21,48 +21,17 @@ const buildRule = (
 type Deps = Parameters<typeof createPatchedFetch>[0];
 
 const createDeps = (overrides: Partial<Deps> = {}): Deps => ({
-  originalFetch: vi.fn<typeof fetch>(),
+  originalFetch: vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 }))),
   getRules: () => [],
   getGlobalEnabled: () => true,
   sink: () => undefined,
-  delay: () => Promise.resolve(),
   ...overrides,
 });
 
-describe('createPatchedFetch mock (AC-002, TC-005)', () => {
-  it('should serve a synthetic Response without calling the original fetch when a mock rule matches', async () => {
-    const originalFetch = vi.fn<typeof fetch>();
-    const fetchImpl = createPatchedFetch(
-      createDeps({
-        originalFetch,
-        getRules: () => [
-          buildRule([
-            {
-              type: 'mock',
-              status: 201,
-              headers: [{ op: 'set', name: 'X-Mock', value: '1' }],
-              body: '{"a":1}',
-              contentType: 'application/json',
-            },
-          ]),
-        ],
-      }),
-    );
-
-    const res = await fetchImpl('https://api.x/users');
-
-    expect(res.status).toBe(201);
-    expect(await res.text()).toBe('{"a":1}');
-    expect(res.headers.get('content-type')).toBe('application/json');
-    expect(res.headers.get('x-mock')).toBe('1');
-    expect(originalFetch).not.toHaveBeenCalled();
-  });
-});
-
-describe('createPatchedFetch rewrite (AC-003, TC-006)', () => {
-  it('should call the original fetch once and replace its body while preserving the original status', async () => {
+describe('createPatchedFetch body rewrite (AC-002)', () => {
+  it('should forward the real request once and replace the body while preserving the original status', async () => {
     const originalFetch = vi.fn<typeof fetch>(() =>
-      Promise.resolve(new Response('{"original":true}', { status: 200 })),
+      Promise.resolve(new Response('{"original":true}', { status: 200, statusText: 'OK' })),
     );
     const fetchImpl = createPatchedFetch(
       createDeps({
@@ -78,20 +47,73 @@ describe('createPatchedFetch rewrite (AC-003, TC-006)', () => {
     expect(originalFetch).toHaveBeenCalledTimes(1);
     expect(await res.text()).toBe('{"replaced":true}');
     expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('application/json');
   });
 });
 
-describe('createPatchedFetch passthrough (AC-004, TC-007)', () => {
-  it('should return the exact original response reference and call the original fetch once when no rule matches', async () => {
+describe('createPatchedFetch header override (AC-003)', () => {
+  it('should forward and apply set/remove header ops onto the original response headers', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response('body', { status: 200, headers: { 'Set-Cookie': 'sid=1', 'X-Old': 'keep' } })),
+    );
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            {
+              type: 'modifyResponseHeaders',
+              headers: [
+                { op: 'set', name: 'X-Test', value: 'on' },
+                { op: 'remove', name: 'Set-Cookie' },
+              ],
+            },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    expect(res.headers.get('x-test')).toBe('on');
+    expect(res.headers.get('set-cookie')).toBeNull();
+    expect(res.headers.get('x-old')).toBe('keep');
+    expect(await res.text()).toBe('body');
+  });
+});
+
+describe('createPatchedFetch combined override (AC-004)', () => {
+  it('should apply both header ops and body rewrite when a rule carries both', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Test', value: 'on' }] },
+            { type: 'rewriteBody', body: 'new' },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(res.headers.get('x-test')).toBe('on');
+    expect(await res.text()).toBe('new');
+  });
+});
+
+describe('createPatchedFetch passthrough (AC-006)', () => {
+  it('should return the exact original response and forward once when no rule matches', async () => {
     const original = new Response('untouched', { status: 200 });
     const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(original));
     const fetchImpl = createPatchedFetch(
       createDeps({
         originalFetch,
         getRules: () => [
-          buildRule([{ type: 'mock', status: 500, headers: [], body: 'x' }], {
-            url: { pattern: 'https://other.x/*', kind: 'glob' },
-          }),
+          buildRule([{ type: 'rewriteBody', body: 'x' }], { url: { pattern: 'https://other.x/*', kind: 'glob' } }),
         ],
       }),
     );
@@ -109,7 +131,7 @@ describe('createPatchedFetch passthrough (AC-004, TC-007)', () => {
       createDeps({
         originalFetch,
         getGlobalEnabled: () => false,
-        getRules: () => [buildRule([{ type: 'mock', status: 500, headers: [], body: 'x' }])],
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: 'x' }])],
       }),
     );
 
@@ -120,76 +142,40 @@ describe('createPatchedFetch passthrough (AC-004, TC-007)', () => {
   });
 });
 
-describe('createPatchedFetch latency (AC-005, TC-008)', () => {
-  it('should invoke the injected delay with latencyMs before resolving the mock response', async () => {
-    const delay = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
-    const fetchImpl = createPatchedFetch(
-      createDeps({
-        delay,
-        getRules: () => [
-          buildRule([{ type: 'mock', status: 200, headers: [], body: 'late', latencyMs: 250 }]),
-        ],
-      }),
-    );
-
-    const res = await fetchImpl('https://api.x/users');
-
-    expect(delay).toHaveBeenCalledWith(250);
-    expect(await res.text()).toBe('late');
-  });
-});
-
-describe('createPatchedFetch Request-object input (AC-001, TC-009)', () => {
-  it('should match a mock rule against the url of a Request object passed as input', async () => {
-    const originalFetch = vi.fn<typeof fetch>();
+describe('createPatchedFetch input normalization (AC-001)', () => {
+  it('should match a rule against the url of a Request object input', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
     const fetchImpl = createPatchedFetch(
       createDeps({
         originalFetch,
-        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'from-request' }])],
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: 'from-request' }])],
       }),
     );
 
     const res = await fetchImpl(new Request('https://api.x/y'));
 
-    expect(res.status).toBe(200);
     expect(await res.text()).toBe('from-request');
-    expect(originalFetch).not.toHaveBeenCalled();
+    expect(originalFetch).toHaveBeenCalledTimes(1);
   });
-});
 
-describe('createPatchedFetch sink reporting (AC-007, TC-012)', () => {
-  it('should report a served mock once with method, url, status and body', async () => {
+  it('should match against a URL object input and default the method to GET', async () => {
     const reports: InterceptReport[] = [];
     const fetchImpl = createPatchedFetch(
       createDeps({
         sink: (report) => reports.push(report),
-        getRules: () => [
-          buildRule([
-            {
-              type: 'mock',
-              status: 201,
-              headers: [],
-              body: '{"a":1}',
-              contentType: 'application/json',
-            },
-          ]),
-        ],
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: 'url-input' }])],
       }),
     );
 
-    await fetchImpl('https://api.x/users', { method: 'POST' });
+    const res = await fetchImpl(new URL('https://api.x/from-url'));
 
-    expect(reports).toHaveLength(1);
-    expect(reports[0]).toMatchObject({
-      kind: 'mock',
-      method: 'POST',
-      url: 'https://api.x/users',
-      status: 201,
-      body: '{"a":1}',
-    });
+    expect(await res.text()).toBe('url-input');
+    expect(reports[0]).toMatchObject({ method: 'GET', url: 'https://api.x/from-url' });
   });
+});
 
-  it('should report a served rewrite once with the rewritten body and original status', async () => {
+describe('createPatchedFetch sink reporting (AC-009)', () => {
+  it('should report a served override once with kind rewrite, method, url, status and body', async () => {
     const reports: InterceptReport[] = [];
     const fetchImpl = createPatchedFetch(
       createDeps({
@@ -199,61 +185,24 @@ describe('createPatchedFetch sink reporting (AC-007, TC-012)', () => {
       }),
     );
 
-    await fetchImpl('https://api.x/users');
+    await fetchImpl('https://api.x/users', { method: 'POST' });
 
     expect(reports).toHaveLength(1);
-    expect(reports[0]).toMatchObject({ kind: 'rewrite', url: 'https://api.x/users', status: 200, body: 'new-body' });
-  });
-});
-
-describe('createPatchedFetch header handling and input normalization', () => {
-  it('should drop a header named by a remove op when serving a mock', async () => {
-    const fetchImpl = createPatchedFetch(
-      createDeps({
-        getRules: () => [
-          buildRule([
-            {
-              type: 'mock',
-              status: 200,
-              headers: [
-                { op: 'set', name: 'X-Keep', value: 'yes' },
-                { op: 'remove', name: 'X-Drop' },
-              ],
-              body: '{}',
-              contentType: 'application/json',
-            },
-          ]),
-        ],
-      }),
-    );
-
-    const res = await fetchImpl('https://api.x/users');
-
-    expect(res.headers.get('x-keep')).toBe('yes');
-    expect(res.headers.get('x-drop')).toBeNull();
+    expect(reports[0]).toMatchObject({
+      kind: 'rewrite',
+      method: 'POST',
+      url: 'https://api.x/users',
+      status: 200,
+      body: 'new-body',
+    });
   });
 
-  it('should match a mock against a URL object input and default the method to GET', async () => {
+  it('should report request headers and body from the init for a served override', async () => {
     const reports: InterceptReport[] = [];
     const fetchImpl = createPatchedFetch(
       createDeps({
         sink: (report) => reports.push(report),
-        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'url-input' }])],
-      }),
-    );
-
-    const res = await fetchImpl(new URL('https://api.x/from-url'));
-
-    expect(await res.text()).toBe('url-input');
-    expect(reports[0]).toMatchObject({ method: 'GET', url: 'https://api.x/from-url' });
-  });
-
-  it('should report request headers and body from the init for a served mock', async () => {
-    const reports: InterceptReport[] = [];
-    const fetchImpl = createPatchedFetch(
-      createDeps({
-        sink: (report) => reports.push(report),
-        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'ok' }])],
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: 'ok' }])],
       }),
     );
 
@@ -266,18 +215,63 @@ describe('createPatchedFetch header handling and input normalization', () => {
     expect(reports[0].requestHeaders).toMatchObject({ authorization: 'Bearer abc', 'x-env': 'staging' });
     expect(reports[0].requestBody).toBe('{"q":1}');
   });
+});
 
-  it('should report request headers from a Request object input', async () => {
-    const reports: InterceptReport[] = [];
+describe('createPatchedFetch edge cases', () => {
+  it('should keep the original body when a header-only rule matches (no body rewrite)', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('original-body', { status: 200 })));
     const fetchImpl = createPatchedFetch(
       createDeps({
-        sink: (report) => reports.push(report),
-        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'ok' }])],
+        originalFetch,
+        getRules: () => [buildRule([{ type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X', value: 'y' }] }])],
       }),
     );
 
-    await fetchImpl(new Request('https://api.x/users', { headers: { 'X-Trace': 'on' } }));
+    const res = await fetchImpl('https://api.x/users');
 
-    expect(reports[0].requestHeaders).toMatchObject({ 'x-trace': 'on' });
+    expect(await res.text()).toBe('original-body');
+  });
+
+  it('should not throw when a remove op targets an absent header', async () => {
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        getRules: () => [buildRule([{ type: 'modifyResponseHeaders', headers: [{ op: 'remove', name: 'X-Absent' }] }])],
+      }),
+    );
+
+    await expect(fetchImpl('https://api.x/users')).resolves.toBeInstanceOf(Response);
+  });
+
+  it('should preserve a non-200 original status when overriding the body (AC-002)', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response('orig', { status: 503, statusText: 'Service Unavailable' })),
+    );
+    const fetchImpl = createPatchedFetch(
+      createDeps({ originalFetch, getRules: () => [buildRule([{ type: 'rewriteBody', body: 'new' }])] }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe('new');
+  });
+
+  it('should let rewriteBody contentType win over a set content-type header op (edge case)', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'content-type', value: 'text/plain' }] },
+            { type: 'rewriteBody', body: '{"x":1}', contentType: 'application/json' },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(res.headers.get('content-type')).toBe('application/json');
   });
 });

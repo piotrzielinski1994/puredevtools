@@ -40,7 +40,7 @@ const SHARED = {
   name: 'ReqHook',
   version: '0.1.0',
   description:
-    'Intercept, rewrite, and mock HTTP requests and responses directly in the browser.',
+    'Override HTTP response headers and bodies for a page\'s fetch/XHR calls directly in the browser.',
   host_permissions: ['<all_urls>'],
   action: { default_popup: 'src/ui/popup/index.html' },
   options_ui: { page: 'src/ui/options/index.html', open_in_tab: true },
@@ -53,11 +53,11 @@ const GECKO_ID = 'reqhook@reqhook.dev';
 
 const byTarget: Record<Target, Pick<Manifest, 'permissions' | 'background'> & Partial<Manifest>> = {
   chrome: {
-    permissions: ['declarativeNetRequest', 'declarativeNetRequestWithHostAccess', 'storage'],
+    permissions: ['storage'],
     background: { service_worker: BACKGROUND_ENTRY, type: 'module' },
   },
   firefox: {
-    permissions: ['webRequest', 'webRequestBlocking', 'webRequestFilterResponse', 'storage'],
+    permissions: ['storage'],
     background: { scripts: [BACKGROUND_ENTRY], type: 'module' },
     browser_specific_settings: {
       gecko: { id: GECKO_ID, strict_min_version: '128.0' },

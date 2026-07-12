@@ -4,7 +4,7 @@ import type { LogState } from './types';
 import { emptyLog, reduceLog, MAX_ENTRIES } from './reportLog';
 
 const buildReport = (overrides: Partial<InterceptReport> = {}): InterceptReport => ({
-  kind: 'mock',
+  kind: 'rewrite',
   method: 'GET',
   url: 'https://api.example.com/users',
   status: 200,

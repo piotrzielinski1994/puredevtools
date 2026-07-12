@@ -2,18 +2,10 @@ import type { HeaderOp } from '../../rules/model';
 
 export type Interception =
   | { kind: 'passthrough' }
-  | {
-      kind: 'mock';
-      status: number;
-      body: string;
-      contentType?: string;
-      headers: HeaderOp[];
-      latencyMs?: number;
-    }
-  | { kind: 'rewrite'; body: string; contentType?: string };
+  | { kind: 'override'; headerOps: HeaderOp[]; body?: string; contentType?: string };
 
 export type InterceptReport = {
-  kind: 'mock' | 'rewrite';
+  kind: 'rewrite';
   method: string;
   url: string;
   status: number;
@@ -25,7 +17,5 @@ export type InterceptReport = {
 };
 
 export type Sink = (report: InterceptReport) => void;
-
-export type Timer = (ms: number) => Promise<void>;
 
 export type RuleProvider = () => import('../../rules/model').Rule[];

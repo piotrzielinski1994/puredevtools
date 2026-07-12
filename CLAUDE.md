@@ -25,15 +25,15 @@ Briefing for Claude Code. Read [README.md](README.md) first - build/dev commands
 ## Cross-browser
 
 - Route ALL extension API calls through `webextension-polyfill` (`import browser from "webextension-polyfill"`), not `chrome.*`.
-- A single manifest source (`src/manifest/index.ts`) emits both Chrome and Firefox manifests - don't fork the tree per engine.
-- Request enforcement diverges by engine and is isolated behind the `RequestEngine` interface (`src/engine/RequestEngine.ts`): `ChromeEngine` uses `declarativeNetRequest` (no response-body access); `FirefoxEngine` uses `webRequest` + `filterResponseData` (adds in-flight response-body rewrite). `selectEngine` picks one at runtime. Keep engine-specific code inside its adapter; the rule model + UI stay browser-agnostic.
-- The **page layer** (`src/engine/page/`, injected via `src/content/page-main.ts` in the MAIN world) monkey-patches `window.fetch` + `XMLHttpRequest` so the running page actually receives mocked/rewritten bodies. This is cross-browser and separate from the network-layer engines.
-- Read README's **Platform limitations** before changing interception - the Chrome-vs-Firefox mock/rewrite asymmetry is deliberate and surfaced to the user as `unsupported`, not hidden.
+- A single manifest source (`src/manifest/index.ts`) emits both Chrome and Firefox manifests - don't fork the tree per engine. Only permission requested is `storage`.
+- **Single enforcement mechanism = the page layer** (`src/engine/page/`, injected via `src/content/page-main.ts` in the MAIN world): monkey-patches `window.fetch` + `XMLHttpRequest`, forwards the real request, then overrides the response headers/body before the page's callback sees it. Identical on Chrome and Firefox. There is NO network layer (no `declarativeNetRequest`/`webRequest`, no `RequestEngine`/`selectEngine`, no capabilities/diagnostics) - it was deleted (see [docs/adr.md](docs/adr.md) 2026-07-10). Don't reintroduce a per-engine adapter without a new ADR.
+- `decideInterception` (`src/engine/page/decide.ts`) maps a matched rule to an `override` (headerOps + optional body); `patchFetch`/`patchXhr` apply it. The rule model + UI stay browser-agnostic.
+- Read README's **Platform limitations** before changing interception - `fetch`/`XHR` only, main-frame document navigation is deliberately out of scope.
 
 ## Message passing & boundaries
 
-- Every message between contexts (page sink -> content bridge -> background relay -> DevTools panel/popup/options) is validated with `zod` on receipt. Never trust an unparsed payload.
-- Rules are data (serializable, `zod`-schema'd in `src/rules/schema.ts`), stored via `browser.storage`; the engine applies rules, the UI edits them. Import/export round-trips through the same schema.
+- Every message between contexts (page sink -> content bridge -> background relay -> DevTools panel) is validated with `zod` on receipt. Never trust an unparsed payload.
+- Rules are data (serializable, `zod`-schema'd in `src/rules/schema.ts`), stored via `browser.storage`; the page layer applies rules, the UI edits them. Import/export round-trips through the same schema. The matchers schema is `.strict()` so a stored/imported rule carrying a removed field (e.g. `resourceTypes`) fails import.
 
 ## Learning from conversation
 

@@ -8,7 +8,7 @@ const rule = (id: string, name = id): Rule => ({
   enabled: true,
   priority: 0,
   matchers: { url: { pattern: `https://${id}.x/*`, kind: 'glob' } },
-  actions: [{ type: 'block' }],
+  actions: [{ type: 'rewriteBody', body: 'x' }],
 });
 
 describe('mergeRules', () => {

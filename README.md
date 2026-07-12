@@ -1,6 +1,6 @@
 # ReqHook
 
-A minimal cross-browser (Chrome MV3 + Firefox) WebExtension for intercepting, tampering, and stubbing HTTP traffic directly in a browser.
+A minimal cross-browser (Chrome MV3 + Firefox) WebExtension for overriding the **response headers and body** a page's `fetch`/`XHR` calls receive. One mechanism, identical behavior on both browsers.
 
 ## Build
 
@@ -30,31 +30,29 @@ npm test
 Open the extension popup for a quick rule list and the global on/off switch, or the options page (`Manage rules…`) for the full editor. The options page is a master-detail workspace: the left sidebar always lists every rule, while the right area opens each rule you edit as a tab (open several at once, switch between them; open tabs are session-only). With no tab open it shows a "Select a rule to edit" hint. From here you can:
 
 - Add, edit, delete, enable/disable, and reorder rules (priority).
-- Each rule matches by URL (glob or regex), method, resource type, and optional request-header matchers, then applies request/response header changes, redirect, block, response-body rewrite, status override, or a full mock response.
+- Each rule matches by URL (glob or regex) and HTTP method, then forwards the real request and overrides the response: `set`/`remove` response headers and/or rewrite the response body (optional content-type). The original status is preserved.
 - Export all rules to a JSON file and import them back (replaces the current set).
 - Rules persist in extension storage and survive browser restarts.
 
 ### ReqHook DevTools panel
 
-Open DevTools (F12) and select the **ReqHook** tab for a Network-style table of **only the intercepted** `fetch`/`XHR` requests for the inspected tab. Each row shows time, type (mock/rewrite), method, status, and URL; click a row to see the request headers, request body, and the served response body (JSON pretty-printed), with a Copy button for the response body. Filter by URL substring, or Clear the log. This is how you inspect what the UI actually received, since the native Network panel shows pre-interception wire bytes. The background buffers up to the last 100 intercepts per tab, so reports fired before you open the panel are flushed in when it connects.
+Open DevTools (F12) and select the **ReqHook** tab for a Network-style table of **only the overridden** `fetch`/`XHR` requests for the inspected tab. Each row shows time, method, status, and URL; click a row to see the request headers, request body, and the served response body (JSON pretty-printed), with a Copy button for the response body. Filter by URL substring, or Clear the log. This is how you inspect what the UI actually received, since the native Network panel shows pre-interception wire bytes. The background buffers up to the last 100 intercepts per tab, so reports fired before you open the panel are flushed in when it connects.
 
 ## Architecture
 
-A single manifest source (`src/manifest/index.ts`) generates both Chrome and Firefox variants. The rule model and UI are browser-agnostic; enforcement happens at two layers:
+A single manifest source (`src/manifest/index.ts`) generates both Chrome and Firefox variants. The rule model and UI are browser-agnostic, and there is a **single enforcement mechanism**:
 
-- **Network layer** (per browser): `ChromeEngine` - `declarativeNetRequest` (headers, redirect, block, mock-via-redirect); `FirefoxEngine` - `webRequest` + `filterResponseData` (adds in-flight response-body rewrite).
-- **Page layer** (cross-browser): a MAIN-world content script (`src/content/page-main.ts`) monkey-patches `window.fetch` and `XMLHttpRequest` so that **the running UI actually receives the mocked/rewritten body** (the same mechanism Requestly's extension uses). An ISOLATED-world bridge (`src/content/bridge.ts`) syncs rules from storage into the page. Every served mock/rewrite is logged to the page console as `[ReqHook] mocked GET <url> -> <status>` and forwarded to the **ReqHook DevTools panel**.
+- **Page layer** (cross-browser): a MAIN-world content script (`src/content/page-main.ts`) monkey-patches `window.fetch` and `XMLHttpRequest`. On a matching rule it forwards the real request, then applies the response-header ops and body rewrite before the page's `fetch`/XHR callback sees the response (the same mechanism MockExpress/Requestly use). An ISOLATED-world bridge (`src/content/bridge.ts`) syncs rules from storage into the page. Every override is logged to the page console as `[ReqHook] rewrote <method> <url> -> <status>` and forwarded to the **ReqHook DevTools panel**.
 - **DevTools panel** (cross-browser): a `devtools_page` registers a "ReqHook" panel (`src/ui/devtools/`) that renders an intercept-only network table. Reports flow page sink -> bridge -> background relay (keyed by the inspected tab id) -> panel, so each panel shows only the traffic for the tab it inspects.
+
+There is no network layer: `declarativeNetRequest`/`webRequest` are not used, and the only requested permission is `storage`.
 
 ## Platform limitations
 
-- **Response-body rewrite is Firefox-only.** Chrome MV3 `declarativeNetRequest` cannot modify a response body, so on Chrome the body-rewrite action is shown **disabled** in the UI. Chrome can still mock a full response by redirecting to a `data:` URL.
-- **Mock fidelity differs per browser.**
-  - **Firefox** mocks the response in-flight via `filterResponseData`: the original URL is preserved, the real body is discarded, and the mock's body, content-type, custom status code, custom response headers, and artificial latency are all honored. The origin request is still issued, but its body never reaches the page.
-  - **Chrome** can only mock by redirecting to a `data:` URL, which changes the address bar, always resolves as HTTP 200, and carries no custom response headers. The body and content-type are honored; custom status, response headers, and latency are surfaced as `unsupported` (`mockStatus`, `mockHeaders`, `latency`) rather than dropped silently.
-- **DevTools Network panel cannot show interception output.** The native Network panel taps the wire (below `filterResponseData` and below the `fetch`/XHR patch), so its Response tab shows the original upstream bytes - no browser extension can repaint it (Firefox has no `chrome.debugger`/CDP equivalent). To see what the UI received: read the rendered page, the `[ReqHook]` console log, or call the endpoint from the DevTools console (`fetch(url).then(r => r.text()).then(console.log)`).
+- **Only `fetch`/`XHR` are overridden.** ReqHook patches `window.fetch` and `XMLHttpRequest`, so it overrides requests the page's JavaScript makes. It does **not** override main-frame document navigation (typing a URL in the address bar), sub-resource tags (`<img>`, `<script>`, `<link>`), or WebSocket traffic. This matches peer tools (MockExpress etc.); intercepting document navigation on Chrome would require `chrome.debugger` (a yellow "being debugged" banner) and has no cross-browser equivalent.
+- **The request is always forwarded.** A rule issues the real request and then overrides the response headers/body; the original status is preserved. There is no canned/no-forward mock mode.
+- **DevTools Network panel cannot show override output.** The native Network panel taps the wire (below the `fetch`/XHR patch), so its Response tab shows the original upstream bytes. To see what the UI received: read the rendered page, the `[ReqHook]` console log, or call the endpoint from the DevTools console (`fetch(url).then(r => r.text()).then(console.log)`).
 - **Page patch lands slightly after `document_start`.** The MAIN-world fetch/XHR patch is loaded as an ES module, so a request fired in the first microtask of page load can bypass it. Inherent to MV3 module content scripts.
-- **XHR mock support (page layer):** asynchronous XHR only; consumers using `xhr.addEventListener('load', ...)` instead of `xhr.onload` are not notified for mocks in v1; `responseType` json/blob, `responseURL`, and `statusText` are not emulated.
-- **DNR dynamic-rule cap (Chrome):** dynamic rules are capped (`declarativeNetRequest.MAX_NUMBER_OF_DYNAMIC_RULES`). Rule counts beyond the cap are surfaced as an error rather than silently dropped.
-- **URL matching:** both glob (`*`, `?`) and regex are supported for v1.
-- **Rule precedence:** within a single request, the first enabled rule (by priority) that matches wins; header modifications from later matching rules are not accumulated in v1.
+- **XHR support (page layer):** asynchronous XHR only; consumers using `xhr.addEventListener('load', ...)` instead of `xhr.onload` are not notified in v1; `responseType` json/blob, `responseURL`, and `statusText` are not emulated.
+- **URL matching:** both glob (`*`, `?`) and regex are supported.
+- **Rule precedence:** within a single request, the first enabled rule (by priority) that matches wins; overrides from later matching rules are not accumulated in v1.

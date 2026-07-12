@@ -1,4 +1,4 @@
-import type { HeaderMatcher, Matchers, PatternKind, Rule, RequestDescriptor } from './model';
+import type { Matchers, PatternKind, Rule, RequestDescriptor } from './model';
 
 export type MatchResult =
   | { ok: true; matched: boolean }
@@ -31,41 +31,10 @@ const matchesMethod = (methods: Matchers['methods'], method: string): boolean =>
   return methods.some((candidate) => candidate.toLowerCase() === method.toLowerCase());
 };
 
-const matchesResourceType = (
-  resourceTypes: Matchers['resourceTypes'],
-  resourceType: RequestDescriptor['resourceType'],
-): boolean => {
-  if (!resourceTypes || resourceTypes.length === 0) return true;
-  return resourceTypes.includes(resourceType);
-};
-
-const matchesHeader = (matcher: HeaderMatcher, headers: Record<string, string>): boolean => {
-  const target = matcher.name.toLowerCase();
-  const entry = Object.entries(headers).find(([name]) => name.toLowerCase() === target);
-  if (!entry) return false;
-  const value = entry[1];
-  if (matcher.equals !== undefined) return value === matcher.equals;
-  if (matcher.contains !== undefined) return value.includes(matcher.contains);
-  return true;
-};
-
-const matchesHeaders = (
-  matchers: Matchers['requestHeaders'],
-  headers: RequestDescriptor['requestHeaders'],
-): boolean => {
-  if (!matchers || matchers.length === 0) return true;
-  return matchers.every((matcher) => matchesHeader(matcher, headers ?? {}));
-};
-
 export const matchesRequest = (rule: Rule, request: RequestDescriptor): MatchResult => {
   const url = matchUrl(rule.matchers.url.pattern, rule.matchers.url.kind, request.url);
   if (!url.ok) return url;
   if (!url.matched) return { ok: true, matched: false };
 
-  const matched =
-    matchesMethod(rule.matchers.methods, request.method) &&
-    matchesResourceType(rule.matchers.resourceTypes, request.resourceType) &&
-    matchesHeaders(rule.matchers.requestHeaders, request.requestHeaders);
-
-  return { ok: true, matched };
+  return { ok: true, matched: matchesMethod(rule.matchers.methods, request.method) };
 };

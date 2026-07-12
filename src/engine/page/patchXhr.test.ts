@@ -27,38 +27,107 @@ const createDeps = (overrides: Partial<Deps> = {}): Deps => ({
   getRules: () => [],
   getGlobalEnabled: () => true,
   sink: () => undefined,
-  delay: () => Promise.resolve(),
   ...overrides,
 });
 
-describe('createPatchedXhr mock (AC-006, TC-010)', () => {
-  it('should serve a mock response without touching the network when a mock rule matches', async () => {
-    const opened: Array<{ method: string; url: string }> = [];
-    let instances = 0;
-
-    class SpyXhr {
-      constructor() {
-        instances += 1;
-      }
-      open(method: string, url: string): void {
-        opened.push({ method, url });
-      }
-      send(): void {
-        throw new Error('network should not be used for a mock');
-      }
+const xhrClassReturning = (fake: FakeXhr): typeof XMLHttpRequest =>
+  (class {
+    constructor() {
+      return fake;
     }
+  }) as unknown as typeof XMLHttpRequest;
 
+class FakeXhr {
+  onreadystatechange: (() => void) | null = null;
+  onload: ((event: ProgressEvent) => void) | null = null;
+  onerror: ((event: ProgressEvent) => void) | null = null;
+  readyState = 0;
+  status = 0;
+  responseText = '';
+  response: unknown = '';
+  openArgs: Array<{ method: string; url: string }> = [];
+  sent: unknown[] = [];
+  requestHeaders: Array<{ name: string; value: string }> = [];
+  aborted = false;
+  private responseHeaders: Record<string, string>;
+  private realBody: string;
+  private realStatus: number;
+
+  constructor(realBody = 'real-body', realStatus = 200, responseHeaders: Record<string, string> = { 'x-real': 'yes' }) {
+    this.realBody = realBody;
+    this.realStatus = realStatus;
+    this.responseHeaders = responseHeaders;
+  }
+
+  open(method: string, url: string): void {
+    this.openArgs.push({ method, url });
+  }
+  setRequestHeader(name: string, value: string): void {
+    this.requestHeaders.push({ name, value });
+  }
+  getResponseHeader(name: string): string | null {
+    return this.responseHeaders[name.toLowerCase()] ?? null;
+  }
+  getAllResponseHeaders(): string {
+    return Object.entries(this.responseHeaders)
+      .map(([name, value]) => `${name}: ${value}`)
+      .join('\r\n');
+  }
+  abort(): void {
+    this.aborted = true;
+  }
+  send(body?: unknown): void {
+    this.sent.push(body ?? null);
+    this.readyState = 4;
+    this.status = this.realStatus;
+    this.responseText = this.realBody;
+    this.response = this.realBody;
+    this.onreadystatechange?.();
+    this.onload?.(new ProgressEvent('load'));
+  }
+}
+
+describe('createPatchedXhr body rewrite (AC-005)', () => {
+  it('should forward the real request and rewrite responseText/response while preserving status', async () => {
+    const fake = new FakeXhr('real-body', 200);
     const Patched = createPatchedXhr(
       createDeps({
-        OriginalXhr: SpyXhr as unknown as typeof XMLHttpRequest,
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: '{"replaced":true}', contentType: 'application/json' }])],
+      }),
+    );
+
+    const xhr = new Patched();
+    const onload = vi.fn();
+    xhr.onload = onload;
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(fake.sent).toHaveLength(1);
+    expect(xhr.status).toBe(200);
+    expect(xhr.responseText).toBe('{"replaced":true}');
+    expect(xhr.response).toBe('{"replaced":true}');
+    expect(xhr.getResponseHeader('content-type')).toBe('application/json');
+    expect(onload).toHaveBeenCalled();
+  });
+});
+
+describe('createPatchedXhr header override (AC-005)', () => {
+  it('should forward and apply set/remove header ops onto the real response headers', async () => {
+    const fake = new FakeXhr('body', 200, { 'set-cookie': 'sid=1', 'x-old': 'keep' });
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
         getRules: () => [
           buildRule([
             {
-              type: 'mock',
-              status: 201,
-              headers: [],
-              body: '{"a":1}',
-              contentType: 'application/json',
+              type: 'modifyResponseHeaders',
+              headers: [
+                { op: 'set', name: 'X-Test', value: 'on' },
+                { op: 'remove', name: 'Set-Cookie' },
+              ],
             },
           ]),
         ],
@@ -66,262 +135,152 @@ describe('createPatchedXhr mock (AC-006, TC-010)', () => {
     );
 
     const xhr = new Patched();
-    const onload = vi.fn();
-    xhr.onload = onload;
     xhr.open('GET', 'https://api.x/users');
     xhr.send();
 
     await flush();
 
-    expect(xhr.status).toBe(201);
-    expect(xhr.responseText).toBe('{"a":1}');
-    expect(xhr.getResponseHeader('content-type')).toBe('application/json');
-    expect(instances).toBe(0);
-    expect(opened).toHaveLength(0);
-    expect(onload).toHaveBeenCalled();
-  });
-
-  it('should drive readyState/status through onreadystatechange for a matching mock rule', async () => {
-    const Patched = createPatchedXhr(
-      createDeps({
-        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'ok' }])],
-      }),
-    );
-
-    const xhr = new Patched();
-    const states: number[] = [];
-    xhr.onreadystatechange = (): void => {
-      states.push(xhr.readyState);
-    };
-    xhr.open('GET', 'https://api.x/users');
-    xhr.send();
-
-    await flush();
-
-    expect(states).toContain(4);
-    expect(xhr.status).toBe(200);
-    expect(xhr.responseText).toBe('ok');
+    expect(xhr.getResponseHeader('x-test')).toBe('on');
+    expect(xhr.getResponseHeader('set-cookie')).toBeNull();
+    expect(xhr.getResponseHeader('x-old')).toBe('keep');
+    expect(xhr.getAllResponseHeaders()).toContain('x-test: on');
+    expect(xhr.responseText).toBe('body');
   });
 });
 
-describe('createPatchedXhr passthrough (AC-006, TC-011)', () => {
-  it('should delegate open and send to the original XHR when no rule matches', async () => {
-    const opened: Array<{ method: string; url: string }> = [];
-    const sent: unknown[] = [];
-
-    class FakeXhr {
-      open(method: string, url: string): void {
-        opened.push({ method, url });
-      }
-      send(body?: unknown): void {
-        sent.push(body ?? null);
-      }
-      setRequestHeader(): void {}
-    }
-
+describe('createPatchedXhr passthrough (AC-006)', () => {
+  it('should forward and expose the real response unchanged when no rule matches', async () => {
+    const fake = new FakeXhr('real-body', 200);
     const Patched = createPatchedXhr(
       createDeps({
-        OriginalXhr: FakeXhr as unknown as typeof XMLHttpRequest,
+        OriginalXhr: xhrClassReturning(fake),
         getRules: () => [
-          buildRule([{ type: 'mock', status: 500, headers: [], body: 'x' }], {
-            url: { pattern: 'https://other.x/*', kind: 'glob' },
-          }),
+          buildRule([{ type: 'rewriteBody', body: 'x' }], { url: { pattern: 'https://other.x/*', kind: 'glob' } }),
         ],
       }),
     );
 
     const xhr = new Patched();
-    xhr.open('GET', 'https://api.x/users');
-    xhr.send();
-
-    await flush();
-
-    expect(opened).toEqual([{ method: 'GET', url: 'https://api.x/users' }]);
-    expect(sent).toHaveLength(1);
-  });
-
-  it('should delegate to the original XHR when global interception is disabled', async () => {
-    const opened: Array<{ method: string; url: string }> = [];
-    const sent: unknown[] = [];
-
-    class FakeXhr {
-      open(method: string, url: string): void {
-        opened.push({ method, url });
-      }
-      send(body?: unknown): void {
-        sent.push(body ?? null);
-      }
-      setRequestHeader(): void {}
-    }
-
-    const Patched = createPatchedXhr(
-      createDeps({
-        OriginalXhr: FakeXhr as unknown as typeof XMLHttpRequest,
-        getGlobalEnabled: () => false,
-        getRules: () => [buildRule([{ type: 'mock', status: 500, headers: [], body: 'x' }])],
-      }),
-    );
-
-    const xhr = new Patched();
-    xhr.open('GET', 'https://api.x/users');
-    xhr.send();
-
-    await flush();
-
-    expect(opened).toEqual([{ method: 'GET', url: 'https://api.x/users' }]);
-    expect(sent).toHaveLength(1);
-  });
-
-  it('should propagate the delegate response back to the consumer via onload and onreadystatechange', async () => {
-    class FakeXhr {
-      onreadystatechange: (() => void) | null = null;
-      onload: ((event: ProgressEvent) => void) | null = null;
-      onerror: ((event: ProgressEvent) => void) | null = null;
-      readyState = 0;
-      status = 0;
-      responseText = '';
-      response: unknown = '';
-      open(): void {}
-      setRequestHeader(): void {}
-      send(): void {
-        this.readyState = 4;
-        this.status = 200;
-        this.responseText = 'real-body';
-        this.response = 'real-body';
-        this.onreadystatechange?.();
-        this.onload?.(new ProgressEvent('load'));
-      }
-    }
-
-    const Patched = createPatchedXhr(
-      createDeps({ OriginalXhr: FakeXhr as unknown as typeof XMLHttpRequest, getRules: () => [] }),
-    );
-
-    const xhr = new Patched();
     const states: number[] = [];
-    const onload = vi.fn();
     xhr.onreadystatechange = (): void => {
       states.push(xhr.readyState);
     };
-    xhr.onload = onload;
     xhr.open('GET', 'https://api.x/users');
     xhr.send();
 
     await flush();
 
+    expect(fake.openArgs).toEqual([{ method: 'GET', url: 'https://api.x/users' }]);
     expect(states).toContain(4);
     expect(xhr.status).toBe(200);
     expect(xhr.responseText).toBe('real-body');
-    expect(onload).toHaveBeenCalled();
+  });
+
+  it('should forward unchanged when global interception is disabled', async () => {
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getGlobalEnabled: () => false,
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: 'x' }])],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(fake.sent).toHaveLength(1);
+    expect(xhr.responseText).toBe('real-body');
   });
 });
 
-describe('createPatchedXhr mock extras', () => {
-  it('should report the served mock through the sink with method, url, status and body', async () => {
-    const reports: InterceptReport[] = [];
+describe('createPatchedXhr plumbing', () => {
+  it('should forward setRequestHeader and abort to the delegate', async () => {
+    const fake = new FakeXhr();
     const Patched = createPatchedXhr(
-      createDeps({
-        sink: (report) => reports.push(report),
-        getRules: () => [buildRule([{ type: 'mock', status: 201, headers: [], body: '{"a":1}' }])],
-      }),
-    );
-
-    const xhr = new Patched();
-    xhr.open('POST', 'https://api.x/users');
-    xhr.send();
-
-    await flush();
-
-    expect(reports).toHaveLength(1);
-    expect(reports[0]).toMatchObject({ kind: 'mock', method: 'POST', url: 'https://api.x/users', status: 201, body: '{"a":1}' });
-  });
-
-  it('should delay a mock with latencyMs before resolving', async () => {
-    const delay = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
-    const Patched = createPatchedXhr(
-      createDeps({
-        delay,
-        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'late', latencyMs: 250 }])],
-      }),
-    );
-
-    const xhr = new Patched();
-    xhr.open('GET', 'https://api.x/users');
-    xhr.send();
-
-    await flush();
-
-    expect(delay).toHaveBeenCalledWith(250);
-    expect(xhr.responseText).toBe('late');
-  });
-
-  it('should expose custom mock headers via getResponseHeader and getAllResponseHeaders', async () => {
-    const Patched = createPatchedXhr(
-      createDeps({
-        getRules: () => [
-          buildRule([
-            {
-              type: 'mock',
-              status: 200,
-              headers: [
-                { op: 'set', name: 'X-Mock', value: 'yes' },
-                { op: 'remove', name: 'X-Drop' },
-              ],
-              body: '{}',
-              contentType: 'application/json',
-            },
-          ]),
-        ],
-      }),
-    );
-
-    const xhr = new Patched();
-    xhr.open('GET', 'https://api.x/users');
-    xhr.send();
-
-    await flush();
-
-    expect(xhr.getResponseHeader('x-mock')).toBe('yes');
-    expect(xhr.getResponseHeader('x-drop')).toBeNull();
-    expect(xhr.getResponseHeader('content-type')).toBe('application/json');
-    expect(xhr.getAllResponseHeaders()).toContain('x-mock: yes');
-  });
-
-  it('should forward setRequestHeader and abort to the delegate on passthrough', async () => {
-    const headers: Array<{ name: string; value: string }> = [];
-    let aborted = false;
-
-    class FakeXhr {
-      open(): void {}
-      send(): void {}
-      setRequestHeader(name: string, value: string): void {
-        headers.push({ name, value });
-      }
-      abort(): void {
-        aborted = true;
-      }
-    }
-
-    const Patched = createPatchedXhr(
-      createDeps({ OriginalXhr: FakeXhr as unknown as typeof XMLHttpRequest, getRules: () => [] }),
+      createDeps({ OriginalXhr: xhrClassReturning(fake), getRules: () => [] }),
     );
 
     const xhr = new Patched();
     xhr.open('GET', 'https://api.x/users');
     xhr.setRequestHeader('X-Test', 'on');
-    xhr.send();
     xhr.abort();
 
-    expect(headers).toEqual([{ name: 'X-Test', value: 'on' }]);
-    expect(aborted).toBe(true);
+    expect(fake.requestHeaders).toEqual([{ name: 'X-Test', value: 'on' }]);
+    expect(fake.aborted).toBe(true);
   });
 
-  it('should report request headers and body for a served mock', async () => {
-    const reports: InterceptReport[] = [];
+  it('should preserve a non-200 real status when overriding the body (AC-005)', async () => {
+    const fake = new FakeXhr('orig', 503);
     const Patched = createPatchedXhr(
       createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: 'new' }])],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(xhr.status).toBe(503);
+    expect(xhr.responseText).toBe('new');
+  });
+
+  it('should not throw when a remove op targets an absent response header', async () => {
+    const fake = new FakeXhr('body', 200, { 'x-present': 'yes' });
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [buildRule([{ type: 'modifyResponseHeaders', headers: [{ op: 'remove', name: 'X-Absent' }] }])],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    expect(() => xhr.send()).not.toThrow();
+
+    await flush();
+
+    expect(xhr.getResponseHeader('x-present')).toBe('yes');
+  });
+
+  it('should let rewriteBody contentType win over a set content-type header op (edge case)', async () => {
+    const fake = new FakeXhr('orig', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([
+            { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'content-type', value: 'text/plain' }] },
+            { type: 'rewriteBody', body: '{"x":1}', contentType: 'application/json' },
+          ]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(xhr.getResponseHeader('content-type')).toBe('application/json');
+  });
+
+  it('should report a served override with kind rewrite, method, url, status, body and request meta', async () => {
+    const reports: InterceptReport[] = [];
+    const fake = new FakeXhr('orig', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
         sink: (report) => reports.push(report),
-        getRules: () => [buildRule([{ type: 'mock', status: 200, headers: [], body: 'ok' }])],
+        getRules: () => [buildRule([{ type: 'rewriteBody', body: '{"a":1}' }])],
       }),
     );
 
@@ -333,6 +292,13 @@ describe('createPatchedXhr mock extras', () => {
     await flush();
 
     expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      kind: 'rewrite',
+      method: 'POST',
+      url: 'https://api.x/users',
+      status: 200,
+      body: '{"a":1}',
+    });
     expect(reports[0].requestHeaders).toMatchObject({ 'X-Env': 'staging' });
     expect(reports[0].requestBody).toBe('{"q":1}');
   });

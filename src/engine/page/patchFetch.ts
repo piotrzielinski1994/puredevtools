@@ -1,16 +1,13 @@
 import type { HeaderOp, RequestDescriptor, Rule } from '../../rules/model';
 import { decideInterception } from './decide';
-import type { Interception, Sink, Timer } from './types';
+import type { Interception, Sink } from './types';
 
 export type PatchedFetchDeps = {
   originalFetch: typeof fetch;
   getRules: () => Rule[];
   getGlobalEnabled: () => boolean;
   sink: Sink;
-  delay: Timer;
 };
-
-const RESOURCE_TYPE: RequestDescriptor['resourceType'] = 'xmlhttprequest';
 
 const urlOf = (input: RequestInfo | URL): string => {
   if (typeof input === 'string') return input;
@@ -42,39 +39,32 @@ const requestBodyOf = (init?: RequestInit): string | undefined => {
   return undefined;
 };
 
-const buildHeaders = (ops: HeaderOp[], contentType?: string): Headers => {
-  const headers = new Headers();
-  if (contentType) headers.set('content-type', contentType);
+const applyHeaderOps = (headers: Headers, ops: HeaderOp[]): void => {
   ops.forEach((op) => {
     if (op.op === 'set') headers.set(op.name, op.value);
     else headers.delete(op.name);
   });
-  return headers;
 };
 
-export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
-  const serveMock = async (
-    interception: Extract<Interception, { kind: 'mock' }>,
-    request: { method: string; url: string; requestHeaders?: Record<string, string>; requestBody?: string },
-  ): Promise<Response> => {
-    if (interception.latencyMs && interception.latencyMs > 0) await deps.delay(interception.latencyMs);
-    deps.sink({ ...request, kind: 'mock', status: interception.status, body: interception.body, contentType: interception.contentType });
-    return new Response(interception.body, {
-      status: interception.status,
-      headers: buildHeaders(interception.headers, interception.contentType),
-    });
-  };
+const descriptorOf = (input: RequestInfo | URL, init?: RequestInit): RequestDescriptor => ({
+  url: urlOf(input),
+  method: methodOf(input, init),
+});
 
-  const serveRewrite = async (
-    interception: Extract<Interception, { kind: 'rewrite' }>,
+export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
+  const serveOverride = async (
+    interception: Extract<Interception, { kind: 'override' }>,
     original: Response,
     request: { method: string; url: string; requestHeaders?: Record<string, string>; requestBody?: string },
   ): Promise<Response> => {
     const headers = new Headers(original.headers);
-    if (interception.contentType) headers.set('content-type', interception.contentType);
-    const contentType = interception.contentType ?? original.headers.get('content-type') ?? undefined;
-    deps.sink({ ...request, kind: 'rewrite', status: original.status, body: interception.body, contentType });
-    return new Response(interception.body, {
+    applyHeaderOps(headers, interception.headerOps);
+    const isBodyRewritten = interception.body !== undefined;
+    const body = isBodyRewritten ? interception.body! : await original.text();
+    if (isBodyRewritten && interception.contentType) headers.set('content-type', interception.contentType);
+    const contentType = headers.get('content-type') ?? undefined;
+    deps.sink({ ...request, kind: 'rewrite', status: original.status, body, contentType });
+    return new Response(body, {
       status: original.status,
       statusText: original.statusText,
       headers,
@@ -82,16 +72,15 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
   };
 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = urlOf(input);
-    const method = methodOf(input, init);
-    const request = { method, url, requestHeaders: requestHeadersOf(input, init), requestBody: requestBodyOf(init) };
-    const interception = decideInterception(deps.getRules(), { url, method, resourceType: RESOURCE_TYPE }, deps.getGlobalEnabled());
-
-    if (interception.kind === 'mock') return serveMock(interception, request);
-    if (interception.kind === 'rewrite') {
-      const original = await deps.originalFetch(input, init);
-      return serveRewrite(interception, original, request);
-    }
-    return deps.originalFetch(input, init);
+    const request = {
+      method: methodOf(input, init),
+      url: urlOf(input),
+      requestHeaders: requestHeadersOf(input, init),
+      requestBody: requestBodyOf(init),
+    };
+    const interception = decideInterception(deps.getRules(), descriptorOf(input, init), deps.getGlobalEnabled());
+    if (interception.kind !== 'override') return deps.originalFetch(input, init);
+    const original = await deps.originalFetch(input, init);
+    return serveOverride(interception, original, request);
   };
 };

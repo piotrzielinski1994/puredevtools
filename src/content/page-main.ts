@@ -8,10 +8,8 @@ let rules: Rule[] = [];
 let globalEnabled = true;
 
 const sink = (report: InterceptReport): void => {
-  const label = report.kind === 'mock' ? 'mocked' : 'rewrote';
-
   console.log(
-    `%c[ReqHook]%c ${label} ${report.method} ${report.url} -> ${report.status}`,
+    `%c[ReqHook]%c rewrote ${report.method} ${report.url} -> ${report.status}`,
     'color:#fff;background:#6d28d9;padding:1px 4px;border-radius:3px',
     'color:inherit',
     report.body,
@@ -21,14 +19,11 @@ const sink = (report: InterceptReport): void => {
   window.postMessage(message, window.location.origin);
 };
 
-const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
 window.fetch = createPatchedFetch({
   originalFetch: window.fetch.bind(window),
   getRules: () => rules,
   getGlobalEnabled: () => globalEnabled,
   sink,
-  delay,
 });
 
 window.XMLHttpRequest = createPatchedXhr({
@@ -36,7 +31,6 @@ window.XMLHttpRequest = createPatchedXhr({
   getRules: () => rules,
   getGlobalEnabled: () => globalEnabled,
   sink,
-  delay,
 });
 
 window.addEventListener('message', (event: MessageEvent) => {

@@ -119,7 +119,7 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
           </table>
           {entries.length === 0 ? (
             <div className="flex items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              No intercepted requests yet. Requests matched by a mock or rewrite rule appear here.
+              No intercepted requests yet. Requests matched by a response-override rule appear here.
             </div>
           ) : null}
           {entries.length > 0 && visible.length === 0 ? (

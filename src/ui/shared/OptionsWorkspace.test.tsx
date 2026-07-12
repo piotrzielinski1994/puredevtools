@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import type { ApplyDiagnostics, Capabilities } from '../../engine/RequestEngine';
 import type { Rule } from '../../rules/model';
 import type { ImportOutcome, UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
@@ -25,7 +24,6 @@ vi.mock('webextension-polyfill', () => ({
 type FakeGateway = UiGateway & {
   getAll: ReturnType<typeof vi.fn>;
   getGlobalEnabled: ReturnType<typeof vi.fn>;
-  getDiagnostics: ReturnType<typeof vi.fn>;
   add: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -38,7 +36,7 @@ const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
   enabled: true,
   priority: 0,
   matchers: { url: { pattern: 'https://api.example.com/*', kind: 'glob' } },
-  actions: [{ type: 'block' }],
+  actions: [{ type: 'rewriteBody', body: 'x' }],
   ...overrides,
 });
 
@@ -48,17 +46,11 @@ const threeRules = (): Rule[] => [
   buildRule({ id: 'c', name: 'charlie rule', priority: 2, matchers: { url: { pattern: 'https://charlie.test/*', kind: 'glob' } } }),
 ];
 
-const createFakeGateway = (
-  initial: Rule[],
-  capabilities: Capabilities = { responseBodyRewrite: true, artificialLatency: true },
-  globalEnabled = true,
-): FakeGateway => {
+const createFakeGateway = (initial: Rule[], globalEnabled = true): FakeGateway => {
   let store = [...initial];
   return {
     getAll: vi.fn<() => Promise<Rule[]>>(async () => [...store]),
     getGlobalEnabled: vi.fn<() => Promise<boolean>>(async () => globalEnabled),
-    getCapabilities: vi.fn<() => Promise<Capabilities>>(async () => capabilities),
-    getDiagnostics: vi.fn<() => Promise<ApplyDiagnostics>>(async () => ({ errors: [], unsupported: [] })),
     add: vi.fn<(rule: Rule) => Promise<void>>(async (rule) => {
       store = [...store, rule];
     }),
@@ -264,7 +256,8 @@ describe('OptionsWorkspace', () => {
     clickTab('alpha rule');
     await waitFor(() => expect(urlPatternValue()).toBe('https://alpha.test/*'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete: alpha rule' }));
+    fireEvent.contextMenu(editButton('alpha rule'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete/i }));
 
     await waitFor(() => expect(gateway.remove).toHaveBeenCalledWith('a'));
     await waitFor(() => expect(screen.queryByRole('button', { name: /close alpha rule/i })).not.toBeInTheDocument());
@@ -292,17 +285,6 @@ describe('OptionsWorkspace', () => {
     renderWorkspace(gateway);
 
     expect(await screen.findByText(/failed to load rules: storage boom/i)).toBeInTheDocument();
-  });
-
-  it('should surface apply diagnostics errors and unsupported actions (UI state)', async () => {
-    // behavior: diagnostics banners render errors + unsupported list
-    const gateway = createFakeGateway(threeRules());
-    gateway.getDiagnostics.mockResolvedValue({ errors: ['rule x rejected'], unsupported: ['latency'] });
-    renderWorkspace(gateway);
-
-    expect(await screen.findByText(/rule x rejected/i)).toBeInTheDocument();
-    expect(screen.getByText(/not enforceable on this browser/i)).toBeInTheDocument();
-    expect(screen.getByText(/latency/i)).toBeInTheDocument();
   });
 
   it('should start with no tabs open after a fresh remount (AC-011, TC-008)', async () => {
