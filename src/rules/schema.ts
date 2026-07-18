@@ -73,7 +73,7 @@ export const workspaceSchema = z.array(treeNodeSchema);
 
 export const portableSchema = z
   .object({
-    globalEnabled: z.boolean(),
+    enabled: z.boolean(),
     workspace: workspaceSchema,
   })
   .refine(

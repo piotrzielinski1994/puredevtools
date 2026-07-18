@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { GlobalSwitch } from './GlobalSwitch';
+import { ImportExportControls } from './ImportExportControls';
 import { RuleForm } from './RuleForm';
 import { SidebarTree } from './SidebarTree';
 import { RuleTabs } from './RuleTabs';
@@ -52,6 +53,7 @@ export const OptionsWorkspace = ({ tabsStore }: { tabsStore?: TabsStore }) => {
             <div className="flex h-9 shrink-0 items-center justify-between border-b pl-3 text-sm font-semibold">
               puredevtools
               <div className="flex h-full items-center gap-3 pr-3">
+                <ImportExportControls />
                 <GlobalSwitch />
                 <ThemeSwitch theme={theme} onChange={setTheme} />
               </div>
