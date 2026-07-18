@@ -269,6 +269,32 @@ describe('useOpenTabs persistence', () => {
     await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
   });
 
+  it('should clear active to null on hydrate if no restored key survives ruleIds (TC-004)', async () => {
+    // behavior: every restored key is gone → openKeys empty, active null
+    const { store } = fakeStore({ openKeys: ['x', 'y'], activeKey: 'x' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'b'], { store, ready: true }));
+
+    await waitFor(() => expect(result.current.openKeys).toEqual([]));
+    expect(result.current.activeKey).toBeNull();
+  });
+
+  it('should persist the updated state when a tab is closed after hydration (AC-005)', async () => {
+    // side-effect-contract: close() after hydrate calls save() without the closed key
+    const { store, save } = fakeStore({ openKeys: ['a', 'b'], activeKey: 'b' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'b'], { store, ready: true }));
+    await waitFor(() => expect(result.current.openKeys).toEqual(['a', 'b']));
+    save.mockClear();
+
+    act(() => result.current.close('b'));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const last = save.mock.calls.at(-1)?.[0];
+    expect(last?.openKeys).toEqual(['a']);
+    expect(last?.activeKey).toBe('a');
+  });
+
   it('should persist the updated state when a tab is opened after hydration (TC-007)', async () => {
     // side-effect-contract: open() after hydrate calls save() with the new key present and active
     const { store, save } = fakeStore({ openKeys: ['a'], activeKey: 'a' });
