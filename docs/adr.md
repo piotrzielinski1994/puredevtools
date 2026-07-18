@@ -1,4 +1,4 @@
-# Architectural Decisions - ReqHook
+# Architectural Decisions - puredevtools
 
 Append-only log of architectural and design decisions made during development.
 

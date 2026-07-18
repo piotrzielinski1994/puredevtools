@@ -2,7 +2,7 @@
 
 ## Overview
 
-Give the ReqHook sidebar a **folder tree** and **drag-and-drop** so rules can be grouped and
+Give the puredevtools sidebar a **folder tree** and **drag-and-drop** so rules can be grouped and
 reordered by hand, mirroring the `requi` sidebar. Today the sidebar is a flat `Rule[]` list
 ordered by a numeric `priority`, reordered only via a "Move up / Move down" context-menu action.
 This feature replaces that with an arbitrarily-nested tree of **folders** and **rules**, dragged
@@ -11,12 +11,12 @@ into place with `@dnd-kit/core` (the same library + core-primitive approach `req
 The reference implementation is `requi`'s `src/lib/workspace/` + `src/components/workspace/`
 (nested `children[]` tree, `useDraggable`/`useDroppable` per row, manual pointer-Y drop
 projection, `move.ts`/`moveNodes`). `dbui` mirrors it. We port the shape, adapting node types to
-ReqHook's `Rule`.
+puredevtools's `Rule`.
 
 ## Why
 
 - Users accumulate many rules; a flat list with menu-only reorder is slow to organize.
-- ReqHook and `requi` are one product family (shared visual contract); the sidebar interaction
+- puredevtools and `requi` are one product family (shared visual contract); the sidebar interaction
   should match too.
 - The match engine already treats the rule list as an **ordered sequence** (first enabled match
   wins - `decideInterception` uses `.find()` over the `priority`-sorted array). Tree position can
@@ -50,7 +50,7 @@ Workspace  = TreeNode[]        // ordered roots (mixed rules + folders at root)
 - Folders nest arbitrarily (folder in folder).
 - Root holds a mix of loose rules and folders (no forced default folder).
 - `collapsed` is persisted per folder (expansion state survives reload - a deliberate divergence
-  from requi, which does not persist it; ReqHook already persists theme, so persisting collapse is
+  from requi, which does not persist it; puredevtools already persists theme, so persisting collapse is
   consistent and cheap).
 
 ### Ordering / match precedence
@@ -119,9 +119,9 @@ Workspace  = TreeNode[]        // ordered roots (mixed rules + folders at root)
 ### Explicitly out of scope (v1)
 
 - Folder-level enable/disable toggle (per-rule `enabled` only).
-- Multi-select drag (requi has it; ReqHook v1 drags one node at a time).
+- Multi-select drag (requi has it; puredevtools v1 drags one node at a time).
 - Keyboard-driven move (Alt+Arrow in requi); not ported in v1.
-- Folder-level config/metadata (requi folders carry env config; ReqHook folders are name + children
+- Folder-level config/metadata (requi folders carry env config; puredevtools folders are name + children
   only).
 - Reordering the popup tree.
 
@@ -137,7 +137,7 @@ Workspace  = TreeNode[]
 flatten(workspace): Rule[]   // DFS pre-order, rules in visible sequence
 ```
 
-Storage: one key holds the workspace tree (replacing the flat `reqhook.rules` array shape).
+Storage: one key holds the workspace tree (replacing the flat `puredevtools.rules` array shape).
 `getAll()` returns `flatten(tree)` for engine consumers; a new `getWorkspace()`/`saveWorkspace()`
 serves the UI.
 

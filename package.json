@@ -1,5 +1,5 @@
 {
-  "name": "reqhook",
+  "name": "puredevtools",
   "version": "0.1.0",
   "description": "Cross-browser WebExtension for intercepting, rewriting, and mocking HTTP requests/responses.",
   "private": true,

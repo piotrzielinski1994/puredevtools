@@ -1,8 +1,8 @@
 import type { Rule } from '../rules/model';
 import type { InterceptReport } from '../engine/page/types';
 
-export const RULES_CHANNEL = 'reqhook:rules-sync';
-export const REPORT_CHANNEL = 'reqhook:intercept-report';
+export const RULES_CHANNEL = 'puredevtools:rules-sync';
+export const REPORT_CHANNEL = 'puredevtools:intercept-report';
 
 export type RulesSyncMessage = {
   source: typeof RULES_CHANNEL;

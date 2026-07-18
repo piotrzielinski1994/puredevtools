@@ -1,4 +1,4 @@
-# ReqHook
+# puredevtools
 
 Briefing for Claude Code. Read [README.md](README.md) first - build/dev commands, load-unpacked steps, usage, architecture, platform limitations. This file lists conventions and the non-obvious bits not visible from reading individual files.
 

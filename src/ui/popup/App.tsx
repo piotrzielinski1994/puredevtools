@@ -21,7 +21,7 @@ export const App = () => {
     <main className="w-90 p-4">
       <RulesProvider gateway={gateway}>
         <header className="mb-3 flex items-center justify-between">
-          <h1 className="text-base font-semibold tracking-tight">ReqHook</h1>
+          <h1 className="text-base font-semibold tracking-tight">puredevtools</h1>
           <GlobalSwitch />
         </header>
         <Summary />

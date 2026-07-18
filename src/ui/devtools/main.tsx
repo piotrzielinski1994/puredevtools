@@ -41,7 +41,7 @@ const Panel = () => {
 
 const paintError = (root: HTMLElement, error: unknown): void => {
   const message = error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error);
-  root.textContent = `ReqHook panel failed to start:\n${message}`;
+  root.textContent = `puredevtools panel failed to start:\n${message}`;
   root.setAttribute('style', 'white-space:pre-wrap;font-family:monospace;font-size:12px;padding:12px;color:#b91c1c');
 };
 

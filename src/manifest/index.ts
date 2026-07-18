@@ -37,7 +37,7 @@ const CONTENT_SCRIPTS: ContentScript[] = [
 
 const SHARED = {
   manifest_version: 3,
-  name: 'ReqHook',
+  name: 'puredevtools',
   version: '0.1.0',
   description:
     'Override HTTP response headers and bodies for a page\'s fetch/XHR calls directly in the browser.',
@@ -49,7 +49,7 @@ const SHARED = {
 } satisfies Partial<Manifest>;
 
 const BACKGROUND_ENTRY = 'src/background/index.ts';
-const GECKO_ID = 'reqhook@reqhook.dev';
+const GECKO_ID = 'puredevtools@puredevtools.dev';
 
 const byTarget: Record<Target, Pick<Manifest, 'permissions' | 'background'> & Partial<Manifest>> = {
   chrome: {

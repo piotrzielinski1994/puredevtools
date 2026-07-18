@@ -2,7 +2,7 @@
 
 ## Overview
 
-Strip ReqHook down to a single, browser-agnostic capability: **match a request, forward it,
+Strip puredevtools down to a single, browser-agnostic capability: **match a request, forward it,
 and override the response headers and/or body the page receives**. Everything that diverges
 between Chrome and Firefox, or that isn't response-override, is removed.
 

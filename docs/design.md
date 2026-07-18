@@ -1,6 +1,6 @@
 # Design
 
-UI design rules for ReqHook. About *visual language and interaction*, not domain logic.
+UI design rules for puredevtools. About *visual language and interaction*, not domain logic.
 Read this before any UI change. Ported from the `requi` visual contract so the two tools
 read as one product family; the token source is `src/ui/globals.css`.
 

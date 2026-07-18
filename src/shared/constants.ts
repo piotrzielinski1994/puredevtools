@@ -1,5 +1,5 @@
 export const STORAGE_KEYS = {
-  rules: 'reqhook.rules',
-  globalEnabled: 'reqhook.globalEnabled',
-  theme: 'reqhook.theme',
+  rules: 'puredevtools.rules',
+  globalEnabled: 'puredevtools.globalEnabled',
+  theme: 'puredevtools.theme',
 } as const;

@@ -9,7 +9,7 @@ let globalEnabled = true;
 
 const sink = (report: InterceptReport): void => {
   console.log(
-    `%c[ReqHook]%c rewrote ${report.method} ${report.url} -> ${report.status}`,
+    `%c[puredevtools]%c rewrote ${report.method} ${report.url} -> ${report.status}`,
     'color:#fff;background:#6d28d9;padding:1px 4px;border-radius:3px',
     'color:inherit',
     report.body,

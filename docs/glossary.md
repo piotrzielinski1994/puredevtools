@@ -1,6 +1,6 @@
 # Glossary
 
-Ubiquitous language for ReqHook. One concept = one word; rejected synonyms listed as `_Avoid_`. Domain terms only - not general programming concepts. Definitions say what a thing IS, not how it's implemented.
+Ubiquitous language for puredevtools. One concept = one word; rejected synonyms listed as `_Avoid_`. Domain terms only - not general programming concepts. Definitions say what a thing IS, not how it's implemented.
 
 `pz-implement` and normal sessions append here as terms get sharpened.
 
@@ -21,7 +21,7 @@ Catching a `fetch`/`XHR` response in flight so it can be changed before the page
 _Avoid_: capture (reserve for read-only observation), proxying
 
 ### Response override
-Replacing the response headers and/or body a page receives, after forwarding the real request. The only tampering ReqHook does; the original status is preserved.
+Replacing the response headers and/or body a page receives, after forwarding the real request. The only tampering puredevtools does; the original status is preserved.
 _Avoid_: mock, stub, tamper (rewrite = the body-only sub-action of an override)
 
 ### Workspace

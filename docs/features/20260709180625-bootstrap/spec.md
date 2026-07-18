@@ -52,7 +52,7 @@ start from a consistent, dual-browser foundation instead of boilerplate setup.
 **Precondition:** Clean checkout, `npm install` + `npm run build:chrome` done.
 **Steps:**
 1. `chrome://extensions` -> enable Developer mode -> "Load unpacked" -> pick `dist/chrome`.
-2. Click the ReqHook toolbar icon.
+2. Click the puredevtools toolbar icon.
 3. Open the extension's options page.
 **Expected:** Extension loads with no manifest error; the popup renders its React skeleton; the options page renders its React skeleton.
 **Maps to:** AC-002, AC-004, AC-005, AC-006.
@@ -114,7 +114,7 @@ Deferred to their own later feature folders - **not** part of bootstrap:
 - `RequestEngine` interface and the Chrome (`declarativeNetRequest`) / Firefox
   (`webRequest` + `filterResponseData`) engines.
 - MAIN-world `fetch`/`XHR` page patch and the content-script bridge.
-- ReqHook DevTools panel and its intercept table.
+- puredevtools DevTools panel and its intercept table.
 - Popup / options **product** UI, Tailwind v4, and shadcn-style component primitives.
 
 ## 9. Revision History

@@ -17,6 +17,6 @@ export type PanelConnectMessage = { type: 'panel-init'; tabId: number };
 
 export type PanelReportMessage = { type: 'report'; report: InterceptReport };
 
-export const PANEL_PORT_NAME = 'reqhook-devtools-panel';
+export const PANEL_PORT_NAME = 'puredevtools-devtools-panel';
 
-export const REPORT_MESSAGE = 'reqhook:intercept-report';
+export const REPORT_MESSAGE = 'puredevtools:intercept-report';

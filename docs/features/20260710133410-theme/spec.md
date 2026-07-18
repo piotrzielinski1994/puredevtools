@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-Make ReqHook's UI look **exactly like `requi`**: same color tokens, zero rounded corners
+Make puredevtools's UI look **exactly like `requi`**: same color tokens, zero rounded corners
 everywhere, thin square scrollbars, restored pointer cursors, and an IDE-like dense layout
 (flush bars, full-height bar buttons, monospace for data, status dots instead of card
 chrome). Applies to **all three surfaces** - options page, popup, and DevTools panel.
@@ -24,11 +24,11 @@ Two layers of change:
 
 `requi`'s visual contract lives in `~/projects/private/requi/docs/design.md` and
 `~/projects/private/requi/src/index.css`. This feature ports that contract; a local
-`docs/design.md` is created so future ReqHook UI work follows it.
+`docs/design.md` is created so future puredevtools UI work follows it.
 
 ### User Story
 
-As a user of both tools, I want ReqHook to share requi's exact visual language, so the two
+As a user of both tools, I want puredevtools to share requi's exact visual language, so the two
 feel like one product family instead of two unrelated extensions.
 
 ## 2. Acceptance Criteria
@@ -105,7 +105,7 @@ Adds `tw-animate-css` (dev/style dep, parity with requi). Reuses all existing co
 - No new theming behavior (custom user colors, more modes) - only light/dark as today.
 - No layout/behavior change beyond visual density (the master-detail structure from the
   layout feature stays; this only restyles it).
-- CodeMirror / editor theming (requi has it; ReqHook has no code editor yet).
+- CodeMirror / editor theming (requi has it; puredevtools has no code editor yet).
 
 ## 9. Revision History
 

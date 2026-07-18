@@ -11,7 +11,7 @@ const download = (json: string) => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = 'reqhook-rules.json';
+  anchor.download = 'puredevtools-rules.json';
   anchor.click();
   URL.revokeObjectURL(url);
 };

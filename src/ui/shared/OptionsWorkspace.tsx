@@ -45,7 +45,7 @@ export const OptionsWorkspace = () => {
         <div className="flex min-h-0 flex-1">
           <aside className="flex flex-col bg-muted/30" style={{ width: sidebar.width }}>
             <div className="flex h-9 shrink-0 items-center justify-between border-b pl-3 text-sm font-semibold">
-              ReqHook
+              puredevtools
               <div className="flex h-full items-center gap-3 pr-3">
                 <GlobalSwitch />
                 <ThemeSwitch theme={theme} onChange={setTheme} />

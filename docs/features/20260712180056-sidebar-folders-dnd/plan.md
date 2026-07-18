@@ -49,7 +49,7 @@ PopupTree                  -> read-only collapse tree (popup)
 - `tree-locate.test.ts`.
 
 ### 4. Storage - `src/rules/storage.ts` (AC-006, AC-002..004 persistence)
-- Store the workspace tree under `STORAGE_KEYS.workspace` (rename/repurpose `reqhook.rules`).
+- Store the workspace tree under `STORAGE_KEYS.workspace` (rename/repurpose `puredevtools.rules`).
   Keep back-compat read: if stored value is a flat `Rule[]` (old shape), wrap each as a `RuleNode`
   at root (tolerant migration; drops any legacy `priority`).
 - `RuleRepository`:

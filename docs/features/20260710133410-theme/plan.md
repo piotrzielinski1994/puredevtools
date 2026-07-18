@@ -75,7 +75,7 @@ correct restyle keeps it green. Guard rails instead of new unit tests:
 - **Port requi `index.css` wholesale** (vs hand-picking tokens). Rationale: "exactly like requi" - one source of truth, least drift.
 - **Square switch** (vs pill). Rationale: user chose strict "no rounded anywhere"; documented as the deliberate call (requi keeps a pill, so this is a conscious divergence from requi's switch while matching requi's *rule*).
 - **No new tests; lean on the existing role/label-based suite.** Rationale: restyle changes classes, not behavior; adding class-assertion tests would be brittle and against the repo's behavior-first test style.
-- **Add `tw-animate-css`** even though ReqHook has no animated primitives yet. Rationale: parity with requi's `globals.css` import; cheap, and future shadcn primitives (dialog/menu) expect it.
+- **Add `tw-animate-css`** even though puredevtools has no animated primitives yet. Rationale: parity with requi's `globals.css` import; cheap, and future shadcn primitives (dialog/menu) expect it.
 
 ## 7. Risks and Mitigations
 
