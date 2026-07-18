@@ -13,7 +13,7 @@ const schema = z.object({
 export const createTabsStore = (): TabsStore => ({
   load: async () => {
     const stored = await browser.storage.local.get([STORAGE_KEYS.openTabs]);
-    const parsed = schema.safeParse(stored[STORAGE_KEYS.openTabs]);
+    const parsed = schema.safeParse(stored?.[STORAGE_KEYS.openTabs]);
     return parsed.success ? parsed.data : EMPTY;
   },
   save: (state) => {

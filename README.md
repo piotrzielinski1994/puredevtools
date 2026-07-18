@@ -27,7 +27,7 @@ npm test
 
 ## Usage
 
-Open the extension popup for a quick rule tree and the global on/off switch, or the options page (`Manage rules…`) for the full editor. The options page is a master-detail workspace: the left sidebar shows a folder tree of every rule, while the right area opens each rule you edit as a tab (open several at once, switch between them; open tabs are session-only). With no tab open it shows a "Select a rule to edit" hint. From here you can:
+Open the extension popup for a quick rule tree and the global on/off switch, or the options page (`Manage rules…`) for the full editor. The options page is a master-detail workspace: the left sidebar shows a folder tree of every rule, while the right area opens each rule you edit as a tab (open several at once, switch between them; open tabs persist across reloads/restarts, the unsaved "New rule" draft does not). With no tab open it shows a "Select a rule to edit" hint. From here you can:
 
 - Add, edit, delete, and enable/disable rules.
 - Organize rules into **folders** (nested arbitrarily; rules and folders can also sit at the root) and **reorder by drag-and-drop** - drag a rule or folder to reorder among siblings, drop it into or out of a folder. Right-click a folder for New folder / Rename / Delete (delete removes the whole subtree); collapse/expand persists. Rule precedence follows the visible top-to-bottom order of the tree.

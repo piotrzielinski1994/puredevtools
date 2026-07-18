@@ -77,7 +77,8 @@ describe('createTabsStore', () => {
     createTabsStore().save({ openKeys: ['x'], activeKey: 'x' });
 
     await vi.waitFor(() => expect(local.set).toHaveBeenCalled());
-    local.set.mock.calls.forEach(([entries]: [Record<string, unknown>]) => {
+    local.set.mock.calls.forEach((call) => {
+      const [entries] = call as [Record<string, unknown>];
       expect(entries).not.toHaveProperty(RULES_KEY);
     });
   });
