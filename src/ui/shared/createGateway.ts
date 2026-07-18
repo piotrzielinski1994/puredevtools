@@ -11,7 +11,7 @@ const download = (json: string) => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = 'puredevtools-rules.json';
+  anchor.download = 'puredevtools.json';
   anchor.click();
   URL.revokeObjectURL(url);
 };
@@ -37,11 +37,11 @@ export const createGateway = (): UiGateway => {
     toggleCollapse: (id) => repository.toggleCollapse(id),
     setGlobalEnabled: (enabled) => repository.setGlobalEnabled(enabled),
     exportToFile: async () => {
-      const [workspace, globalEnabled] = await Promise.all([
+      const [workspace, enabled] = await Promise.all([
         repository.getWorkspace(),
         repository.getGlobalEnabled(),
       ]);
-      download(exportRules({ globalEnabled, workspace }));
+      download(exportRules({ enabled, workspace }));
     },
     importFromFile: async (json, mode): Promise<ImportOutcome> => {
       const result = importRules(json);
@@ -51,7 +51,7 @@ export const createGateway = (): UiGateway => {
         await persist(mergeRules(current, result.state.workspace), await repository.getGlobalEnabled());
         return { ok: true };
       }
-      await persist(result.state.workspace, result.state.globalEnabled);
+      await persist(result.state.workspace, result.state.enabled);
       return { ok: true };
     },
   };

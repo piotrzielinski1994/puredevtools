@@ -26,7 +26,7 @@ const folder = (id: string, children: TreeNode[] = []): FolderNode => ({
 });
 
 const buildState = (overrides: Partial<PortableState> = {}): PortableState => ({
-  globalEnabled: true,
+  enabled: true,
   workspace: [ruleNode('a'), ruleNode('b')],
   ...overrides,
 });
@@ -44,9 +44,9 @@ describe('exportRules', () => {
     expect(JSON.parse(json).workspace[0].kind).toBe('folder');
   });
 
-  it('should serialize the globalEnabled flag (AC-012)', () => {
-    const json = exportRules(buildState({ globalEnabled: false }));
-    expect(JSON.parse(json).globalEnabled).toBe(false);
+  it('should serialize the enabled flag (AC-012)', () => {
+    const json = exportRules(buildState({ enabled: false }));
+    expect(JSON.parse(json).enabled).toBe(false);
   });
 });
 
@@ -71,12 +71,12 @@ describe('importRules', () => {
   });
 
   it('should return a validation error for a wrong-shape node', () => {
-    const result = importRules('{"globalEnabled":true,"workspace":[{"kind":"rule","rule":{"bad":1}}]}');
+    const result = importRules('{"enabled":true,"workspace":[{"kind":"rule","rule":{"bad":1}}]}');
     expect(result.ok).toBe(false);
   });
 
   it('should return a validation error when the workspace field is missing', () => {
-    const result = importRules('{"globalEnabled":true}');
+    const result = importRules('{"enabled":true}');
     expect(result.ok).toBe(false);
   });
 
@@ -91,10 +91,64 @@ describe('importRules', () => {
   });
 });
 
+describe('exportRules body encoding', () => {
+  it('should write a JSON-object body as nested JSON, not an escaped string', () => {
+    const state = buildState({
+      workspace: [ruleNode('a', { actions: [{ type: 'rewriteBody', body: '{"makes":[{"id":1}]}' }] })],
+    });
+    const parsed = JSON.parse(exportRules(state));
+    expect(parsed.workspace[0].rule.actions[0].body).toEqual({ makes: [{ id: 1 }] });
+  });
+
+  it('should keep a plain-text body as a string', () => {
+    const state = buildState({
+      workspace: [ruleNode('a', { actions: [{ type: 'rewriteBody', body: 'plain text' }] })],
+    });
+    const parsed = JSON.parse(exportRules(state));
+    expect(parsed.workspace[0].rule.actions[0].body).toBe('plain text');
+  });
+
+  it('should pretty-print the exported JSON', () => {
+    expect(exportRules(buildState())).toContain('\n');
+  });
+});
+
+describe('importRules body decoding', () => {
+  it('should decode a nested-JSON body into a pretty-printed string (AC-012)', () => {
+    const json = JSON.stringify({
+      enabled: true,
+      workspace: [
+        { kind: 'rule', rule: { id: 'a', name: 'a', enabled: true, matchers: { url: { pattern: '*', kind: 'glob' } }, actions: [{ type: 'rewriteBody', body: { makes: [{ id: 1 }] } }] } },
+      ],
+    });
+    const result = importRules(json);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const action = result.state.workspace[0];
+      if (action.kind !== 'rule') throw new Error('expected rule node');
+      const rewrite = action.rule.actions[0];
+      if (rewrite.type !== 'rewriteBody') throw new Error('expected rewriteBody');
+      expect(rewrite.body).toBe(JSON.stringify({ makes: [{ id: 1 }] }, null, 2));
+    }
+  });
+});
+
 describe('export -> import round-trip', () => {
+  it('should round-trip a JSON-object body back to a pretty-printed string (nested-JSON export)', () => {
+    const pretty = JSON.stringify({ makes: [{ id: 14979, name: 'asd' }] }, null, 2);
+    const original = buildState({
+      workspace: [ruleNode('a', { actions: [{ type: 'rewriteBody', body: pretty, contentType: 'application/json' }] })],
+    });
+    const result = importRules(exportRules(original));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.state).toEqual(original);
+    }
+  });
+
   it('should restore an identical tree with a folder and nested rules (TC-015)', () => {
     const original = buildState({
-      globalEnabled: false,
+      enabled: false,
       workspace: [
         folder('f', [
           ruleNode('r1', {

@@ -55,9 +55,9 @@ describe('workspaceSchema', () => {
 });
 
 describe('portableSchema', () => {
-  it('should parse a valid object with globalEnabled and a workspace tree (AC-012)', () => {
+  it('should parse a valid object with enabled and a workspace tree (AC-012)', () => {
     const state = {
-      globalEnabled: true,
+      enabled: true,
       workspace: [folderNode('f', [ruleNode('r1')]), ruleNode('r2')],
     };
     expect(portableSchema.safeParse(state).success).toBe(true);
@@ -65,13 +65,13 @@ describe('portableSchema', () => {
 
   it('should fail if the duplicate rule id appears anywhere in the tree (TC-016)', () => {
     const state = {
-      globalEnabled: true,
+      enabled: true,
       workspace: [folderNode('f', [ruleNode('dup')]), ruleNode('dup')],
     };
     expect(portableSchema.safeParse(state).success).toBe(false);
   });
 
   it('should fail if the workspace field is missing', () => {
-    expect(portableSchema.safeParse({ globalEnabled: true }).success).toBe(false);
+    expect(portableSchema.safeParse({ enabled: true }).success).toBe(false);
   });
 });
