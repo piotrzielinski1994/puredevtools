@@ -6,6 +6,17 @@ import type { UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
 import { OptionsWorkspace } from './OptionsWorkspace';
 import { createFakeGateway, ruleNodes, type FakeGateway } from './test-gateway';
+import type { OpenTabsState, TabsStore } from './useOpenTabs';
+
+const createFakeTabsStore = (): TabsStore => {
+  let state: OpenTabsState = { openKeys: [], activeKey: null };
+  return {
+    load: async () => state,
+    save: (next) => {
+      state = next;
+    },
+  };
+};
 
 vi.mock('webextension-polyfill', () => ({
   default: {
@@ -179,8 +190,8 @@ describe('OptionsWorkspace', () => {
     expect(urlPatternValue()).toBe('');
   });
 
-  it('should persist and close the tab when the editor is saved (AC-009, TC-006)', async () => {
-    // side-effect-contract: Save calls gateway.updateRule and closes the active tab
+  it('should persist and keep the tab open when the editor is saved (AC-009, TC-006)', async () => {
+    // side-effect-contract: Save calls gateway.updateRule and leaves the active tab open
     const gateway = createGatewayWith(threeRules());
     renderWorkspace(gateway);
 
@@ -193,7 +204,31 @@ describe('OptionsWorkspace', () => {
     await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
     const [updated] = gateway.updateRule.mock.calls[0] as [Rule];
     expect(updated.id).toBe('a');
-    expect(await screen.findByText(/select a rule to edit/i)).toBeInTheDocument();
+    expect(closeTab('alpha rule')).toBeInTheDocument();
+    expect(screen.queryByText(/select a rule to edit/i)).not.toBeInTheDocument();
+    expect(urlPatternValue()).toBe('https://alpha.test/*');
+  });
+
+  it('should replace the draft tab with the saved rule tab when a new rule is saved (AC-009)', async () => {
+    // behavior: saving a draft swaps the draft tab for the persisted rule's tab (no duplicate re-add)
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'New rule' });
+    fireEvent.click(screen.getByRole('button', { name: 'New rule' }));
+    await screen.findByLabelText('URL pattern');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'delta rule' } });
+    fireEvent.change(screen.getByLabelText('URL pattern'), { target: { value: 'https://delta.test/*' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole('button', { name: /close delta rule/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /close new rule/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
+    expect(gateway.addRule).toHaveBeenCalledTimes(1);
   });
 
   it('should close the tab without persisting when the editor is cancelled (AC-009)', async () => {
@@ -257,19 +292,40 @@ describe('OptionsWorkspace', () => {
     expect(await screen.findByText(/failed to load rules: storage boom/i)).toBeInTheDocument();
   });
 
-  it('should start with no tabs open after a fresh remount (AC-011, TC-008)', async () => {
-    // behavior: open tabs are session-only; remounting resets to the empty state
+  it('should open no tabs on mount when the tabs store is empty (TC-008)', async () => {
+    // behavior: an empty store restores nothing - the workspace starts in the empty state
     const gateway = createGatewayWith(threeRules());
-    const first = renderWorkspace(gateway);
-
-    await screen.findByRole('button', { name: 'Edit: alpha rule' });
-    fireEvent.click(editButton('alpha rule'));
-    await screen.findByLabelText('URL pattern');
-    first.unmount();
-
     renderWorkspace(gateway);
 
     expect(await screen.findByText(/select a rule to edit/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /close alpha rule/i })).not.toBeInTheDocument();
+  });
+
+  it('should restore open tabs from the store on remount but never the draft (AC-001, AC-002, TC-008)', async () => {
+    // behavior: a stateful store round-trips open tabs across remounts; the draft is not restored
+    const gateway = createGatewayWith(threeRules());
+    const tabsStore = createFakeTabsStore();
+
+    const first = render(
+      <RulesProvider gateway={gateway}>
+        <OptionsWorkspace tabsStore={tabsStore} />
+      </RulesProvider>,
+    );
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    fireEvent.click(screen.getByRole('button', { name: 'New rule' }));
+    await waitFor(() => expect(urlPatternValue()).toBe(''));
+    first.unmount();
+
+    render(
+      <RulesProvider gateway={gateway}>
+        <OptionsWorkspace tabsStore={tabsStore} />
+      </RulesProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: /close alpha rule/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /close new rule/i })).not.toBeInTheDocument();
   });
 });

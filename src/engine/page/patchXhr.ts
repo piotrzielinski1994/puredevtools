@@ -1,5 +1,6 @@
 import type { HeaderOp, RequestDescriptor, Rule } from '../../rules/model';
 import { decideInterception } from './decide';
+import { resolveUrl } from './resolveUrl';
 import type { Interception, Sink } from './types';
 
 export type PatchedXhrDeps = {
@@ -52,7 +53,7 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
 
     open(method: string, url: string, ...rest: unknown[]): void {
       this.method = method;
-      this.url = url;
+      this.url = resolveUrl(url);
       (this.delegate.open as (m: string, u: string, ...r: unknown[]) => void)(method, url, ...rest);
     }
 

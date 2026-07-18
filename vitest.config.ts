@@ -29,6 +29,7 @@ export default defineConfig({
         'src/ui/shared/gateway.ts',
         'src/ui/shared/createGateway.ts',
         'src/ui/shared/test-gateway.ts',
+        'src/ui/shared/createTabsStore.ts',
         'src/ui/components/**',
         'src/engine/page/types.ts',
         'src/content/page-main.ts',

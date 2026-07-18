@@ -13,7 +13,8 @@ import { useRules } from './RulesProvider';
 
 export type RuleFormProps = {
   initial?: Rule;
-  onDone(): void;
+  onSaved(ruleId: string): void;
+  onCancel(): void;
 };
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -91,7 +92,7 @@ const MatchHint = ({ pattern, kind, url }: { pattern: string; kind: PatternKind;
   );
 };
 
-export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
+export const RuleForm = ({ initial, onSaved, onCancel }: RuleFormProps) => {
   const { addRule, updateRule } = useRules();
   const [name, setName] = useState(initial?.name ?? '');
   const [pattern, setPattern] = useState(initial?.matchers.url.pattern ?? '');
@@ -143,7 +144,7 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
     };
 
     await (initial ? updateRule(rule) : addRule(rule));
-    onDone();
+    onSaved(rule.id);
   };
 
   return (
@@ -222,7 +223,7 @@ export const RuleForm = ({ initial, onDone }: RuleFormProps) => {
       ) : null}
       <div className="flex gap-2 px-4 pb-4">
         <Button type="submit">Save</Button>
-        <Button type="button" variant="outline" onClick={onDone}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
       </div>

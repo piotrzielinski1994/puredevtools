@@ -173,6 +173,45 @@ describe('createPatchedFetch input normalization (AC-001)', () => {
   });
 });
 
+describe('createPatchedFetch relative URL resolution', () => {
+  it('should resolve a relative string input against the page origin before matching a full-URL rule', async () => {
+    const origin = window.location.origin;
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([{ type: 'rewriteBody', body: 'resolved' }], {
+            url: { pattern: `${origin}/base/makes`, kind: 'regex' },
+          }),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('/base/makes?culture=en-CA');
+
+    expect(await res.text()).toBe('resolved');
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should report the resolved absolute url in the sink for a relative request', async () => {
+    const origin = window.location.origin;
+    const reports: InterceptReport[] = [];
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        sink: (report) => reports.push(report),
+        getRules: () => [
+          buildRule([{ type: 'rewriteBody', body: 'ok' }], { url: { pattern: `${origin}/base/*`, kind: 'glob' } }),
+        ],
+      }),
+    );
+
+    await fetchImpl('/base/makes');
+
+    expect(reports[0].url).toBe(`${origin}/base/makes`);
+  });
+});
+
 describe('createPatchedFetch sink reporting (AC-009)', () => {
   it('should report a served override once with kind rewrite, method, url, status and body', async () => {
     const reports: InterceptReport[] = [];

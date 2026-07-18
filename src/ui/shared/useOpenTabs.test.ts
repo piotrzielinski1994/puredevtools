@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useOpenTabs } from './useOpenTabs';
+import { describe, it, expect, vi } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { useOpenTabs, type TabsStore, type OpenTabsState } from './useOpenTabs';
 
 const DRAFT = 'new:draft';
 
@@ -193,5 +193,120 @@ describe('useOpenTabs', () => {
 
     expect(result.current.openKeys).toEqual([DRAFT]);
     expect(result.current.activeKey).toBe(DRAFT);
+  });
+});
+
+const fakeStore = (preset: OpenTabsState) => {
+  const load = vi.fn<() => Promise<OpenTabsState>>().mockResolvedValue(preset);
+  const save = vi.fn<(state: OpenTabsState) => void>();
+  const store: TabsStore = { load, save };
+  return { store, load, save };
+};
+
+describe('useOpenTabs persistence', () => {
+  it('should hydrate openKeys and activeKey from the store on mount when ready (TC-001)', async () => {
+    // behavior: load() result restores openKeys + active when all ids are still valid
+    const { store } = fakeStore({ openKeys: ['a', 'b'], activeKey: 'a' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'b'], { store, ready: true }));
+
+    await waitFor(() => expect(result.current.openKeys).toEqual(['a', 'b']));
+    expect(result.current.activeKey).toBe('a');
+  });
+
+  it('should prune restored openKeys that are no longer in ruleIds on hydrate (TC-003)', async () => {
+    // behavior: restored keys are filtered down to the current ruleIds
+    const { store } = fakeStore({ openKeys: ['a', 'b', 'c'], activeKey: 'a' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'c'], { store, ready: true }));
+
+    await waitFor(() => expect(result.current.openKeys).toEqual(['a', 'c']));
+  });
+
+  it('should fall back active to the last remaining open key if the restored active is invalid (TC-004)', async () => {
+    // behavior: invalid restored active → last surviving open key
+    const { store } = fakeStore({ openKeys: ['a', 'b', 'c'], activeKey: 'b' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'c'], { store, ready: true }));
+
+    await waitFor(() => expect(result.current.openKeys).toEqual(['a', 'c']));
+    expect(result.current.activeKey).toBe('c');
+  });
+
+  it('should never persist the draft key in any save payload (TC-002)', async () => {
+    // side-effect-contract: no save payload includes the draft in openKeys or as activeKey
+    const { store, save } = fakeStore({ openKeys: [], activeKey: null });
+
+    const { result } = renderHook(() => useOpenTabs(['a'], { store, ready: true }));
+    await act(async () => undefined);
+
+    act(() => result.current.open('a'));
+    act(() => result.current.open(DRAFT));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    save.mock.calls.forEach(([state]) => {
+      expect(state.openKeys).not.toContain(DRAFT);
+      expect(state.activeKey).not.toBe(DRAFT);
+    });
+  });
+
+  it('should not load or save while ready is false, then activate once ready flips true (TC-006)', async () => {
+    // side-effect-contract: gating - no load/save before ready; load fires when ready becomes true
+    const { store, load, save } = fakeStore({ openKeys: ['a'], activeKey: 'a' });
+
+    const { result, rerender } = renderHook(
+      ({ ready }: { ready: boolean }) => useOpenTabs(['a', 'b'], { store, ready }),
+      { initialProps: { ready: false } },
+    );
+
+    expect(load).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+
+    act(() => result.current.open('b'));
+    expect(save).not.toHaveBeenCalled();
+
+    rerender({ ready: true });
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+  });
+
+  it('should clear active to null on hydrate if no restored key survives ruleIds (TC-004)', async () => {
+    // behavior: every restored key is gone → openKeys empty, active null
+    const { store } = fakeStore({ openKeys: ['x', 'y'], activeKey: 'x' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'b'], { store, ready: true }));
+
+    await waitFor(() => expect(result.current.openKeys).toEqual([]));
+    expect(result.current.activeKey).toBeNull();
+  });
+
+  it('should persist the updated state when a tab is closed after hydration (AC-005)', async () => {
+    // side-effect-contract: close() after hydrate calls save() without the closed key
+    const { store, save } = fakeStore({ openKeys: ['a', 'b'], activeKey: 'b' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'b'], { store, ready: true }));
+    await waitFor(() => expect(result.current.openKeys).toEqual(['a', 'b']));
+    save.mockClear();
+
+    act(() => result.current.close('b'));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const last = save.mock.calls.at(-1)?.[0];
+    expect(last?.openKeys).toEqual(['a']);
+    expect(last?.activeKey).toBe('a');
+  });
+
+  it('should persist the updated state when a tab is opened after hydration (TC-007)', async () => {
+    // side-effect-contract: open() after hydrate calls save() with the new key present and active
+    const { store, save } = fakeStore({ openKeys: ['a'], activeKey: 'a' });
+
+    const { result } = renderHook(() => useOpenTabs(['a', 'b'], { store, ready: true }));
+    await waitFor(() => expect(result.current.openKeys).toEqual(['a']));
+
+    act(() => result.current.open('b'));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const last = save.mock.calls.at(-1)?.[0];
+    expect(last?.openKeys).toContain('b');
+    expect(last?.activeKey).toBe('b');
   });
 });

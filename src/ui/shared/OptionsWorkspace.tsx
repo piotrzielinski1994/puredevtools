@@ -6,7 +6,8 @@ import { RuleForm } from './RuleForm';
 import { SidebarTree } from './SidebarTree';
 import { RuleTabs } from './RuleTabs';
 import { ThemeSwitch } from './ThemeSwitch';
-import { useOpenTabs, DRAFT_KEY } from './useOpenTabs';
+import { useOpenTabs, DRAFT_KEY, type TabsStore } from './useOpenTabs';
+import { createTabsStore } from './createTabsStore';
 import { useDragWidth } from './useDragWidth';
 import { useRules } from './RulesProvider';
 import { useTheme } from './useTheme';
@@ -15,15 +16,19 @@ const SIDEBAR_DEFAULT = 320;
 const SIDEBAR_MIN = 240;
 const SIDEBAR_MAX = 560;
 
-export const OptionsWorkspace = () => {
+export const OptionsWorkspace = ({ tabsStore }: { tabsStore?: TabsStore }) => {
   const { rules, status, error } = useRules();
   const [theme, setTheme] = useTheme();
   const [filter, setFilter] = useState('');
 
   const sidebar = useDragWidth(SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX);
 
+  const store = useMemo(() => tabsStore ?? createTabsStore(), [tabsStore]);
   const ruleIds = useMemo(() => rules.map((rule) => rule.id), [rules]);
-  const { openKeys, activeKey, open, close, setActive } = useOpenTabs(ruleIds);
+  const { openKeys, activeKey, open, close, setActive } = useOpenTabs(ruleIds, {
+    store,
+    ready: status === 'ready',
+  });
 
   const rulesById = useMemo(() => new Map(rules.map((rule) => [rule.id, rule] as const)), [rules]);
   const tabs = openKeys.map((key) => ({
@@ -89,7 +94,17 @@ export const OptionsWorkspace = () => {
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <RuleForm key={activeKey} initial={activeRule} onDone={() => close(activeKey)} />
+                <RuleForm
+                  key={activeKey}
+                  initial={activeRule}
+                  onSaved={(ruleId) => {
+                    if (activeKey === DRAFT_KEY) {
+                      close(DRAFT_KEY);
+                      open(ruleId);
+                    }
+                  }}
+                  onCancel={() => close(activeKey)}
+                />
               </div>
             )}
           </section>

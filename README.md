@@ -27,7 +27,7 @@ npm test
 
 ## Usage
 
-Open the extension popup for a quick rule tree and the global on/off switch, or the options page (`Manage rules…`) for the full editor. The options page is a master-detail workspace: the left sidebar shows a folder tree of every rule, while the right area opens each rule you edit as a tab (open several at once, switch between them; open tabs are session-only). With no tab open it shows a "Select a rule to edit" hint. From here you can:
+Open the extension popup for a quick rule tree and the global on/off switch, or the options page (`Manage rules…`) for the full editor. The options page is a master-detail workspace: the left sidebar shows a folder tree of every rule, while the right area opens each rule you edit as a tab (open several at once, switch between them; open tabs persist across reloads/restarts, the unsaved "New rule" draft does not). With no tab open it shows a "Select a rule to edit" hint. From here you can:
 
 - Add, edit, delete, and enable/disable rules.
 - Organize rules into **folders** (nested arbitrarily; rules and folders can also sit at the root) and **reorder by drag-and-drop** - drag a rule or folder to reorder among siblings, drop it into or out of a folder. Right-click a folder for New folder / Rename / Delete (delete removes the whole subtree); collapse/expand persists. Rule precedence follows the visible top-to-bottom order of the tree.
@@ -56,5 +56,5 @@ There is no network layer: `declarativeNetRequest`/`webRequest` are not used, an
 - **DevTools Network panel cannot show override output.** The native Network panel taps the wire (below the `fetch`/XHR patch), so its Response tab shows the original upstream bytes. To see what the UI received: read the rendered page, the `[puredevtools]` console log, or call the endpoint from the DevTools console (`fetch(url).then(r => r.text()).then(console.log)`).
 - **Page patch lands slightly after `document_start`.** The MAIN-world fetch/XHR patch is loaded as an ES module, so a request fired in the first microtask of page load can bypass it. Inherent to MV3 module content scripts.
 - **XHR support (page layer):** asynchronous XHR only; consumers using `xhr.addEventListener('load', ...)` instead of `xhr.onload` are not notified in v1; `responseType` json/blob, `responseURL`, and `statusText` are not emulated.
-- **URL matching:** both glob (`*`, `?`) and regex are supported.
+- **URL matching:** both glob (`*`, `?`) and regex are supported. Relative request URLs (e.g. a page fetching `/base/api?x=1`) are resolved against the page origin before matching, so a rule can use the full `https://host/...` URL regardless of how the page calls `fetch`/XHR.
 - **Rule precedence:** within a single request, the first enabled rule that matches wins; overrides from later matching rules are not accumulated in v1. Precedence is the depth-first, top-to-bottom order of the sidebar tree (a folder's rules occupy the folder's slot), so reordering or moving a rule between folders changes which rule wins.
