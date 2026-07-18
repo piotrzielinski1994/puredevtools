@@ -94,7 +94,17 @@ export const OptionsWorkspace = ({ tabsStore }: { tabsStore?: TabsStore }) => {
               </div>
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <RuleForm key={activeKey} initial={activeRule} onDone={() => close(activeKey)} />
+                <RuleForm
+                  key={activeKey}
+                  initial={activeRule}
+                  onSaved={(ruleId) => {
+                    if (activeKey === DRAFT_KEY) {
+                      close(DRAFT_KEY);
+                      open(ruleId);
+                    }
+                  }}
+                  onCancel={() => close(activeKey)}
+                />
               </div>
             )}
           </section>

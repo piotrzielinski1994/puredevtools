@@ -6,10 +6,10 @@ import { RulesProvider } from './RulesProvider';
 import { RuleForm } from './RuleForm';
 import { createFakeGateway } from './test-gateway';
 
-const renderForm = (gateway: UiGateway, onDone = vi.fn(), initial?: Rule) =>
+const renderForm = (gateway: UiGateway, onSaved = vi.fn(), initial?: Rule, onCancel = vi.fn()) =>
   render(
     <RulesProvider gateway={gateway}>
-      <RuleForm initial={initial} onDone={onDone} />
+      <RuleForm initial={initial} onSaved={onSaved} onCancel={onCancel} />
     </RulesProvider>,
   );
 
@@ -83,10 +83,10 @@ describe('RuleForm', () => {
     expect(screen.queryByRole('button', { name: /add header matcher/i })).not.toBeInTheDocument();
   });
 
-  it('should call gateway.addRule with the typed name and url pattern then call onDone on valid submit (AC-007)', async () => {
+  it('should call gateway.addRule with the typed name and url pattern then call onSaved with the created rule (AC-007)', async () => {
     const gateway = createFakeGateway();
-    const onDone = vi.fn();
-    renderForm(gateway, onDone);
+    const onSaved = vi.fn();
+    renderForm(gateway, onSaved);
     await screen.findByRole('button', { name: /save/i });
 
     fireEvent.change(getNameInput(), { target: { value: 'my new rule' } });
@@ -97,13 +97,40 @@ describe('RuleForm', () => {
     const [created] = gateway.addRule.mock.calls[0] as [Rule];
     expect(created.name).toBe('my new rule');
     expect(created.matchers.url.pattern).toBe('https://api.test.dev/*');
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(created.id));
+  });
+
+  it('should NOT call onCancel when a rule is saved (the tab stays open)', async () => {
+    const gateway = createFakeGateway();
+    const onSaved = vi.fn();
+    const onCancel = vi.fn();
+    renderForm(gateway, onSaved, undefined, onCancel);
+    await screen.findByRole('button', { name: /save/i });
+
+    fireEvent.change(getUrlPatternInput(), { target: { value: 'https://api.test.dev/*' } });
+    fireEvent.click(getSaveButton());
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('should call onCancel (not onSaved) when Cancel is clicked', async () => {
+    const gateway = createFakeGateway();
+    const onSaved = vi.fn();
+    const onCancel = vi.fn();
+    renderForm(gateway, onSaved, undefined, onCancel);
+    await screen.findByRole('button', { name: /save/i });
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it('should show an inline validation error and NOT call gateway.addRule when url pattern is empty', async () => {
     const gateway = createFakeGateway();
-    const onDone = vi.fn();
-    renderForm(gateway, onDone);
+    const onSaved = vi.fn();
+    renderForm(gateway, onSaved);
     await screen.findByRole('button', { name: /save/i });
 
     fireEvent.change(getNameInput(), { target: { value: 'rule without url' } });
@@ -111,7 +138,7 @@ describe('RuleForm', () => {
 
     expect(await screen.findByText(/required|invalid|pattern/i)).toBeInTheDocument();
     expect(gateway.addRule).not.toHaveBeenCalled();
-    expect(onDone).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it('should prefill fields from the initial rule in edit mode', async () => {
@@ -144,8 +171,8 @@ describe('RuleForm', () => {
 
   it('should call updateRule (not addRule) preserving the id when editing', async () => {
     const gateway = createFakeGateway();
-    const onDone = vi.fn();
-    renderForm(gateway, onDone, buildRule({ id: 'edit-me', name: 'old name' }));
+    const onSaved = vi.fn();
+    renderForm(gateway, onSaved, buildRule({ id: 'edit-me', name: 'old name' }));
     await screen.findByRole('button', { name: /save/i });
 
     fireEvent.change(getNameInput(), { target: { value: 'new name' } });
@@ -156,7 +183,7 @@ describe('RuleForm', () => {
     expect(updated.id).toBe('edit-me');
     expect(updated.name).toBe('new name');
     expect(gateway.addRule).not.toHaveBeenCalled();
-    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith('edit-me'));
   });
 
   it('should include selected methods in the saved rule', async () => {

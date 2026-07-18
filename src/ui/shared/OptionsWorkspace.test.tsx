@@ -190,8 +190,8 @@ describe('OptionsWorkspace', () => {
     expect(urlPatternValue()).toBe('');
   });
 
-  it('should persist and close the tab when the editor is saved (AC-009, TC-006)', async () => {
-    // side-effect-contract: Save calls gateway.updateRule and closes the active tab
+  it('should persist and keep the tab open when the editor is saved (AC-009, TC-006)', async () => {
+    // side-effect-contract: Save calls gateway.updateRule and leaves the active tab open
     const gateway = createGatewayWith(threeRules());
     renderWorkspace(gateway);
 
@@ -204,7 +204,31 @@ describe('OptionsWorkspace', () => {
     await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
     const [updated] = gateway.updateRule.mock.calls[0] as [Rule];
     expect(updated.id).toBe('a');
-    expect(await screen.findByText(/select a rule to edit/i)).toBeInTheDocument();
+    expect(closeTab('alpha rule')).toBeInTheDocument();
+    expect(screen.queryByText(/select a rule to edit/i)).not.toBeInTheDocument();
+    expect(urlPatternValue()).toBe('https://alpha.test/*');
+  });
+
+  it('should replace the draft tab with the saved rule tab when a new rule is saved (AC-009)', async () => {
+    // behavior: saving a draft swaps the draft tab for the persisted rule's tab (no duplicate re-add)
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'New rule' });
+    fireEvent.click(screen.getByRole('button', { name: 'New rule' }));
+    await screen.findByLabelText('URL pattern');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'delta rule' } });
+    fireEvent.change(screen.getByLabelText('URL pattern'), { target: { value: 'https://delta.test/*' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole('button', { name: /close delta rule/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /close new rule/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
+    expect(gateway.addRule).toHaveBeenCalledTimes(1);
   });
 
   it('should close the tab without persisting when the editor is cancelled (AC-009)', async () => {
