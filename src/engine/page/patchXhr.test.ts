@@ -196,6 +196,55 @@ describe('createPatchedXhr passthrough (AC-006)', () => {
   });
 });
 
+describe('createPatchedXhr relative URL resolution', () => {
+  it('should resolve a relative open() url against the page origin before matching a full-URL rule', async () => {
+    const origin = window.location.origin;
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([{ type: 'rewriteBody', body: 'resolved' }], {
+            url: { pattern: `${origin}/base/makes`, kind: 'regex' },
+          }),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', '/base/makes?culture=en-CA');
+    xhr.send();
+
+    await flush();
+
+    expect(xhr.responseText).toBe('resolved');
+    expect(fake.openArgs).toEqual([{ method: 'GET', url: '/base/makes?culture=en-CA' }]);
+  });
+
+  it('should report the resolved absolute url in the sink for a relative xhr', async () => {
+    const origin = window.location.origin;
+    const fake = new FakeXhr('real-body', 200);
+    const reports: InterceptReport[] = [];
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        sink: (report) => reports.push(report),
+        getRules: () => [
+          buildRule([{ type: 'rewriteBody', body: 'ok' }], { url: { pattern: `${origin}/base/*`, kind: 'glob' } }),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', '/base/makes');
+    xhr.send();
+
+    await flush();
+
+    expect(reports[0].url).toBe(`${origin}/base/makes`);
+  });
+});
+
 describe('createPatchedXhr plumbing', () => {
   it('should forward setRequestHeader and abort to the delegate', async () => {
     const fake = new FakeXhr();

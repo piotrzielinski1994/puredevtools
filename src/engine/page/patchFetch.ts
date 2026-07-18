@@ -1,5 +1,6 @@
 import type { HeaderOp, RequestDescriptor, Rule } from '../../rules/model';
 import { decideInterception } from './decide';
+import { resolveUrl } from './resolveUrl';
 import type { Interception, Sink } from './types';
 
 export type PatchedFetchDeps = {
@@ -10,10 +11,10 @@ export type PatchedFetchDeps = {
 };
 
 const urlOf = (input: RequestInfo | URL): string => {
-  if (typeof input === 'string') return input;
+  if (typeof input === 'string') return resolveUrl(input);
   if (input instanceof URL) return input.toString();
   if (input instanceof Request) return input.url;
-  return String(input);
+  return resolveUrl(String(input));
 };
 
 const methodOf = (input: RequestInfo | URL, init?: RequestInit): string => {
