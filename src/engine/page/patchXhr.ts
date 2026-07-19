@@ -1,5 +1,6 @@
-import type { HeaderOp, RequestDescriptor, Rule } from '../../rules/model';
+import type { RequestDescriptor, Rule } from '../../rules/model';
 import { decideInterception } from './decide';
+import { applyHeaderOps, parseHeaders } from './headerOps';
 import { resolveUrl } from './resolveUrl';
 import type { Interception, Sink } from './types';
 
@@ -11,28 +12,6 @@ export type PatchedXhrDeps = {
 };
 
 const DONE = 4;
-
-const parseHeaders = (raw: string): Record<string, string> => {
-  const headers: Record<string, string> = {};
-  raw
-    .trim()
-    .split(/[\r\n]+/)
-    .forEach((line) => {
-      const index = line.indexOf(':');
-      if (index === -1) return;
-      headers[line.slice(0, index).trim().toLowerCase()] = line.slice(index + 1).trim();
-    });
-  return headers;
-};
-
-const applyHeaderOps = (headers: Record<string, string>, ops: HeaderOp[]): Record<string, string> => {
-  const next = { ...headers };
-  ops.forEach((op) => {
-    if (op.op === 'set') next[op.name.toLowerCase()] = op.value;
-    else delete next[op.name.toLowerCase()];
-  });
-  return next;
-};
 
 export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest => {
   class PatchedXhr {
@@ -46,7 +25,7 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
 
     private method = 'GET';
     private url = '';
-    private overrideHeaders: Record<string, string> | undefined;
+    private overrideHeaders: Headers | undefined;
     private requestHeaders: Record<string, string> = {};
     private requestBody: string | undefined;
     private delegate: XMLHttpRequest = new deps.OriginalXhr();
@@ -63,15 +42,15 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
     }
 
     getResponseHeader(name: string): string | null {
-      if (this.overrideHeaders) return this.overrideHeaders[name.toLowerCase()] ?? null;
+      if (this.overrideHeaders) return this.overrideHeaders.get(name);
       return this.delegate.getResponseHeader(name);
     }
 
     getAllResponseHeaders(): string {
       if (this.overrideHeaders) {
-        return Object.entries(this.overrideHeaders)
-          .map(([name, value]) => `${name}: ${value}`)
-          .join('\r\n');
+        const lines: string[] = [];
+        this.overrideHeaders.forEach((value, name) => lines.push(`${name}: ${value}`));
+        return lines.join('\r\n');
       }
       return this.delegate.getAllResponseHeaders();
     }
@@ -118,11 +97,12 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
 
     private applyOverride(interception: Extract<Interception, { kind: 'override' }>): void {
       const delegate = this.delegate;
-      const baseHeaders = parseHeaders(delegate.getAllResponseHeaders());
-      this.overrideHeaders = applyHeaderOps(baseHeaders, interception.headerOps);
+      const headers = parseHeaders(delegate.getAllResponseHeaders());
+      applyHeaderOps(headers, interception.headerOps);
+      this.overrideHeaders = headers;
       const isBodyRewritten = interception.body !== undefined;
       const body = isBodyRewritten ? interception.body! : delegate.responseText;
-      if (isBodyRewritten && interception.contentType) this.overrideHeaders['content-type'] = interception.contentType;
+      if (isBodyRewritten && interception.contentType) headers.set('content-type', interception.contentType);
       this.responseText = body;
       this.response = body;
       deps.sink({
@@ -131,7 +111,7 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
         url: this.url,
         status: delegate.status,
         body,
-        contentType: this.overrideHeaders['content-type'],
+        contentType: headers.get('content-type') ?? undefined,
         requestHeaders: Object.keys(this.requestHeaders).length > 0 ? this.requestHeaders : undefined,
         requestBody: this.requestBody,
       });

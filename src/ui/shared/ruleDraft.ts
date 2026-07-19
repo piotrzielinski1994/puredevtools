@@ -1,4 +1,5 @@
 import type { HeaderOp, HttpMethod, PatternKind, Rule, RuleAction } from '../../rules/model';
+import { firstAction } from '../../rules/action';
 
 export type OpRow = { op: 'set' | 'remove'; name: string; value: string };
 
@@ -14,9 +15,6 @@ export type RuleDraft = {
 export type DraftToRuleResult = { ok: true; rule: Rule } | { ok: false; error: string };
 
 const makeId = (seed: string): string => `rule-${seed.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${seed.length}`;
-
-const firstAction = <T extends RuleAction['type']>(rule: Rule, type: T): Extract<RuleAction, { type: T }> | undefined =>
-  rule.actions.find((action): action is Extract<RuleAction, { type: T }> => action.type === type);
 
 const opToRow = (op: HeaderOp): OpRow =>
   op.op === 'set' ? { op: 'set', name: op.name, value: op.value } : { op: 'remove', name: op.name, value: '' };

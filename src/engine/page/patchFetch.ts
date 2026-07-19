@@ -1,5 +1,6 @@
-import type { HeaderOp, RequestDescriptor, Rule } from '../../rules/model';
+import type { RequestDescriptor, Rule } from '../../rules/model';
 import { decideInterception } from './decide';
+import { applyHeaderOps } from './headerOps';
 import { resolveUrl } from './resolveUrl';
 import type { Interception, Sink } from './types';
 
@@ -38,13 +39,6 @@ const requestBodyOf = (init?: RequestInit): string | undefined => {
   const body = init?.body;
   if (typeof body === 'string') return body;
   return undefined;
-};
-
-const applyHeaderOps = (headers: Headers, ops: HeaderOp[]): void => {
-  ops.forEach((op) => {
-    if (op.op === 'set') headers.set(op.name, op.value);
-    else headers.delete(op.name);
-  });
 };
 
 const descriptorOf = (input: RequestInfo | URL, init?: RequestInit): RequestDescriptor => ({
