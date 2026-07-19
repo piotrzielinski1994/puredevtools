@@ -245,6 +245,56 @@ describe('createPatchedXhr relative URL resolution', () => {
   });
 });
 
+describe('createPatchedXhr request override (AC-004)', () => {
+  it('should call delegate.setRequestHeader for a set op and delegate.send with the override request body (TC-009)', async () => {
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([
+            { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+            { type: 'rewriteRequestBody', body: '{"q":2}' },
+          ]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    xhr.send('{"q":1}');
+
+    await flush();
+
+    expect(fake.requestHeaders).toContainEqual({ name: 'X-Env', value: 'staging' });
+    expect(fake.sent).toEqual(['{"q":2}']);
+  });
+
+  it('should not throw and not call any removal API for a request-header remove op (TC-010)', async () => {
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([
+            { type: 'modifyRequestHeaders', headers: [{ op: 'remove', name: 'X-Secret' }] },
+            { type: 'rewriteRequestBody', body: '{"q":2}' },
+          ]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    expect(() => xhr.send('{"q":1}')).not.toThrow();
+
+    await flush();
+
+    expect(fake.requestHeaders).toEqual([]);
+    expect(fake.sent).toEqual(['{"q":2}']);
+  });
+});
+
 describe('createPatchedXhr plumbing', () => {
   it('should forward setRequestHeader and abort to the delegate', async () => {
     const fake = new FakeXhr();

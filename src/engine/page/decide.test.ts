@@ -117,6 +117,32 @@ describe('decideInterception (AC-001, AC-006)', () => {
     expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
   });
 
+  it('should map request-side actions to an override carrying requestHeaderOps and requestBody (TC-003)', () => {
+    const rule = buildRule([
+      { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+      { type: 'rewriteRequestBody', body: '{"q":2}' },
+    ]);
+    const result = decideInterception([rule], descriptor(), true);
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.requestHeaderOps).toEqual([{ op: 'set', name: 'X-Env', value: 'staging' }]);
+    expect(result.requestBody).toBe('{"q":2}');
+  });
+
+  it('should override (not passthrough) for a request-only rule with empty response ops and undefined body (TC-004)', () => {
+    const rule = buildRule([
+      { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+      { type: 'rewriteRequestBody', body: '{"q":2}' },
+    ]);
+    const result = decideInterception([rule], descriptor(), true);
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.headerOps).toEqual([]);
+    expect(result.body).toBeUndefined();
+    expect(result.requestHeaderOps).toEqual([{ op: 'set', name: 'X-Env', value: 'staging' }]);
+    expect(result.requestBody).toBe('{"q":2}');
+  });
+
   it('should ignore legacy stored action types and fall through to passthrough (AC-006, rollout)', () => {
     const legacy = {
       id: 'legacy',

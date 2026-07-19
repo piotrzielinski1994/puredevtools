@@ -28,6 +28,32 @@ describe('ruleSchema', () => {
     const parsed = ruleSchema.parse(validRule);
     expect('priority' in parsed).toBe(false);
   });
+
+  it('should round-trip a rule carrying request-side actions through the schema (TC-001)', () => {
+    const rule = {
+      ...validRule,
+      actions: [
+        { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+        { type: 'rewriteRequestBody', body: '{"q":2}' },
+      ],
+    };
+
+    expect(ruleSchema.safeParse(rule).success).toBe(true);
+
+    const first = portableSchema.safeParse({ enabled: true, workspace: [{ kind: 'rule', rule }] });
+    expect(first.success).toBe(true);
+    if (!first.success) throw new Error('expected valid portable state');
+
+    const roundTripped = portableSchema.safeParse(JSON.parse(JSON.stringify(first.data)));
+    expect(roundTripped.success).toBe(true);
+    if (!roundTripped.success) throw new Error('expected valid round-trip');
+    expect(roundTripped.data.workspace).toEqual(first.data.workspace);
+  });
+
+  it('should reject a rule action carrying an unknown type (TC-002)', () => {
+    const rule = { ...validRule, actions: [{ type: 'bogusAction', foo: 1 }] };
+    expect(ruleSchema.safeParse(rule).success).toBe(false);
+  });
 });
 
 describe('workspaceSchema', () => {

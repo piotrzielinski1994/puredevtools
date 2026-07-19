@@ -1,4 +1,4 @@
-import type { RequestDescriptor, Rule } from '../../rules/model';
+import type { HeaderOp, RequestDescriptor, Rule } from '../../rules/model';
 import { decideInterception } from './decide';
 import { applyHeaderOps, parseHeaders } from './headerOps';
 import { resolveUrl } from './resolveUrl';
@@ -63,7 +63,8 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
         deps.getGlobalEnabled(),
       );
       this.wire(interception);
-      this.delegate.send(body);
+      const forwardBody = this.applyRequestOverride(interception, body);
+      this.delegate.send(forwardBody);
     }
 
     abort(): void {
@@ -76,6 +77,19 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
 
     removeEventListener(): void {
       // no-op in v1
+    }
+
+    private applyRequestOverride(
+      interception: Interception,
+      body?: Document | XMLHttpRequestBodyInit | null,
+    ): Document | XMLHttpRequestBodyInit | null | undefined {
+      if (interception.kind !== 'override') return body;
+      interception.requestHeaderOps
+        .filter((op): op is Extract<HeaderOp, { op: 'set' }> => op.op === 'set')
+        .forEach((op) => this.delegate.setRequestHeader(op.name, op.value));
+      if (interception.requestBody === undefined) return body;
+      this.requestBody = interception.requestBody;
+      return interception.requestBody;
     }
 
     private wire(interception: Interception): void {

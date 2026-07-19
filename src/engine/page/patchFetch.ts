@@ -66,16 +66,32 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
     });
   };
 
+  const forwardInitOf = (
+    interception: Extract<Interception, { kind: 'override' }>,
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ): RequestInit | undefined => {
+    const hasHeaderOps = interception.requestHeaderOps.length > 0;
+    const hasBody = interception.requestBody !== undefined;
+    if (!hasHeaderOps && !hasBody) return init;
+    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    applyHeaderOps(headers, interception.requestHeaderOps);
+    return { ...init, headers, ...(hasBody ? { body: interception.requestBody } : {}) };
+  };
+
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const request = {
-      method: methodOf(input, init),
-      url: urlOf(input),
-      requestHeaders: requestHeadersOf(input, init),
-      requestBody: requestBodyOf(init),
-    };
     const interception = decideInterception(deps.getRules(), descriptorOf(input, init), deps.getGlobalEnabled());
     if (interception.kind !== 'override') return deps.originalFetch(input, init);
-    const original = await deps.originalFetch(input, init);
+    const forwardInit = forwardInitOf(interception, input, init);
+    const request = {
+      method: methodOf(input, forwardInit),
+      url: urlOf(input),
+      requestHeaders: requestHeadersOf(input, forwardInit),
+      requestBody: requestBodyOf(forwardInit),
+    };
+    const original = await deps.originalFetch(input, forwardInit);
+    const hasResponseOverride = interception.body !== undefined || interception.headerOps.length > 0;
+    if (!hasResponseOverride) return original;
     return serveOverride(interception, original, request);
   };
 };

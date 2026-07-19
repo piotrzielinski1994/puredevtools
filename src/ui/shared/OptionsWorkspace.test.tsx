@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { HotkeysProvider } from '@tanstack/react-hotkeys';
 import type { Rule, TreeNode } from '../../rules/model';
 import type { UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
@@ -53,9 +55,11 @@ const createGatewayWith = (rules: Rule[], globalEnabled = true): FakeGateway =>
 
 const renderWorkspace = (gateway: UiGateway) =>
   render(
-    <RulesProvider gateway={gateway}>
-      <OptionsWorkspace />
-    </RulesProvider>,
+    <HotkeysProvider>
+      <RulesProvider gateway={gateway}>
+        <OptionsWorkspace />
+      </RulesProvider>
+    </HotkeysProvider>,
   );
 
 const editButton = (name: string) => screen.getByRole('button', { name: `Edit: ${name}` });
@@ -70,6 +74,10 @@ const tabDirtyMark = (name: string) => {
 };
 const setName = (value: string) => fireEvent.change(nameInput(), { target: { value } });
 const setPattern = (value: string) => fireEvent.change(screen.getByLabelText('URL pattern'), { target: { value } });
+// jsdom reports a non-mac platform, so the lib resolves Mod -> Control.
+const saveChord = async () => {
+  await userEvent.keyboard('{Control>}s{/Control}');
+};
 
 const clickTab = (name: string) => {
   const sidebar = screen.getAllByRole('button', { name: /edit:/i })[0].closest('ul');
@@ -200,7 +208,7 @@ describe('OptionsWorkspace', () => {
   });
 
   it('should persist and keep the tab open when the editor is saved (AC-009, TC-006)', async () => {
-    // side-effect-contract: Save calls gateway.updateRule and leaves the active tab open
+    // side-effect-contract: the save chord calls gateway.updateRule and leaves the active tab open
     const gateway = createGatewayWith(threeRules());
     renderWorkspace(gateway);
 
@@ -208,7 +216,7 @@ describe('OptionsWorkspace', () => {
     fireEvent.click(editButton('alpha rule'));
     await screen.findByLabelText('URL pattern');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await saveChord();
 
     await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
     const [updated] = gateway.updateRule.mock.calls[0] as [Rule];
@@ -229,19 +237,19 @@ describe('OptionsWorkspace', () => {
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'delta rule' } });
     fireEvent.change(screen.getByLabelText('URL pattern'), { target: { value: 'https://delta.test/*' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await saveChord();
 
     await waitFor(() => expect(gateway.addRule).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole('button', { name: /close delta rule/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /close new rule/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await saveChord();
     await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
     expect(gateway.addRule).toHaveBeenCalledTimes(1);
   });
 
-  it('should close the tab without persisting when the editor is cancelled (AC-009)', async () => {
-    // behavior: Cancel closes the tab and does not call gateway.updateRule
+  it('should close an untouched tab without persisting when the tab is closed (AC-009)', async () => {
+    // behavior: closing an unedited tab needs no dialog and does not call gateway.updateRule
     const gateway = createGatewayWith(threeRules());
     renderWorkspace(gateway);
 
@@ -249,9 +257,10 @@ describe('OptionsWorkspace', () => {
     fireEvent.click(editButton('alpha rule'));
     await screen.findByLabelText('URL pattern');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(closeTab('alpha rule'));
 
     expect(await screen.findByText(/select a rule to edit/i)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(gateway.updateRule).not.toHaveBeenCalled();
   });
 
@@ -491,8 +500,8 @@ describe('OptionsWorkspace', () => {
     expect(gateway.updateRule).not.toHaveBeenCalled();
   });
 
-  it('should close a dirty tab with no dialog when the editor Cancel is clicked (AC-008, TC-008)', async () => {
-    // behavior: the editor's own Cancel is an intentional discard, no confirm
+  it('should discard a dirty tab via the confirm dialog Discard action (AC-008, TC-008)', async () => {
+    // behavior: closing a dirty tab prompts; Discard closes it without persisting
     const gateway = createGatewayWith(threeRules());
     renderWorkspace(gateway);
 
@@ -501,7 +510,9 @@ describe('OptionsWorkspace', () => {
     await screen.findByLabelText('URL pattern');
     setName('edited alpha');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(closeTab('alpha rule'));
+    const dialog = await confirmDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: /discard/i }));
 
     expect(await screen.findByText(/select a rule to edit/i)).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

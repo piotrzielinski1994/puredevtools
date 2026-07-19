@@ -11,6 +11,8 @@ const draft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   methods: [],
   responseOps: [],
   rewriteBody: '',
+  requestOps: [],
+  requestBody: '',
   ...overrides,
 });
 

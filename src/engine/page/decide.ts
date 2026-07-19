@@ -8,12 +8,16 @@ const PASSTHROUGH: Interception = { kind: 'passthrough' };
 const toInterception = (rule: Rule): Interception => {
   const headers = firstAction(rule, 'modifyResponseHeaders');
   const rewrite = firstAction(rule, 'rewriteBody');
-  if (!headers && !rewrite) return PASSTHROUGH;
+  const requestHeaders = firstAction(rule, 'modifyRequestHeaders');
+  const requestRewrite = firstAction(rule, 'rewriteRequestBody');
+  if (!headers && !rewrite && !requestHeaders && !requestRewrite) return PASSTHROUGH;
   return {
     kind: 'override',
     headerOps: headers?.headers ?? [],
     body: rewrite?.body,
     contentType: rewrite?.contentType,
+    requestHeaderOps: requestHeaders?.headers ?? [],
+    requestBody: requestRewrite?.body,
   };
 };
 

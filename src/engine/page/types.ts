@@ -2,7 +2,14 @@ import type { HeaderOp } from '../../rules/model';
 
 export type Interception =
   | { kind: 'passthrough' }
-  | { kind: 'override'; headerOps: HeaderOp[]; body?: string; contentType?: string };
+  | {
+      kind: 'override';
+      headerOps: HeaderOp[];
+      body?: string;
+      contentType?: string;
+      requestHeaderOps: HeaderOp[];
+      requestBody?: string;
+    };
 
 export type InterceptReport = {
   kind: 'rewrite';
