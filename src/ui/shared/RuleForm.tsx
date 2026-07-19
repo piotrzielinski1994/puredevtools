@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useHotkeys } from '@tanstack/react-hotkeys';
 import { Plus, X } from 'lucide-react';
 import type { HttpMethod, PatternKind } from '../../rules/model';
 import { matchUrl } from '../../rules/match';
@@ -15,7 +16,6 @@ export type RuleFormProps = {
   draft: RuleDraft;
   onDraftChange(draft: RuleDraft): void;
   onSave(): Promise<{ ok: boolean; error?: string }>;
-  onCancel(): void;
 };
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -27,11 +27,12 @@ const Field = ({ htmlFor, label, children }: { htmlFor: string; label: string; c
   </div>
 );
 
-type FormTab = 'match' | 'response';
+type FormTab = 'match' | 'request' | 'response';
 
 const FormTabs = ({ active, onSelect }: { active: FormTab; onSelect(tab: FormTab): void }) => {
   const tabs: { key: FormTab; label: string }[] = [
     { key: 'match', label: 'Match' },
+    { key: 'request', label: 'Request' },
     { key: 'response', label: 'Response' },
   ];
   return (
@@ -71,7 +72,7 @@ const MatchHint = ({ pattern, kind, url }: { pattern: string; kind: PatternKind;
   );
 };
 
-export const RuleForm = ({ draft, onDraftChange, onSave, onCancel }: RuleFormProps) => {
+export const RuleForm = ({ draft, onDraftChange, onSave }: RuleFormProps) => {
   const [testUrl, setTestUrl] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<FormTab>('match');
@@ -90,6 +91,8 @@ export const RuleForm = ({ draft, onDraftChange, onSave, onCancel }: RuleFormPro
     const result = await onSave();
     if (!result.ok) setError(result.error);
   };
+
+  useHotkeys([{ hotkey: 'Mod+S', callback: () => void onSubmit() }]);
 
   return (
     <form
@@ -144,6 +147,20 @@ export const RuleForm = ({ draft, onDraftChange, onSave, onCancel }: RuleFormPro
             {testUrl.trim() !== '' ? <MatchHint pattern={draft.pattern} kind={draft.kind} url={testUrl} /> : null}
           </Field>
         </div>
+      ) : activeTab === 'request' ? (
+        <div role="tabpanel" id="rule-panel-request" aria-labelledby="rule-tab-request" className="flex flex-col gap-3 p-4">
+          <HeaderOpEditor legend="Modify request headers" rows={draft.requestOps} onChange={(requestOps) => patch({ requestOps })} />
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="rule-rewrite-request-body">Rewrite request body</Label>
+            <Textarea
+              id="rule-rewrite-request-body"
+              aria-label="Rewrite request body"
+              value={draft.requestBody}
+              onChange={(event) => patch({ requestBody: event.target.value })}
+              placeholder='{"q": 2}'
+            />
+          </div>
+        </div>
       ) : (
         <div role="tabpanel" id="rule-panel-response" aria-labelledby="rule-tab-response" className="flex flex-col gap-3 p-4">
           <HeaderOpEditor legend="Modify response headers" rows={draft.responseOps} onChange={(responseOps) => patch({ responseOps })} />
@@ -161,16 +178,10 @@ export const RuleForm = ({ draft, onDraftChange, onSave, onCancel }: RuleFormPro
       )}
 
       {error ? (
-        <p role="alert" className="px-4 text-sm text-destructive">
+        <p role="alert" className="px-4 pb-4 text-sm text-destructive">
           {error}
         </p>
       ) : null}
-      <div className="flex gap-2 px-4 pb-4">
-        <Button type="submit">Save</Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
     </form>
   );
 };

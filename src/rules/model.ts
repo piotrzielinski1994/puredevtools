@@ -20,7 +20,9 @@ export type HeaderOp =
 
 export type RuleAction =
   | { type: 'modifyResponseHeaders'; headers: HeaderOp[] }
-  | { type: 'rewriteBody'; body: string; contentType?: string };
+  | { type: 'rewriteBody'; body: string; contentType?: string }
+  | { type: 'modifyRequestHeaders'; headers: HeaderOp[] }
+  | { type: 'rewriteRequestBody'; body: string };
 
 export type Rule = {
   id: string;

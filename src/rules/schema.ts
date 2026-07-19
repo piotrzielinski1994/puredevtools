@@ -39,6 +39,8 @@ const headerOp = z.discriminatedUnion('op', [
 const ruleAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('modifyResponseHeaders'), headers: z.array(headerOp) }),
   z.object({ type: z.literal('rewriteBody'), body: z.string(), contentType: z.string().optional() }),
+  z.object({ type: z.literal('modifyRequestHeaders'), headers: z.array(headerOp) }),
+  z.object({ type: z.literal('rewriteRequestBody'), body: z.string() }),
 ]) satisfies z.ZodType<RuleAction>;
 
 export const ruleSchema = z

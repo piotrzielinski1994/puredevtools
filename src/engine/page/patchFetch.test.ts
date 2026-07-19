@@ -141,6 +141,105 @@ describe('createPatchedFetch passthrough (AC-006)', () => {
   });
 });
 
+describe('createPatchedFetch request override (AC-003, AC-006, AC-007)', () => {
+  it('should forward a modified init with the set request header and the replaced request body (TC-005)', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+            { type: 'rewriteRequestBody', body: '{"q":2}' },
+          ]),
+        ],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users', { method: 'POST', body: '{"q":1}' });
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    const forwardedInit = originalFetch.mock.calls[0][1];
+    expect(new Headers(forwardedInit?.headers).get('x-env')).toBe('staging');
+    expect(forwardedInit?.body).toBe('{"q":2}');
+  });
+
+  it('should remove a request header present on the incoming init before forwarding (TC-006)', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([{ type: 'modifyRequestHeaders', headers: [{ op: 'remove', name: 'X-Secret' }] }]),
+        ],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users', {
+      method: 'POST',
+      headers: { 'X-Secret': 'shh', 'X-Keep': 'yes' },
+    });
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    const forwardedInit = originalFetch.mock.calls[0][1];
+    const forwardedHeaders = new Headers(forwardedInit?.headers);
+    expect(forwardedHeaders.get('x-secret')).toBeNull();
+    expect(forwardedHeaders.get('x-keep')).toBe('yes');
+  });
+
+  it('should return the original response unchanged while forwarding the modified request for a request-only rule (TC-007)', async () => {
+    const original = new Response('untouched', { status: 200 });
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(original));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+            { type: 'rewriteRequestBody', body: '{"q":2}' },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users', { method: 'POST', body: '{"q":1}' });
+
+    expect(res).toBe(original);
+    expect(await res.text()).toBe('untouched');
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    const forwardedInit = originalFetch.mock.calls[0][1];
+    expect(new Headers(forwardedInit?.headers).get('x-env')).toBe('staging');
+    expect(forwardedInit?.body).toBe('{"q":2}');
+  });
+
+  it('should forward the modified request and serve the overridden response when both request and response actions exist (TC-008)', async () => {
+    const originalFetch = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response('orig', { status: 200 })),
+    );
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+            { type: 'rewriteRequestBody', body: '{"req":true}' },
+            { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Resp', value: 'on' }] },
+            { type: 'rewriteBody', body: '{"resp":true}' },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users', { method: 'POST', body: '{"req":false}' });
+
+    const forwardedInit = originalFetch.mock.calls[0][1];
+    expect(new Headers(forwardedInit?.headers).get('x-env')).toBe('staging');
+    expect(forwardedInit?.body).toBe('{"req":true}');
+    expect(res.headers.get('x-resp')).toBe('on');
+    expect(await res.text()).toBe('{"resp":true}');
+  });
+});
+
 describe('createPatchedFetch input normalization (AC-001)', () => {
   it('should match a rule against the url of a Request object input', async () => {
     const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));

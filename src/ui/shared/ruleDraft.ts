@@ -10,6 +10,8 @@ export type RuleDraft = {
   methods: HttpMethod[];
   responseOps: OpRow[];
   rewriteBody: string;
+  requestOps: OpRow[];
+  requestBody: string;
 };
 
 export type DraftToRuleResult = { ok: true; rule: Rule } | { ok: false; error: string };
@@ -38,6 +40,8 @@ export const emptyDraft = (): RuleDraft => ({
   methods: [],
   responseOps: [],
   rewriteBody: '',
+  requestOps: [],
+  requestBody: '',
 });
 
 export const ruleToDraft = (rule: Rule): RuleDraft => ({
@@ -47,13 +51,18 @@ export const ruleToDraft = (rule: Rule): RuleDraft => ({
   methods: rule.matchers.methods ?? [],
   responseOps: (firstAction(rule, 'modifyResponseHeaders')?.headers ?? []).map(opToRow),
   rewriteBody: firstAction(rule, 'rewriteBody')?.body ?? '',
+  requestOps: (firstAction(rule, 'modifyRequestHeaders')?.headers ?? []).map(opToRow),
+  requestBody: firstAction(rule, 'rewriteRequestBody')?.body ?? '',
 });
 
 const buildActions = (draft: RuleDraft): RuleAction[] => {
   const respOps = draft.responseOps.filter((row) => row.name.trim() !== '').map(rowToOp);
+  const reqOps = draft.requestOps.filter((row) => row.name.trim() !== '').map(rowToOp);
   const actions: RuleAction[] = [];
   if (respOps.length > 0) actions.push({ type: 'modifyResponseHeaders', headers: respOps });
   if (draft.rewriteBody.trim() !== '') actions.push({ type: 'rewriteBody', body: draft.rewriteBody });
+  if (reqOps.length > 0) actions.push({ type: 'modifyRequestHeaders', headers: reqOps });
+  if (draft.requestBody.trim() !== '') actions.push({ type: 'rewriteRequestBody', body: draft.requestBody });
   return actions;
 };
 
@@ -89,5 +98,7 @@ export const draftsEqual = (a: RuleDraft, b: RuleDraft): boolean =>
   a.pattern === b.pattern &&
   a.kind === b.kind &&
   a.rewriteBody === b.rewriteBody &&
+  a.requestBody === b.requestBody &&
   methodsEqual(a.methods, b.methods) &&
-  opsEqual(a.responseOps, b.responseOps);
+  opsEqual(a.responseOps, b.responseOps) &&
+  opsEqual(a.requestOps, b.requestOps);

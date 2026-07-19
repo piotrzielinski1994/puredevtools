@@ -143,10 +143,6 @@ export const OptionsWorkspace = ({ tabsStore }: { tabsStore?: TabsStore }) => {
                     }
                     return result;
                   }}
-                  onCancel={() => {
-                    drafts.discard(activeKey);
-                    close(activeKey);
-                  }}
                 />
               </div>
             )}

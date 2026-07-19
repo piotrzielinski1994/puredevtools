@@ -18,6 +18,8 @@ const baseDraft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   methods: ['GET'],
   responseOps: [],
   rewriteBody: '',
+  requestOps: [],
+  requestBody: '',
   ...overrides,
 });
 
@@ -31,6 +33,8 @@ describe('emptyDraft', () => {
       methods: [],
       responseOps: [],
       rewriteBody: '',
+      requestOps: [],
+      requestBody: '',
     });
   });
 });
@@ -77,6 +81,32 @@ describe('ruleToDraft', () => {
 
     expect(draft.responseOps).toEqual([]);
     expect(draft.rewriteBody).toBe('');
+  });
+
+  it('should prefill requestOps and requestBody from the request-side actions (TC-011)', () => {
+    // behavior: request header ops and body-rewrite project back into editable rows
+    const draft = ruleToDraft(
+      buildRule({
+        actions: [
+          { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }, { op: 'remove', name: 'X-Secret' }] },
+          { type: 'rewriteRequestBody', body: '{"q":2}' },
+        ],
+      }),
+    );
+
+    expect(draft.requestOps).toEqual([
+      { op: 'set', name: 'X-Env', value: 'staging' },
+      { op: 'remove', name: 'X-Secret', value: '' },
+    ]);
+    expect(draft.requestBody).toBe('{"q":2}');
+  });
+
+  it('should default requestOps and requestBody to empty when the rule has no such actions (TC-011)', () => {
+    // behavior: absent request actions project to an empty row list and empty body
+    const draft = ruleToDraft(buildRule());
+
+    expect(draft.requestOps).toEqual([]);
+    expect(draft.requestBody).toBe('');
   });
 });
 
@@ -137,6 +167,43 @@ describe('draftToRule', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('expected ok');
     expect(result.rule.actions.some((action) => action.type === 'rewriteBody')).toBe(false);
+  });
+
+  it('should emit modifyRequestHeaders and rewriteRequestBody actions when request fields are non-empty (TC-011)', () => {
+    // behavior: request ops and body project to the two request-side actions
+    const result = draftToRule(
+      baseDraft({
+        requestOps: [{ op: 'set', name: 'X-Env', value: 'staging' }, { op: 'remove', name: 'X-Secret', value: '' }],
+        requestBody: '{"q":2}',
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions).toContainEqual({
+      type: 'modifyRequestHeaders',
+      headers: [{ op: 'set', name: 'X-Env', value: 'staging' }, { op: 'remove', name: 'X-Secret' }],
+    });
+    expect(result.rule.actions).toContainEqual({ type: 'rewriteRequestBody', body: '{"q":2}' });
+  });
+
+  it('should omit both request-side actions when request fields are empty (TC-011)', () => {
+    // behavior: empty request ops and blank request body emit no request action
+    const result = draftToRule(baseDraft({ requestOps: [], requestBody: '' }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions.some((action) => action.type === 'modifyRequestHeaders')).toBe(false);
+    expect(result.rule.actions.some((action) => action.type === 'rewriteRequestBody')).toBe(false);
+  });
+
+  it('should omit request-header ops whose name is blank (TC-011)', () => {
+    // behavior: empty-name request rows are dropped so no zero-name header ships
+    const result = draftToRule(baseDraft({ requestOps: [{ op: 'set', name: '  ', value: 'x' }] }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions.some((action) => action.type === 'modifyRequestHeaders')).toBe(false);
   });
 
   it('should fail with an error when the pattern is empty', () => {
@@ -201,5 +268,18 @@ describe('draftsEqual', () => {
     const b: OpRow[] = [{ op: 'set', name: 'B', value: '2' }, { op: 'set', name: 'A', value: '1' }];
 
     expect(draftsEqual(baseDraft({ responseOps: a }), baseDraft({ responseOps: b }))).toBe(false);
+  });
+
+  it('should return false when requestOps differ (TC-013)', () => {
+    // behavior: a changed request-op row reads as dirty
+    const a: OpRow[] = [{ op: 'set', name: 'X-Env', value: 'staging' }];
+    const b: OpRow[] = [{ op: 'set', name: 'X-Env', value: 'prod' }];
+
+    expect(draftsEqual(baseDraft({ requestOps: a }), baseDraft({ requestOps: b }))).toBe(false);
+  });
+
+  it('should return false when requestBody differs (TC-013)', () => {
+    // behavior: a changed request body reads as dirty
+    expect(draftsEqual(baseDraft({ requestBody: '{"q":1}' }), baseDraft({ requestBody: '{"q":2}' }))).toBe(false);
   });
 });
