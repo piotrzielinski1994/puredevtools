@@ -1,11 +1,9 @@
-import type { RequestDescriptor, Rule, RuleAction } from '../../rules/model';
+import type { RequestDescriptor, Rule } from '../../rules/model';
 import { matchesRequest } from '../../rules/match';
+import { firstAction } from '../../rules/action';
 import type { Interception } from './types';
 
 const PASSTHROUGH: Interception = { kind: 'passthrough' };
-
-const firstAction = <T extends RuleAction['type']>(rule: Rule, type: T): Extract<RuleAction, { type: T }> | undefined =>
-  rule.actions.find((action): action is Extract<RuleAction, { type: T }> => action.type === type);
 
 const toInterception = (rule: Rule): Interception => {
   const headers = firstAction(rule, 'modifyResponseHeaders');
