@@ -22,7 +22,9 @@ export type RuleAction =
   | { type: 'modifyResponseHeaders'; headers: HeaderOp[] }
   | { type: 'rewriteBody'; body: string; contentType?: string }
   | { type: 'modifyRequestHeaders'; headers: HeaderOp[] }
-  | { type: 'rewriteRequestBody'; body: string };
+  | { type: 'rewriteRequestBody'; body: string }
+  | { type: 'preScript'; source: string }
+  | { type: 'postScript'; source: string };
 
 export type Rule = {
   id: string;

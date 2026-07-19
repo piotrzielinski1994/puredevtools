@@ -54,6 +54,51 @@ describe('ruleSchema', () => {
     const rule = { ...validRule, actions: [{ type: 'bogusAction', foo: 1 }] };
     expect(ruleSchema.safeParse(rule).success).toBe(false);
   });
+
+  it('should parse a rule carrying preScript and postScript actions (AC-001)', () => {
+    // behavior: the two new script action variants are accepted by the schema
+    const rule = {
+      ...validRule,
+      actions: [
+        { type: 'preScript', source: 'req.setHeader("x", "1");' },
+        { type: 'postScript', source: 'res.setBody("changed");' },
+      ],
+    };
+
+    expect(ruleSchema.safeParse(rule).success).toBe(true);
+  });
+
+  it('should round-trip a rule carrying preScript/postScript actions through portable state (AC-001)', () => {
+    // behavior: the script sources survive an export -> JSON -> import cycle verbatim
+    const rule = {
+      ...validRule,
+      actions: [
+        { type: 'preScript', source: 'req.setUrl("https://api.example.com/v2");' },
+        { type: 'postScript', source: 'const j = res.getJson(); res.setBody(JSON.stringify(j));' },
+      ],
+    };
+
+    const first = portableSchema.safeParse({ enabled: true, workspace: [{ kind: 'rule', rule }] });
+    expect(first.success).toBe(true);
+    if (!first.success) throw new Error('expected valid portable state');
+
+    const roundTripped = portableSchema.safeParse(JSON.parse(JSON.stringify(first.data)));
+    expect(roundTripped.success).toBe(true);
+    if (!roundTripped.success) throw new Error('expected valid round-trip');
+    expect(roundTripped.data.workspace).toEqual(first.data.workspace);
+  });
+
+  it('should reject a preScript action missing its source field (AC-001)', () => {
+    // behavior: source is required on a script action
+    const rule = { ...validRule, actions: [{ type: 'preScript' }] };
+    expect(ruleSchema.safeParse(rule).success).toBe(false);
+  });
+
+  it('should still reject an unknown action type after adding the script variants (AC-001, strict)', () => {
+    // behavior: .strict() discriminated union rejects any type outside the known set
+    const rule = { ...validRule, actions: [{ type: 'sideScript', source: 'x' }] };
+    expect(ruleSchema.safeParse(rule).success).toBe(false);
+  });
 });
 
 describe('workspaceSchema', () => {

@@ -401,3 +401,296 @@ describe('createPatchedXhr plumbing', () => {
     expect(reports[0].requestBody).toBe('{"q":1}');
   });
 });
+
+describe('createPatchedXhr pre-script (AC-008, AC-013)', () => {
+  it('should apply pre-script header and body mutations to the delegate before send (AC-008)', async () => {
+    // behavior: a pre-script req.setHeader/setBody reaches the delegate ahead of send
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([{ type: 'preScript', source: 'req.setHeader("x-test","1"); req.setBody("{\\"scripted\\":true}");' }]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    xhr.send('{"orig":true}');
+
+    await flush();
+
+    expect(fake.requestHeaders).toContainEqual({ name: 'x-test', value: '1' });
+    expect(fake.sent).toEqual(['{"scripted":true}']);
+  });
+
+  it('should re-open the delegate with the pre-script url and method before send (AC-008)', async () => {
+    // behavior: req.setUrl/setMethod re-opens the delegate; the new open args are recorded
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([{ type: 'preScript', source: 'req.setUrl("https://api.x/rerouted"); req.setMethod("PUT");' }]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    xhr.send('{"q":1}');
+
+    await flush();
+
+    expect(fake.openArgs.length).toBeGreaterThanOrEqual(2);
+    expect(fake.openArgs[fake.openArgs.length - 1]).toEqual({ method: 'PUT', url: 'https://api.x/rerouted' });
+    expect(fake.sent).toHaveLength(1);
+  });
+
+  it('should re-apply a pre-script header after a setUrl re-open (AC-008)', async () => {
+    // behavior: headers set by the script survive the re-open (re-applied to the fresh open)
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([{ type: 'preScript', source: 'req.setHeader("x-token","abc"); req.setUrl("https://api.x/rerouted");' }]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    xhr.send('{"q":1}');
+
+    await flush();
+
+    expect(fake.requestHeaders).toContainEqual({ name: 'x-token', value: 'abc' });
+  });
+
+  it('should run the pre-script after declarative request header ops so it observes the set value (AC-013)', async () => {
+    // behavior: modifyRequestHeaders applies before the script, which reads it via req.getHeader
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([
+            { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+            { type: 'preScript', source: 'req.setHeader("x-seen", req.getHeader("x-env") || "MISSING");' },
+          ]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(fake.requestHeaders).toContainEqual({ name: 'x-seen', value: 'staging' });
+  });
+
+  it('should skip a throwing pre-script but still send and let the post-script run (AC-010)', async () => {
+    // behavior: a throwing pre-script is skipped (its header discarded) yet the request
+    // still sends and the pipeline reaches the post-script, which rewrites the body -
+    // the feature-gated signal that stays RED until scripts are wired.
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([
+            { type: 'preScript', source: 'req.setHeader("x-partial","1"); throw new Error("pre boom");' },
+            { type: 'postScript', source: 'res.setBody("recovered");' },
+          ]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users');
+    expect(() => xhr.send()).not.toThrow();
+
+    await flush();
+
+    expect(fake.sent).toHaveLength(1);
+    expect(fake.requestHeaders).not.toContainEqual({ name: 'x-partial', value: '1' });
+    expect(xhr.responseText).toBe('recovered');
+  });
+});
+
+describe('createPatchedXhr post-script (AC-008)', () => {
+  it('should apply post-script body and header mutations on DONE before the caller onload fires (AC-008)', async () => {
+    // behavior: the post-script mutates responseText/headers; the caller's onload sees the mutated values
+    const fake = new FakeXhr('orig', 200, { 'x-real': 'yes' });
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([{ type: 'postScript', source: 'res.setBody("changed"); res.setHeader("x-post","on");' }]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    const seen: { body?: string; header?: string | null } = {};
+    xhr.onload = (): void => {
+      seen.body = xhr.responseText;
+      seen.header = xhr.getResponseHeader('x-post');
+    };
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(seen.body).toBe('changed');
+    expect(seen.header).toBe('on');
+    expect(xhr.responseText).toBe('changed');
+    expect(xhr.getResponseHeader('x-post')).toBe('on');
+  });
+
+  it('should preserve the original status while the post-script reads it via getStatus (AC-008)', async () => {
+    // behavior: getStatus reflects the real status; the exposed status is unchanged
+    const fake = new FakeXhr('orig', 503);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([{ type: 'postScript', source: 'res.setHeader("x-status", String(res.getStatus()));' }]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(xhr.status).toBe(503);
+    expect(xhr.getResponseHeader('x-status')).toBe('503');
+  });
+
+  it('should force the override path for a post-script-only rule so the script sees the real body (AC-008)', async () => {
+    // behavior: a response-only post-script reads + rewrites the real body
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([{ type: 'postScript', source: 'res.setBody(res.getBody() + "-seen");' }]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(xhr.responseText).toBe('real-body-seen');
+  });
+
+  it('should force the override path yet discard a throwing post-script effect (AC-010)', async () => {
+    // behavior: a throwing post-script forces the override path (sink fires - the
+    // feature-gated signal) but its partial body mutation is discarded (text stays real).
+    // A pre-feature passthrough would neither fire the sink nor force the override path.
+    const reports: InterceptReport[] = [];
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        sink: (report) => reports.push(report),
+        getRules: () => [
+          buildRule([{ type: 'postScript', source: 'res.setBody("half"); throw new Error("post boom");' }]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    expect(() => xhr.send()).not.toThrow();
+
+    await flush();
+
+    expect(reports).toHaveLength(1);
+    expect(xhr.status).toBe(200);
+    expect(xhr.responseText).toBe('real-body');
+  });
+
+  it('should discard a throwing post-script header mutation, not just its body (AC-010)', async () => {
+    // behavior: a header set/removed before the throw must not leak into the served
+    // response - the whole script effect is discarded, headers included.
+    const fake = new FakeXhr('real-body', 200, { 'x-real': 'yes' });
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [
+          buildRule([
+            {
+              type: 'postScript',
+              source: 'res.setHeader("x-leak","1"); res.removeHeader("x-real"); throw new Error("post boom");',
+            },
+          ]),
+        ],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users');
+    xhr.send();
+
+    await flush();
+
+    expect(xhr.getResponseHeader('x-leak')).toBeNull();
+    expect(xhr.getResponseHeader('x-real')).toBe('yes');
+  });
+});
+
+describe('createPatchedXhr script re-entrancy (AC-009)', () => {
+  it('should pass an inner XHR opened+sent from a pre-script through without re-running the rule (AC-009)', async () => {
+    // behavior: while a script runs, the guard makes an inner XHR pass through
+    // un-intercepted, so no rule/script re-runs and there is no recursion.
+    const fakes: FakeXhr[] = [];
+    const OriginalXhr = (class {
+      constructor() {
+        const fake = new FakeXhr('real-body', 200);
+        fakes.push(fake);
+        return fake;
+      }
+    }) as unknown as typeof XMLHttpRequest;
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr,
+        getRules: () => [
+          buildRule([
+            {
+              type: 'preScript',
+              source: 'const inner = new XMLHttpRequest(); inner.open("GET","https://api.x/inner"); inner.send();',
+            },
+          ]),
+        ],
+      }),
+    );
+    const previousXhr = globalThis.XMLHttpRequest;
+    globalThis.XMLHttpRequest = Patched;
+
+    try {
+      const xhr = new Patched();
+      xhr.open('GET', 'https://api.x/users');
+      expect(() => xhr.send()).not.toThrow();
+
+      await flush();
+
+      // one outer delegate + one inner delegate = 2 real XHRs, no runaway recursion.
+      expect(fakes.length).toBeGreaterThanOrEqual(2);
+      expect(fakes.every((f) => f.sent.length <= 1)).toBe(true);
+    } finally {
+      globalThis.XMLHttpRequest = previousXhr;
+    }
+  });
+});

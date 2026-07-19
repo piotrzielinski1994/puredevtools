@@ -20,6 +20,8 @@ const baseDraft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   rewriteBody: '',
   requestOps: [],
   requestBody: '',
+  preScript: '',
+  postScript: '',
   ...overrides,
 });
 
@@ -35,7 +37,15 @@ describe('emptyDraft', () => {
       rewriteBody: '',
       requestOps: [],
       requestBody: '',
+      preScript: '',
+      postScript: '',
     });
+  });
+
+  it('should blank the preScript and postScript fields', () => {
+    // behavior: a new-rule draft starts with empty script sources
+    expect(emptyDraft().preScript).toBe('');
+    expect(emptyDraft().postScript).toBe('');
   });
 });
 
@@ -107,6 +117,29 @@ describe('ruleToDraft', () => {
 
     expect(draft.requestOps).toEqual([]);
     expect(draft.requestBody).toBe('');
+  });
+
+  it('should prefill preScript and postScript from the rule script actions', () => {
+    // behavior: script action sources project back into the draft's script fields
+    const draft = ruleToDraft(
+      buildRule({
+        actions: [
+          { type: 'preScript', source: 'req.setHeader("x","1");' },
+          { type: 'postScript', source: 'res.setBody("y");' },
+        ],
+      }),
+    );
+
+    expect(draft.preScript).toBe('req.setHeader("x","1");');
+    expect(draft.postScript).toBe('res.setBody("y");');
+  });
+
+  it('should default preScript and postScript to empty when the rule has no script actions', () => {
+    // behavior: absent script actions project to empty strings
+    const draft = ruleToDraft(buildRule());
+
+    expect(draft.preScript).toBe('');
+    expect(draft.postScript).toBe('');
   });
 });
 
@@ -206,6 +239,65 @@ describe('draftToRule', () => {
     expect(result.rule.actions.some((action) => action.type === 'modifyRequestHeaders')).toBe(false);
   });
 
+  it('should emit preScript and postScript actions when the script fields are non-empty', () => {
+    // behavior: non-empty script sources project to the two script actions
+    const result = draftToRule(
+      baseDraft({ preScript: 'req.setUrl("https://x/v2");', postScript: 'res.setBody("z");' }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions).toContainEqual({ type: 'preScript', source: 'req.setUrl("https://x/v2");' });
+    expect(result.rule.actions).toContainEqual({ type: 'postScript', source: 'res.setBody("z");' });
+  });
+
+  it('should omit both script actions when the script fields are empty', () => {
+    // behavior: empty script sources emit no script action
+    const result = draftToRule(baseDraft({ preScript: '', postScript: '' }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions.some((action) => action.type === 'preScript')).toBe(false);
+    expect(result.rule.actions.some((action) => action.type === 'postScript')).toBe(false);
+  });
+
+  it('should omit a script action whose source is whitespace-only', () => {
+    // behavior: a whitespace-only script trims to empty and emits no action
+    const result = draftToRule(baseDraft({ preScript: '   \n\t ', postScript: '\n' }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions.some((action) => action.type === 'preScript')).toBe(false);
+    expect(result.rule.actions.some((action) => action.type === 'postScript')).toBe(false);
+  });
+
+  it('should preserve the script source verbatim (no trimming of the stored source)', () => {
+    // behavior: only emptiness is trimmed; a non-empty source ships exactly as typed
+    const source = '  const x = 1;\n  req.setBody(String(x));  ';
+    const result = draftToRule(baseDraft({ preScript: source }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions).toContainEqual({ type: 'preScript', source });
+  });
+
+  it('should round-trip a rule with scripts through ruleToDraft and draftToRule preserving sources', () => {
+    // behavior: rule -> draft -> rule keeps both script sources intact
+    const rule = buildRule({
+      actions: [
+        { type: 'preScript', source: 'req.setHeader("a","1");' },
+        { type: 'postScript', source: 'res.setBody(res.getBody());' },
+      ],
+    });
+
+    const result = draftToRule(ruleToDraft(rule), rule);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions).toContainEqual({ type: 'preScript', source: 'req.setHeader("a","1");' });
+    expect(result.rule.actions).toContainEqual({ type: 'postScript', source: 'res.setBody(res.getBody());' });
+  });
+
   it('should fail with an error when the pattern is empty', () => {
     // behavior: an empty URL pattern is invalid and returns the error branch
     const result = draftToRule(baseDraft({ pattern: '' }));
@@ -281,5 +373,23 @@ describe('draftsEqual', () => {
   it('should return false when requestBody differs (TC-013)', () => {
     // behavior: a changed request body reads as dirty
     expect(draftsEqual(baseDraft({ requestBody: '{"q":1}' }), baseDraft({ requestBody: '{"q":2}' }))).toBe(false);
+  });
+
+  it('should return false when preScript differs', () => {
+    // behavior: a changed pre-script source reads as dirty
+    expect(draftsEqual(baseDraft({ preScript: 'req.setUrl("a");' }), baseDraft({ preScript: 'req.setUrl("b");' }))).toBe(false);
+  });
+
+  it('should return false when postScript differs', () => {
+    // behavior: a changed post-script source reads as dirty
+    expect(draftsEqual(baseDraft({ postScript: 'res.setBody("a");' }), baseDraft({ postScript: 'res.setBody("b");' }))).toBe(false);
+  });
+
+  it('should return true when both drafts share identical script sources', () => {
+    // behavior: equal script fields do not read as dirty
+    const a = baseDraft({ preScript: 'req.setUrl("x");', postScript: 'res.setBody("y");' });
+    const b = baseDraft({ preScript: 'req.setUrl("x");', postScript: 'res.setBody("y");' });
+
+    expect(draftsEqual(a, b)).toBe(true);
   });
 });

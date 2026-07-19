@@ -412,3 +412,267 @@ describe('createPatchedFetch edge cases', () => {
     expect(res.headers.get('content-type')).toBe('application/json');
   });
 });
+
+type FetchCall = Parameters<typeof fetch>;
+const forwardedUrl = (call: FetchCall): string => {
+  const [input] = call;
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  if (input instanceof Request) return input.url;
+  return String(input);
+};
+const forwardedHeaders = (call: FetchCall): Headers => {
+  const [input, init] = call;
+  const source = init?.headers ?? (input instanceof Request ? input.headers : undefined);
+  return new Headers(source);
+};
+const forwardedMethod = (call: FetchCall): string => {
+  const [input, init] = call;
+  if (init?.method) return init.method;
+  if (input instanceof Request) return input.method;
+  return 'GET';
+};
+const forwardedBody = (call: FetchCall): BodyInit | null | undefined => {
+  const [, init] = call;
+  return init?.body;
+};
+
+describe('createPatchedFetch pre-script (AC-006, AC-013)', () => {
+  it('should forward the request carrying the pre-script url/method/header/body mutations (AC-006)', async () => {
+    // behavior: a pre-script mutating req reshapes the forwarded fetch
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            {
+              type: 'preScript',
+              source:
+                'req.setUrl("https://api.x/rerouted"); req.setMethod("PUT"); req.setHeader("x-test","1"); req.setBody("{\\"scripted\\":true}");',
+            },
+          ]),
+        ],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users', { method: 'POST', body: '{"orig":true}' });
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    const call = originalFetch.mock.calls[0];
+    expect(forwardedUrl(call)).toBe('https://api.x/rerouted');
+    expect(forwardedMethod(call)).toBe('PUT');
+    expect(forwardedHeaders(call).get('x-test')).toBe('1');
+    expect(forwardedBody(call)).toBe('{"scripted":true}');
+  });
+
+  it('should run the pre-script after declarative request header ops so it observes the set value (AC-013)', async () => {
+    // behavior: declarative modifyRequestHeaders applies first; the script reads that value via req.getHeader
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+            { type: 'preScript', source: 'req.setHeader("x-seen", req.getHeader("x-env") || "MISSING");' },
+          ]),
+        ],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users', { method: 'POST' });
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    const headers = forwardedHeaders(originalFetch.mock.calls[0]);
+    expect(headers.get('x-env')).toBe('staging');
+    expect(headers.get('x-seen')).toBe('staging');
+  });
+
+  it('should skip a throwing pre-script but still forward and let the post-script run (AC-010)', async () => {
+    // behavior: a throwing pre-script is skipped (partial effect discarded) yet the
+    // request is still forwarded and the pipeline proceeds to the post-script.
+    // The post-script mutating the body is the feature-gated signal (RED until wired).
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'preScript', source: 'req.setHeader("x-partial","1"); throw new Error("pre boom");' },
+            { type: 'postScript', source: 'res.setBody("recovered");' },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users', { method: 'POST' });
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    expect(forwardedHeaders(originalFetch.mock.calls[0]).get('x-partial')).toBeNull();
+    expect(await res.text()).toBe('recovered');
+  });
+});
+
+describe('createPatchedFetch post-script (AC-007)', () => {
+  it('should apply post-script body and header mutations to the returned response (AC-007)', async () => {
+    // behavior: a post-script reshapes the returned Response body + headers
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'postScript', source: 'res.setBody("changed"); res.setHeader("x-post","yes");' },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(await res.text()).toBe('changed');
+    expect(res.headers.get('x-post')).toBe('yes');
+  });
+
+  it('should preserve the original status while the post-script reads it via getStatus (AC-007)', async () => {
+    // behavior: getStatus returns the original status; the returned Response status is unchanged
+    const originalFetch = vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response('orig', { status: 201, statusText: 'Created' })),
+    );
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([{ type: 'postScript', source: 'res.setHeader("x-seen-status", String(res.getStatus()));' }]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(res.status).toBe(201);
+    expect(res.headers.get('x-seen-status')).toBe('201');
+  });
+
+  it('should force the serve path for a post-script-only rule so the script sees the body (AC-007)', async () => {
+    // behavior: a response-only post-script (no header/body override) still reads + serves the body
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig-body', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([{ type: 'postScript', source: 'res.setBody(res.getBody() + "-seen");' }]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(await res.text()).toBe('orig-body-seen');
+  });
+
+  it('should let the post-script observe the declarative body override (AC-013)', async () => {
+    // behavior: declarative rewriteBody applies first; the post-script reads it via res.getBody
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'rewriteBody', body: 'declared' },
+            { type: 'postScript', source: 'res.setBody(res.getBody() + "+scripted");' },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(await res.text()).toBe('declared+scripted');
+  });
+
+  it('should still serve the response when the post-script throws, skipping its effect (AC-010)', async () => {
+    // behavior: a throwing post-script forces the serve path (sink fires - the
+    // feature-gated signal) but its partial mutation is discarded (body stays 'orig').
+    // A pre-feature passthrough would neither fire the sink nor force the serve path.
+    const reports: InterceptReport[] = [];
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        sink: (report) => reports.push(report),
+        getRules: () => [
+          buildRule([{ type: 'postScript', source: 'res.setBody("half"); throw new Error("post boom");' }]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users');
+
+    expect(reports).toHaveLength(1);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('orig');
+  });
+});
+
+describe('createPatchedFetch script error logging (AC-010, AC-011)', () => {
+  it('should log a prefixed error to the console when a pre-script throws (AC-010)', async () => {
+    // side-effect-contract: a thrown pre-script surfaces a [puredevtools script] error line
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch: vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 }))),
+        getRules: () => [buildRule([{ type: 'preScript', source: 'throw new Error("pre boom");' }])],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users');
+
+    const logged = errorSpy.mock.calls.map((args) => args.join(' '));
+    expect(logged.some((line) => line.includes('[puredevtools script]') && line.includes('pre boom'))).toBe(true);
+    errorSpy.mockRestore();
+  });
+
+  it('should route a script console.log through to the page console prefixed (AC-011)', async () => {
+    // side-effect-contract: console.log inside a script reaches the page console with the prefix
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch: vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 }))),
+        getRules: () => [buildRule([{ type: 'preScript', source: 'console.log("hello from script");' }])],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users');
+
+    const logged = logSpy.mock.calls.map((args) => args.join(' '));
+    expect(logged.some((line) => line.includes('[puredevtools script]') && line.includes('hello from script'))).toBe(true);
+    logSpy.mockRestore();
+  });
+});
+
+describe('createPatchedFetch script re-entrancy (AC-009)', () => {
+  it('should pass an inner fetch call through un-intercepted while a script is running (AC-009)', async () => {
+    // behavior: the re-entrancy guard means a fetch made inside a pre-script does not
+    // re-run the rule/script, so there is no infinite recursion.
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [buildRule([{ type: 'preScript', source: 'await fetch("https://api.x/inner");' }])],
+      }),
+    );
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = fetchImpl;
+
+    try {
+      const res = await fetchImpl('https://api.x/users');
+      expect(res).toBeInstanceOf(Response);
+      // outer forward + inner passthrough = 2; a broken guard would recurse without bound.
+      expect(originalFetch).toHaveBeenCalledTimes(2);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+});

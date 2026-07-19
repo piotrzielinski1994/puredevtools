@@ -15,6 +15,8 @@ const makeDraft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   rewriteBody: '',
   requestOps: [],
   requestBody: '',
+  preScript: '',
+  postScript: '',
   ...overrides,
 });
 
@@ -44,6 +46,7 @@ const pressSaveChord = async () => {
 };
 const gotoResponse = () => fireEvent.click(screen.getByRole('tab', { name: /response/i }));
 const gotoRequest = () => fireEvent.click(screen.getByRole('tab', { name: /request/i }));
+const gotoScripts = () => fireEvent.click(screen.getByRole('tab', { name: /^scripts$/i }));
 const getRequestBody = () => screen.getByLabelText(/rewrite request body/i);
 const selectOption = (combobox: HTMLElement, optionName: RegExp) => {
   fireEvent.click(combobox);
@@ -230,5 +233,27 @@ describe('RuleForm', () => {
     expect(onDraftChange).toHaveBeenCalledWith(
       expect.objectContaining({ requestOps: [{ op: 'set', name: 'X-New', value: 'staging' }] }),
     );
+  });
+
+  it('should reveal Pre-request and Post-response script editors when the Scripts tab is selected (AC-012)', () => {
+    // behavior: the Scripts tab shows the pre editor by default and the post editor on toggle
+    setup({ draft: makeDraft({ preScript: 'req.setHeader("x","1");', postScript: 'res.setBody("y");' }) });
+    gotoScripts();
+
+    expect(screen.getByLabelText(/pre-request script/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: /post-response/i }));
+
+    expect(screen.getByLabelText(/post-response script/i)).toBeInTheDocument();
+  });
+
+  it('should call onDraftChange with the new preScript when the pre-request editor is edited (AC-012)', async () => {
+    // side-effect-contract: typing in the pre editor emits a patched draft carrying preScript
+    const { onDraftChange } = setup();
+    gotoScripts();
+
+    await userEvent.type(screen.getByLabelText(/pre-request script/i), 'x');
+
+    expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ preScript: expect.stringContaining('x') }));
   });
 });

@@ -2,6 +2,14 @@ import type { RequestDescriptor, Rule } from '../../rules/model';
 import { decideInterception } from './decide';
 import { applyHeaderOps } from './headerOps';
 import { resolveUrl } from './resolveUrl';
+import { isScriptRunning, runScript } from './script/runScript';
+import {
+  createConsoleFacade,
+  createRequestFacade,
+  createResponseFacade,
+  type MutableRequest,
+  type MutableResponse,
+} from './script/facades';
 import type { Interception, Sink } from './types';
 
 export type PatchedFetchDeps = {
@@ -46,6 +54,18 @@ const descriptorOf = (input: RequestInfo | URL, init?: RequestInit): RequestDesc
   method: methodOf(input, init),
 });
 
+const mutableRequestOf = (input: RequestInfo | URL, init?: RequestInit): MutableRequest => ({
+  url: urlOf(input),
+  method: methodOf(input, init),
+  headers: new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined)),
+  body: requestBodyOf(init),
+});
+
+const scriptConsoleSink = (...args: unknown[]): void => console.log(...args);
+
+const logScriptError = (stage: 'pre' | 'post', error: string): void =>
+  console.error('[puredevtools script]', `${stage} error:`, error);
+
 export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
   const serveOverride = async (
     interception: Extract<Interception, { kind: 'override' }>,
@@ -55,8 +75,25 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
     const headers = new Headers(original.headers);
     applyHeaderOps(headers, interception.headerOps);
     const isBodyRewritten = interception.body !== undefined;
-    const body = isBodyRewritten ? interception.body! : await original.text();
+    let body = isBodyRewritten ? interception.body! : await original.text();
     if (isBodyRewritten && interception.contentType) headers.set('content-type', interception.contentType);
+
+    if (interception.postScript !== undefined) {
+      const scriptHeaders = new Headers(headers);
+      const mutable: MutableResponse = { status: original.status, headers: scriptHeaders, body };
+      const outcome = await runScript(interception.postScript, {
+        res: createResponseFacade(mutable),
+        console: createConsoleFacade(scriptConsoleSink),
+      });
+      if (outcome.ok) {
+        body = mutable.body;
+        scriptHeaders.forEach((value, name) => headers.set(name, value));
+        [...headers.keys()].filter((name) => !scriptHeaders.has(name)).forEach((name) => headers.delete(name));
+      } else {
+        logScriptError('post', outcome.error);
+      }
+    }
+
     const contentType = headers.get('content-type') ?? undefined;
     deps.sink({ ...request, kind: 'rewrite', status: original.status, body, contentType });
     return new Response(body, {
@@ -64,6 +101,32 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
       statusText: original.statusText,
       headers,
     });
+  };
+
+  const applyPreScript = async (
+    interception: Extract<Interception, { kind: 'override' }>,
+    input: RequestInfo | URL,
+    forwardInit: RequestInit | undefined,
+  ): Promise<{ input: RequestInfo | URL; init: RequestInit | undefined }> => {
+    if (interception.preScript === undefined) return { input, init: forwardInit };
+    const mutable = mutableRequestOf(input, forwardInit);
+    const outcome = await runScript(interception.preScript, {
+      req: createRequestFacade(mutable),
+      console: createConsoleFacade(scriptConsoleSink),
+    });
+    if (!outcome.ok) {
+      logScriptError('pre', outcome.error);
+      return { input, init: forwardInit };
+    }
+    return {
+      input: mutable.url,
+      init: {
+        ...forwardInit,
+        method: mutable.method,
+        headers: mutable.headers,
+        ...(mutable.body !== undefined ? { body: mutable.body } : {}),
+      },
+    };
   };
 
   const forwardInitOf = (
@@ -80,17 +143,19 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
   };
 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (isScriptRunning()) return deps.originalFetch(input, init);
     const interception = decideInterception(deps.getRules(), descriptorOf(input, init), deps.getGlobalEnabled());
     if (interception.kind !== 'override') return deps.originalFetch(input, init);
-    const forwardInit = forwardInitOf(interception, input, init);
+    const forwarded = await applyPreScript(interception, input, forwardInitOf(interception, input, init));
     const request = {
-      method: methodOf(input, forwardInit),
-      url: urlOf(input),
-      requestHeaders: requestHeadersOf(input, forwardInit),
-      requestBody: requestBodyOf(forwardInit),
+      method: methodOf(forwarded.input, forwarded.init),
+      url: urlOf(forwarded.input),
+      requestHeaders: requestHeadersOf(forwarded.input, forwarded.init),
+      requestBody: requestBodyOf(forwarded.init),
     };
-    const original = await deps.originalFetch(input, forwardInit);
-    const hasResponseOverride = interception.body !== undefined || interception.headerOps.length > 0;
+    const original = await deps.originalFetch(forwarded.input, forwarded.init);
+    const hasResponseOverride =
+      interception.body !== undefined || interception.headerOps.length > 0 || interception.postScript !== undefined;
     if (!hasResponseOverride) return original;
     return serveOverride(interception, original, request);
   };
