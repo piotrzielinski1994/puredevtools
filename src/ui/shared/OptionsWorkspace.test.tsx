@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import type { Rule, TreeNode } from '../../rules/model';
 import type { UiGateway } from './gateway';
 import { RulesProvider } from './RulesProvider';
@@ -61,6 +61,15 @@ const renderWorkspace = (gateway: UiGateway) =>
 const editButton = (name: string) => screen.getByRole('button', { name: `Edit: ${name}` });
 const closeTab = (name: string) => screen.getByRole('button', { name: new RegExp(`close ${name}`, 'i') });
 const urlPatternValue = () => (screen.getByLabelText('URL pattern') as HTMLInputElement).value;
+const nameInput = () => screen.getByLabelText('Name') as HTMLInputElement;
+const nameValue = () => nameInput().value;
+const confirmDialog = () => screen.findByRole('dialog');
+const tabDirtyMark = (name: string) => {
+  const tab = closeTab(name).closest('[role="tab"]') as HTMLElement;
+  return within(tab).queryByLabelText('Unsaved changes');
+};
+const setName = (value: string) => fireEvent.change(nameInput(), { target: { value } });
+const setPattern = (value: string) => fireEvent.change(screen.getByLabelText('URL pattern'), { target: { value } });
 
 const clickTab = (name: string) => {
   const sidebar = screen.getAllByRole('button', { name: /edit:/i })[0].closest('ul');
@@ -270,6 +279,27 @@ describe('OptionsWorkspace', () => {
     await waitFor(() => expect(urlPatternValue()).toBe('https://bravo.test/*'));
   });
 
+  it('should prune a deleted dirty tab without leaving an orphan draft or confirm dialog', async () => {
+    // behavior: deleting a rule whose open tab is dirty drops the tab + its draft, no dialog
+    const gateway = createGatewayWith(threeRules());
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setName('edited alpha');
+    await waitFor(() => expect(tabDirtyMark('alpha rule')).not.toBeNull());
+
+    fireEvent.contextMenu(editButton('alpha rule'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete/i }));
+
+    await waitFor(() => expect(gateway.removeNode).toHaveBeenCalledWith('a'));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /close alpha rule/i })).not.toBeInTheDocument());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(gateway.updateRule).not.toHaveBeenCalled();
+  });
+
   it('should show a loading message while the gateway has not resolved (UI state)', async () => {
     // behavior: loading UI state before rules resolve
     let resolveAll: (tree: TreeNode[]) => void = () => undefined;
@@ -327,5 +357,240 @@ describe('OptionsWorkspace', () => {
 
     expect(await screen.findByRole('button', { name: /close alpha rule/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /close new rule/i })).not.toBeInTheDocument();
+  });
+
+  it('should preserve a tab edit across a switch away and back (AC-001, TC-001)', async () => {
+    // behavior: edits live in the draft store, so switching tabs never drops them
+    renderWorkspace(createGatewayWith(threeRules()));
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setName('edited alpha');
+
+    fireEvent.click(editButton('bravo rule'));
+    await waitFor(() => expect(urlPatternValue()).toBe('https://bravo.test/*'));
+
+    clickTab('alpha rule');
+    await waitFor(() => expect(urlPatternValue()).toBe('https://alpha.test/*'));
+    expect(nameValue()).toBe('edited alpha');
+  });
+
+  it('should show a dirty mark on edit and clear it when the field is reverted (AC-002, TC-002)', async () => {
+    // behavior: the dirty mark tracks value equality, appearing on change and clearing on revert
+    renderWorkspace(createGatewayWith(threeRules()));
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    expect(tabDirtyMark('alpha rule')).toBeNull();
+
+    setPattern('https://changed.test/*');
+    await waitFor(() => expect(tabDirtyMark('alpha rule')).not.toBeNull());
+
+    setPattern('https://alpha.test/*');
+    await waitFor(() => expect(tabDirtyMark('alpha rule')).toBeNull());
+  });
+
+  it('should keep the tab open with edits intact when the confirm dialog is cancelled (AC-003, AC-005, TC-003)', async () => {
+    // side-effect-contract: Cancel dismisses the dialog, keeps the tab + edit, persists nothing
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setName('edited alpha');
+
+    fireEvent.click(closeTab('alpha rule'));
+    const dialog = await confirmDialog();
+    expect(within(dialog).getByRole('heading', { name: /unsaved changes/i })).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /cancel/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(closeTab('alpha rule')).toBeInTheDocument();
+    expect(nameValue()).toBe('edited alpha');
+    expect(gateway.updateRule).not.toHaveBeenCalled();
+  });
+
+  it('should drop the edit and reopen the saved value after Discard (AC-004, TC-004)', async () => {
+    // behavior: Discard closes without persisting; reopening reads the untouched baseline
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setName('edited alpha');
+
+    fireEvent.click(closeTab('alpha rule'));
+    const dialog = await confirmDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: /discard/i }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /close alpha rule/i })).not.toBeInTheDocument());
+    expect(gateway.updateRule).not.toHaveBeenCalled();
+
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    expect(nameValue()).toBe('alpha rule');
+  });
+
+  it('should persist the edit and close the tab when the confirm dialog Save is clicked (AC-006, TC-005)', async () => {
+    // side-effect-contract: dialog Save routes through the gateway then closes the tab
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setPattern('https://alpha-edited.test/*');
+
+    fireEvent.click(closeTab('alpha rule'));
+    const dialog = await confirmDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
+    const [updated] = gateway.updateRule.mock.calls[0] as [Rule];
+    expect(updated.id).toBe('a');
+    expect(updated.matchers.url.pattern).toBe('https://alpha-edited.test/*');
+    await waitFor(() => expect(screen.queryByRole('button', { name: /close alpha rule/i })).not.toBeInTheDocument());
+  });
+
+  it('should disable dialog Save with a hint for an invalid draft but still allow Discard (AC-006, TC-006)', async () => {
+    // behavior: an invalid draft (no pattern) blocks Save; Discard remains the exit
+    renderWorkspace(createGatewayWith(threeRules()));
+
+    await screen.findByRole('button', { name: 'New rule' });
+    fireEvent.click(screen.getByRole('button', { name: 'New rule' }));
+    await screen.findByLabelText('URL pattern');
+    setName('draft rule');
+
+    fireEvent.click(closeTab('new rule'));
+    const dialog = await confirmDialog();
+    expect(within(dialog).getByRole('button', { name: /save/i })).toBeDisabled();
+    expect(within(dialog).getByText(/url pattern/i)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /discard/i }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /close new rule/i })).not.toBeInTheDocument());
+  });
+
+  it('should close a clean tab immediately with no dialog (AC-007, TC-007)', async () => {
+    // behavior: closing an unedited tab skips the confirm dialog
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+
+    fireEvent.click(closeTab('alpha rule'));
+
+    expect(await screen.findByText(/select a rule to edit/i)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(gateway.updateRule).not.toHaveBeenCalled();
+  });
+
+  it('should close a dirty tab with no dialog when the editor Cancel is clicked (AC-008, TC-008)', async () => {
+    // behavior: the editor's own Cancel is an intentional discard, no confirm
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setName('edited alpha');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByText(/select a rule to edit/i)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(gateway.updateRule).not.toHaveBeenCalled();
+  });
+
+  it('should not prompt for an untouched draft but prompt once the draft is edited (AC-009, TC-009)', async () => {
+    // behavior: an empty draft closes plainly; a typed-into draft prompts
+    renderWorkspace(createGatewayWith(threeRules()));
+
+    await screen.findByRole('button', { name: 'New rule' });
+    fireEvent.click(screen.getByRole('button', { name: 'New rule' }));
+    await screen.findByLabelText('URL pattern');
+
+    fireEvent.click(closeTab('new rule'));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /close new rule/i })).not.toBeInTheDocument());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New rule' }));
+    await screen.findByLabelText('URL pattern');
+    setName('typed draft');
+
+    fireEvent.click(closeTab('new rule'));
+    expect(await confirmDialog()).toBeInTheDocument();
+  });
+
+  it('should dismiss the confirm dialog on Escape leaving the tab open and edited (AC-010, TC-010)', async () => {
+    // behavior: Escape is equivalent to Cancel - tab stays open, edit intact
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setName('edited alpha');
+
+    fireEvent.click(closeTab('alpha rule'));
+    const dialog = await confirmDialog();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(closeTab('alpha rule')).toBeInTheDocument();
+    expect(nameValue()).toBe('edited alpha');
+    expect(gateway.updateRule).not.toHaveBeenCalled();
+  });
+
+  it('should dismiss the confirm dialog on overlay click leaving the tab open and edited (AC-010, TC-010)', async () => {
+    // behavior: clicking the backdrop is equivalent to Cancel - tab stays open, edit intact
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    setName('edited alpha');
+
+    fireEvent.click(closeTab('alpha rule'));
+    const dialog = await confirmDialog();
+    fireEvent.click(dialog.parentElement as HTMLElement);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(closeTab('alpha rule')).toBeInTheDocument();
+    expect(nameValue()).toBe('edited alpha');
+    expect(gateway.updateRule).not.toHaveBeenCalled();
+  });
+
+  it('should persist a non-active dirty tab from the draft store when its dialog Save is clicked (AC-001, AC-006, TC-011)', async () => {
+    // side-effect-contract: dialog Save reads the stored draft, not the mounted editor
+    const gateway = createGatewayWith(threeRules());
+    renderWorkspace(gateway);
+
+    await screen.findByRole('button', { name: 'Edit: alpha rule' });
+    fireEvent.click(editButton('alpha rule'));
+    await screen.findByLabelText('URL pattern');
+    fireEvent.click(editButton('bravo rule'));
+    await waitFor(() => expect(urlPatternValue()).toBe('https://bravo.test/*'));
+
+    setName('edited bravo');
+    clickTab('alpha rule');
+    await waitFor(() => expect(urlPatternValue()).toBe('https://alpha.test/*'));
+
+    fireEvent.click(closeTab('bravo rule'));
+    const dialog = await confirmDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(gateway.updateRule).toHaveBeenCalledTimes(1));
+    const [updated] = gateway.updateRule.mock.calls[0] as [Rule];
+    expect(updated.id).toBe('b');
+    expect(updated.name).toBe('edited bravo');
+    await waitFor(() => expect(screen.queryByRole('button', { name: /close bravo rule/i })).not.toBeInTheDocument());
   });
 });

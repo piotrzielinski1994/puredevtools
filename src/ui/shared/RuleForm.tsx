@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import type { HeaderOp, HttpMethod, PatternKind, Rule, RuleAction } from '../../rules/model';
+import type { HttpMethod, PatternKind } from '../../rules/model';
 import { matchUrl } from '../../rules/match';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
@@ -9,37 +9,16 @@ import { Label } from '../components/ui/label';
 import { Select } from '../components/ui/select';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
-import { useRules } from './RulesProvider';
+import type { OpRow, RuleDraft } from './ruleDraft';
 
 export type RuleFormProps = {
-  initial?: Rule;
-  onSaved(ruleId: string): void;
+  draft: RuleDraft;
+  onDraftChange(draft: RuleDraft): void;
+  onSave(): Promise<{ ok: boolean; error?: string }>;
   onCancel(): void;
 };
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
-
-const isValidRegex = (pattern: string): boolean => {
-  try {
-    new RegExp(pattern);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-type OpRow = { op: 'set' | 'remove'; name: string; value: string };
-
-const makeId = (seed: string): string => `rule-${seed.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${seed.length}`;
-
-const findAction = <T extends RuleAction['type']>(rule: Rule | undefined, type: T): Extract<RuleAction, { type: T }> | undefined =>
-  rule?.actions.find((action): action is Extract<RuleAction, { type: T }> => action.type === type);
-
-const opToRow = (op: HeaderOp): OpRow =>
-  op.op === 'set' ? { op: 'set', name: op.name, value: op.value } : { op: 'remove', name: op.name, value: '' };
-
-const rowToOp = (row: OpRow): HeaderOp =>
-  row.op === 'set' ? { op: 'set', name: row.name, value: row.value } : { op: 'remove', name: row.name };
 
 const Field = ({ htmlFor, label, children }: { htmlFor: string; label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-1.5">
@@ -92,59 +71,24 @@ const MatchHint = ({ pattern, kind, url }: { pattern: string; kind: PatternKind;
   );
 };
 
-export const RuleForm = ({ initial, onSaved, onCancel }: RuleFormProps) => {
-  const { addRule, updateRule } = useRules();
-  const [name, setName] = useState(initial?.name ?? '');
-  const [pattern, setPattern] = useState(initial?.matchers.url.pattern ?? '');
-  const [kind, setKind] = useState<PatternKind>(initial?.matchers.url.kind ?? 'glob');
+export const RuleForm = ({ draft, onDraftChange, onSave, onCancel }: RuleFormProps) => {
   const [testUrl, setTestUrl] = useState('');
-  const [methods, setMethods] = useState<HttpMethod[]>(initial?.matchers.methods ?? []);
-
-  const [responseOps, setResponseOps] = useState<OpRow[]>(
-    (findAction(initial, 'modifyResponseHeaders')?.headers ?? []).map(opToRow),
-  );
-  const [rewriteBody, setRewriteBody] = useState(findAction(initial, 'rewriteBody')?.body ?? '');
-
   const [error, setError] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<FormTab>('match');
 
-  const toggle = <T,>(list: T[], value: T): T[] =>
-    list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+  const patch = (changes: Partial<RuleDraft>) => onDraftChange({ ...draft, ...changes });
 
-  const buildActions = (): RuleAction[] => {
-    const actions: RuleAction[] = [];
-    const respOps = responseOps.filter((row) => row.name.trim() !== '').map(rowToOp);
-    if (respOps.length > 0) actions.push({ type: 'modifyResponseHeaders', headers: respOps });
-    if (rewriteBody.trim() !== '') actions.push({ type: 'rewriteBody', body: rewriteBody });
-    return actions;
-  };
+  const toggleMethod = (method: HttpMethod) =>
+    patch({
+      methods: draft.methods.includes(method)
+        ? draft.methods.filter((item) => item !== method)
+        : [...draft.methods, method],
+    });
 
   const onSubmit = async () => {
-    if (pattern.trim() === '') {
-      setError('URL pattern is required.');
-      return;
-    }
-    if (kind === 'regex' && !isValidRegex(pattern)) {
-      setError('Invalid regular expression.');
-      return;
-    }
     setError(undefined);
-
-    const matchers: Rule['matchers'] = {
-      url: { pattern, kind },
-      ...(methods.length > 0 ? { methods } : {}),
-    };
-
-    const rule: Rule = {
-      id: initial?.id ?? makeId(name || pattern),
-      name: name || pattern,
-      enabled: initial?.enabled ?? true,
-      matchers,
-      actions: buildActions(),
-    };
-
-    await (initial ? updateRule(rule) : addRule(rule));
-    onSaved(rule.id);
+    const result = await onSave();
+    if (!result.ok) setError(result.error);
   };
 
   return (
@@ -160,7 +104,7 @@ export const RuleForm = ({ initial, onSaved, onCancel }: RuleFormProps) => {
       {activeTab === 'match' ? (
         <div role="tabpanel" id="rule-panel-match" aria-labelledby="rule-tab-match" className="flex flex-col gap-3 p-4">
           <Field htmlFor="rule-name" label="Name">
-            <Input id="rule-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="My rule" />
+            <Input id="rule-name" value={draft.name} onChange={(event) => patch({ name: event.target.value })} placeholder="My rule" />
           </Field>
 
           <div className="flex flex-col gap-1.5">
@@ -168,7 +112,7 @@ export const RuleForm = ({ initial, onSaved, onCancel }: RuleFormProps) => {
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {METHODS.map((method) => (
                 <label key={method} className="inline-flex items-center gap-1.5 text-sm">
-                  <Checkbox checked={methods.includes(method)} onChange={() => setMethods(toggle(methods, method))} />
+                  <Checkbox checked={draft.methods.includes(method)} onChange={() => toggleMethod(method)} />
                   {method}
                 </label>
               ))}
@@ -177,14 +121,14 @@ export const RuleForm = ({ initial, onSaved, onCancel }: RuleFormProps) => {
 
           <div className="flex gap-3">
             <Field htmlFor="rule-kind" label="Match kind">
-              <Select id="rule-kind" aria-label="Pattern kind" className="w-40" value={kind} onChange={(event) => setKind(event.target.value as PatternKind)}>
+              <Select id="rule-kind" aria-label="Pattern kind" className="w-40" value={draft.kind} onChange={(event) => patch({ kind: event.target.value as PatternKind })}>
                 <option value="glob">glob</option>
                 <option value="regex">regex</option>
               </Select>
             </Field>
             <div className="flex flex-1 flex-col gap-1.5">
               <Label htmlFor="rule-url">URL</Label>
-              <Input id="rule-url" aria-label="URL pattern" className="font-mono" value={pattern} onChange={(event) => setPattern(event.target.value)} placeholder="https://example.com/*" />
+              <Input id="rule-url" aria-label="URL pattern" className="font-mono" value={draft.pattern} onChange={(event) => patch({ pattern: event.target.value })} placeholder="https://example.com/*" />
             </div>
           </div>
 
@@ -197,19 +141,19 @@ export const RuleForm = ({ initial, onSaved, onCancel }: RuleFormProps) => {
               onChange={(event) => setTestUrl(event.target.value)}
               placeholder="https://example.com/path"
             />
-            {testUrl.trim() !== '' ? <MatchHint pattern={pattern} kind={kind} url={testUrl} /> : null}
+            {testUrl.trim() !== '' ? <MatchHint pattern={draft.pattern} kind={draft.kind} url={testUrl} /> : null}
           </Field>
         </div>
       ) : (
         <div role="tabpanel" id="rule-panel-response" aria-labelledby="rule-tab-response" className="flex flex-col gap-3 p-4">
-          <HeaderOpEditor legend="Modify response headers" rows={responseOps} onChange={setResponseOps} />
+          <HeaderOpEditor legend="Modify response headers" rows={draft.responseOps} onChange={(responseOps) => patch({ responseOps })} />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="rule-rewrite-body">Rewrite response body</Label>
             <Textarea
               id="rule-rewrite-body"
               aria-label="Rewrite response body"
-              value={rewriteBody}
-              onChange={(event) => setRewriteBody(event.target.value)}
+              value={draft.rewriteBody}
+              onChange={(event) => patch({ rewriteBody: event.target.value })}
               placeholder='{"rewritten": true}'
             />
           </div>

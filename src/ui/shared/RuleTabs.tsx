@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export type RuleTab = { key: string; label: string };
+export type RuleTab = { key: string; label: string; isDirty?: boolean };
 
 export type RuleTabsProps = {
   tabs: RuleTab[];
@@ -31,6 +31,9 @@ export const RuleTabs = ({ tabs, activeKey, onActivate, onClose }: RuleTabsProps
           >
             {tab.label}
           </button>
+          {tab.isDirty ? (
+            <span aria-label="Unsaved changes" className="mr-1 size-1.5 shrink-0 bg-current" />
+          ) : null}
           <button
             type="button"
             aria-label={`Close ${tab.label}`}
