@@ -47,3 +47,15 @@ _Avoid_: form state, edit buffer, working copy
 ### Dirty tab
 An open editor tab whose current rule draft differs (by value) from its baseline - the saved rule's projection, or the empty draft for a new-rule tab. Reverting a field to its saved value makes the tab clean again.
 _Avoid_: unsaved tab, modified tab, touched tab
+
+### Script
+User-authored JavaScript a rule runs against the request or response, as the imperative counterpart to the declarative header/body ops. Runs in the page's own JS realm; sees a scoped `req`/`res`/`console` facade only.
+_Avoid_: hook, handler, callback, plugin, macro
+
+### Pre-script
+The `Script` that runs after the declarative request ops and before the request is forwarded; it mutates the outgoing request (url, method, headers, body) via `req`.
+_Avoid_: pre-request hook, request interceptor, before-send
+
+### Post-script
+The `Script` that runs after the declarative response override and before the page's callback sees the response; it mutates the returned response (headers, body) via `res`, but not the status.
+_Avoid_: post-response hook, response interceptor, after-receive

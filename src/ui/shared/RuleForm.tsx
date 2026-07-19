@@ -11,6 +11,8 @@ import { Select } from '../components/ui/select';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
 import type { OpRow, RuleDraft } from './ruleDraft';
+import { ScriptEditor } from './ScriptEditor';
+import type { ScriptStage } from './script/model';
 
 export type RuleFormProps = {
   draft: RuleDraft;
@@ -27,13 +29,14 @@ const Field = ({ htmlFor, label, children }: { htmlFor: string; label: string; c
   </div>
 );
 
-type FormTab = 'match' | 'request' | 'response';
+type FormTab = 'match' | 'request' | 'response' | 'scripts';
 
 const FormTabs = ({ active, onSelect }: { active: FormTab; onSelect(tab: FormTab): void }) => {
   const tabs: { key: FormTab; label: string }[] = [
     { key: 'match', label: 'Match' },
     { key: 'request', label: 'Request' },
     { key: 'response', label: 'Response' },
+    { key: 'scripts', label: 'Scripts' },
   ];
   return (
     <div role="tablist" className="flex h-9 items-stretch border-b bg-muted/30">
@@ -76,6 +79,7 @@ export const RuleForm = ({ draft, onDraftChange, onSave }: RuleFormProps) => {
   const [testUrl, setTestUrl] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<FormTab>('match');
+  const [scriptStage, setScriptStage] = useState<ScriptStage>('pre');
 
   const patch = (changes: Partial<RuleDraft>) => onDraftChange({ ...draft, ...changes });
 
@@ -161,7 +165,7 @@ export const RuleForm = ({ draft, onDraftChange, onSave }: RuleFormProps) => {
             />
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'response' ? (
         <div role="tabpanel" id="rule-panel-response" aria-labelledby="rule-tab-response" className="flex flex-col gap-3 p-4">
           <HeaderOpEditor legend="Modify response headers" rows={draft.responseOps} onChange={(responseOps) => patch({ responseOps })} />
           <div className="flex flex-col gap-1.5">
@@ -174,6 +178,45 @@ export const RuleForm = ({ draft, onDraftChange, onSave }: RuleFormProps) => {
               placeholder='{"rewritten": true}'
             />
           </div>
+        </div>
+      ) : (
+        <div role="tabpanel" id="rule-panel-scripts" aria-labelledby="rule-tab-scripts" className="flex flex-col gap-3 p-4">
+          <div role="tablist" className="flex items-stretch border-b bg-muted/30">
+            {(['pre', 'post'] as const).map((stage) => (
+              <button
+                key={stage}
+                type="button"
+                role="tab"
+                aria-selected={scriptStage === stage}
+                onClick={() => setScriptStage(stage)}
+                className={cn(
+                  'border-r border-r-border px-3 py-1.5 text-sm font-medium hover:bg-accent',
+                  scriptStage === stage
+                    ? 'bg-accent text-foreground shadow-[inset_0_-1px_0_0_var(--primary)]'
+                    : 'text-muted-foreground',
+                )}
+              >
+                {stage === 'pre' ? 'Pre-request' : 'Post-response'}
+              </button>
+            ))}
+          </div>
+          {scriptStage === 'pre' ? (
+            <ScriptEditor
+              key="pre"
+              stage="pre"
+              ariaLabel="Pre-request script"
+              value={draft.preScript}
+              onChange={(preScript) => patch({ preScript })}
+            />
+          ) : (
+            <ScriptEditor
+              key="post"
+              stage="post"
+              ariaLabel="Post-response script"
+              value={draft.postScript}
+              onChange={(postScript) => patch({ postScript })}
+            />
+          )}
         </div>
       )}
 

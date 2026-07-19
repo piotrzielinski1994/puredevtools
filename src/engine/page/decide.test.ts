@@ -143,6 +143,51 @@ describe('decideInterception (AC-001, AC-006)', () => {
     expect(result.requestBody).toBe('{"q":2}');
   });
 
+  it('should map a preScript-only rule to an override carrying the preScript source (AC-002)', () => {
+    // behavior: a rule whose only action is a preScript still overrides (not passthrough)
+    const rule = buildRule([{ type: 'preScript', source: 'req.setHeader("x-a","1");' }]);
+    const result = decideInterception([rule], descriptor(), true);
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.preScript).toBe('req.setHeader("x-a","1");');
+    expect(result.postScript).toBeUndefined();
+    expect(result.headerOps).toEqual([]);
+    expect(result.body).toBeUndefined();
+  });
+
+  it('should map a postScript-only rule to an override carrying the postScript source (AC-002)', () => {
+    // behavior: a response-only script rule overrides and carries the postScript source
+    const rule = buildRule([{ type: 'postScript', source: 'res.setBody("changed");' }]);
+    const result = decideInterception([rule], descriptor(), true);
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.postScript).toBe('res.setBody("changed");');
+    expect(result.preScript).toBeUndefined();
+  });
+
+  it('should carry both script sources alongside declarative ops when a rule has all (AC-002, AC-013)', () => {
+    // behavior: scripts coexist with header/body ops on the same override
+    const rule = buildRule([
+      { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+      { type: 'preScript', source: 'req.setBody("pre");' },
+      { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Resp', value: 'on' }] },
+      { type: 'postScript', source: 'res.setBody("post");' },
+    ]);
+    const result = decideInterception([rule], descriptor(), true);
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.preScript).toBe('req.setBody("pre");');
+    expect(result.postScript).toBe('res.setBody("post");');
+    expect(result.requestHeaderOps).toEqual([{ op: 'set', name: 'X-Env', value: 'staging' }]);
+    expect(result.headerOps).toEqual([{ op: 'set', name: 'X-Resp', value: 'on' }]);
+  });
+
+  it('should return passthrough for a rule carrying zero actions (AC-002)', () => {
+    // behavior: no actions at all is still passthrough (scripts are opt-in)
+    const rule = buildRule([]);
+    expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
+  });
+
   it('should ignore legacy stored action types and fall through to passthrough (AC-006, rollout)', () => {
     const legacy = {
       id: 'legacy',

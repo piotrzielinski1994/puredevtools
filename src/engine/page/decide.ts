@@ -10,7 +10,9 @@ const toInterception = (rule: Rule): Interception => {
   const rewrite = firstAction(rule, 'rewriteBody');
   const requestHeaders = firstAction(rule, 'modifyRequestHeaders');
   const requestRewrite = firstAction(rule, 'rewriteRequestBody');
-  if (!headers && !rewrite && !requestHeaders && !requestRewrite) return PASSTHROUGH;
+  const preScript = firstAction(rule, 'preScript');
+  const postScript = firstAction(rule, 'postScript');
+  if (!headers && !rewrite && !requestHeaders && !requestRewrite && !preScript && !postScript) return PASSTHROUGH;
   return {
     kind: 'override',
     headerOps: headers?.headers ?? [],
@@ -18,6 +20,8 @@ const toInterception = (rule: Rule): Interception => {
     contentType: rewrite?.contentType,
     requestHeaderOps: requestHeaders?.headers ?? [],
     requestBody: requestRewrite?.body,
+    preScript: preScript?.source,
+    postScript: postScript?.source,
   };
 };
 

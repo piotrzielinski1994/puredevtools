@@ -9,6 +9,8 @@ export type Interception =
       contentType?: string;
       requestHeaderOps: HeaderOp[];
       requestBody?: string;
+      preScript?: string;
+      postScript?: string;
     };
 
 export type InterceptReport = {
