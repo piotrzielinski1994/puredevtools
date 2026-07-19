@@ -39,3 +39,11 @@ _Avoid_: group, directory, category, bucket
 ### Flatten
 Producing the ordered `Rule[]` the engine matches against by walking the workspace depth-first, pre-order. A folder contributes its rules in its own slot, recursively; collapsed state does not affect the result. Flatten order = match precedence (first enabled match wins).
 _Avoid_: serialize, resolve, expand
+
+### Rule draft
+The editable projection of a rule the options-page editor works on: the field subset the form mutates (`name`, `pattern`, `kind`, `methods`, response header ops, rewrite body), excluding `id`/`enabled`. Lives per open tab, in memory only; becomes a `Rule` on save.
+_Avoid_: form state, edit buffer, working copy
+
+### Dirty tab
+An open editor tab whose current rule draft differs (by value) from its baseline - the saved rule's projection, or the empty draft for a new-rule tab. Reverting a field to its saved value makes the tab clean again.
+_Avoid_: unsaved tab, modified tab, touched tab

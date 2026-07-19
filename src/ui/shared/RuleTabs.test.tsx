@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RuleTabs } from './RuleTabs';
 
-type Tab = { key: string; label: string };
+type Tab = { key: string; label: string; isDirty?: boolean };
 
 const tabs: Tab[] = [
   { key: 'a', label: 'alpha rule' },
@@ -78,5 +78,21 @@ describe('RuleTabs', () => {
     render(<RuleTabs tabs={tabs} activeKey={null} onActivate={vi.fn()} onClose={vi.fn()} />);
 
     expect(document.querySelector('[aria-current="true"], [aria-current="page"]')).toBeNull();
+  });
+
+  it('should render the Unsaved changes mark only inside the dirty tab (AC-002)', () => {
+    // behavior: the dirty flag adds an accessible mark to that tab and no other
+    const dirtyTabs: Tab[] = [
+      { key: 'a', label: 'alpha rule', isDirty: true },
+      { key: 'b', label: 'bravo rule', isDirty: false },
+    ];
+    render(<RuleTabs tabs={dirtyTabs} activeKey="a" onActivate={vi.fn()} onClose={vi.fn()} />);
+
+    const marks = screen.getAllByLabelText('Unsaved changes');
+    expect(marks).toHaveLength(1);
+    const dirtyTab = screen.getByRole('button', { name: /close alpha rule/i }).closest('[role="tab"]');
+    const cleanTab = screen.getByRole('button', { name: /close bravo rule/i }).closest('[role="tab"]');
+    expect(dirtyTab).toContainElement(marks[0]);
+    expect(cleanTab).not.toContainElement(marks[0]);
   });
 });
