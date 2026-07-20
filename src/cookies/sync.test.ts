@@ -147,6 +147,12 @@ describe('syncMapping', () => {
     expect(set).not.toHaveBeenCalled();
   });
 
+  it('should treat an unparseable target url as not secure and drop the secure flag (edge)', async () => {
+    const { port, set } = makePort([cookie({ secure: true })]);
+    await syncMapping(mapping({ targetUrl: 'not-a-url' }), port);
+    expect((set.mock.calls[0][0] as Cookies.SetDetailsType).secure).toBe(false);
+  });
+
   it('should set each source cookie sharing a name but differing by path (edge)', async () => {
     const { port, set } = makePort([
       cookie({ name: 'auth', path: '/' }),
