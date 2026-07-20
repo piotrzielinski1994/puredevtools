@@ -1,15 +1,22 @@
-import { Linter } from 'eslint-linter-browserify';
+import { parse } from 'espree';
+import { analyze, type Scope, type Reference } from 'eslint-scope';
+import globals from 'globals';
+import type { Program } from 'estree';
 import type { EditorView } from '@codemirror/view';
 import type { Diagnostic } from '@codemirror/lint';
 import type { ScriptStage } from './model';
 
-const linter = new Linter();
+const ECMA_VERSION = 2022;
 
-const globalsFor = (stage: ScriptStage): Record<string, 'readonly'> => {
-  const shared = { console: 'readonly', req: 'readonly' } as const;
-  if (stage === 'post') return { ...shared, res: 'readonly' };
-  return shared;
+const knownGlobalsFor = (stage: ScriptStage): ReadonlySet<string> => {
+  const stageGlobals = stage === 'post' ? ['console', 'req', 'res'] : ['console', 'req'];
+  return new Set([...Object.keys(globals.builtin), ...stageGlobals]);
 };
+
+const unresolvedReferences = (scope: Scope): Reference[] => [
+  ...scope.through,
+  ...scope.childScopes.flatMap(unresolvedReferences),
+];
 
 export const jsUndefLinter =
   (stage: ScriptStage) =>
@@ -17,25 +24,34 @@ export const jsUndefLinter =
     const doc = view.state.doc;
     const code = doc.toString();
     if (code.trim() === '') return [];
-    const messages = linter.verify(code, {
-      languageOptions: {
-        ecmaVersion: 2022,
-        sourceType: 'module',
-        globals: globalsFor(stage),
-      },
-      rules: { 'no-undef': 'error' },
-    });
-    return messages.map((message) => {
-      const from = doc.line(message.line).from + (message.column - 1);
-      const to =
-        message.endLine !== undefined && message.endColumn !== undefined
-          ? doc.line(message.endLine).from + (message.endColumn - 1)
-          : Math.min(from + 1, doc.length);
+
+    const known = knownGlobalsFor(stage);
+    const ast = parseOrNull(code);
+    if (ast === null) return [];
+
+    const scopeManager = analyze(ast, { ecmaVersion: ECMA_VERSION, sourceType: 'module' });
+    if (scopeManager.globalScope === null) return [];
+    const undefinedRefs = unresolvedReferences(scopeManager.globalScope).filter(
+      (reference) => !known.has(reference.identifier.name),
+    );
+
+    return undefinedRefs.map((reference) => {
+      const { name, loc } = reference.identifier;
+      const from = loc ? doc.line(loc.start.line).from + loc.start.column : 0;
+      const to = loc ? doc.line(loc.end.line).from + loc.end.column : from + 1;
       return {
         from: Math.min(from, doc.length),
         to: Math.min(Math.max(to, from + 1), doc.length),
         severity: 'error',
-        message: message.message,
+        message: `'${name}' is not defined.`,
       };
     });
   };
+
+const parseOrNull = (code: string): Program | null => {
+  try {
+    return parse(code, { ecmaVersion: ECMA_VERSION, sourceType: 'module', loc: true }) as unknown as Program;
+  } catch {
+    return null;
+  }
+};
