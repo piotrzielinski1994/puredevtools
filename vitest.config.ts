@@ -18,7 +18,7 @@ export default defineConfig({
     setupFiles: ['./src/ui/test-setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/rules/**', 'src/cookies/**', 'src/engine/**', 'src/background/**', 'src/ui/shared/**', 'src/ui/cookies/**', 'src/devtools/**', 'src/ui/devtools/**', 'src/content/channel.ts'],
+      include: ['src/rules/**', 'src/cookies/**', 'src/engine/**', 'src/background/**', 'src/shortcuts/**', 'src/ui/shared/**', 'src/ui/cookies/**', 'src/ui/shortcuts/**', 'src/devtools/**', 'src/ui/devtools/**', 'src/content/channel.ts'],
       exclude: [
         '**/*.test.{ts,tsx}',
         'src/background/index.ts',
