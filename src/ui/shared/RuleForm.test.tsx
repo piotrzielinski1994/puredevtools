@@ -3,8 +3,38 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HotkeysProvider } from '@tanstack/react-hotkeys';
+import { STORAGE_KEYS } from '../../shared/constants';
 import { RuleForm } from './RuleForm';
+import { ShortcutsProvider } from './ShortcutsProvider';
 import type { RuleDraft } from './ruleDraft';
+
+const storageMock = vi.hoisted(() => {
+  const backing: Record<string, unknown> = {};
+  return {
+    backing,
+    get: vi.fn(async (keys: string[]) => {
+      const out: Record<string, unknown> = {};
+      keys.forEach((key) => {
+        if (key in backing) out[key] = backing[key];
+      });
+      return out;
+    }),
+    set: vi.fn(async (items: Record<string, unknown>) => {
+      Object.assign(backing, items);
+    }),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  };
+});
+
+vi.mock('webextension-polyfill', () => ({
+  default: {
+    storage: {
+      local: { get: storageMock.get, set: storageMock.set },
+      onChanged: { addListener: storageMock.addListener, removeListener: storageMock.removeListener },
+    },
+  },
+}));
 
 const makeDraft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   name: '',
@@ -149,6 +179,28 @@ describe('RuleForm', () => {
 
     await pressSaveChord();
 
+    await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  });
+
+  it('should save on the rebound key if save-rule is overridden', async () => {
+    // AC-005/AC-011 side-effect-contract: save-rule goes through the registry, so
+    // a stored override changes the real save chord (proves it is rebindable).
+    Object.keys(storageMock.backing).forEach((key) => delete storageMock.backing[key]);
+    storageMock.backing[STORAGE_KEYS.shortcuts] = { 'save-rule': ['Mod+E'] };
+    const onSave = vi.fn<() => Promise<{ ok: boolean; error?: string }>>().mockResolvedValue({ ok: true });
+    render(
+      <HotkeysProvider>
+        <ShortcutsProvider>
+          <RuleForm draft={makeDraft({ pattern: 'https://api.test.dev/*' })} onDraftChange={vi.fn()} onSave={onSave} />
+        </ShortcutsProvider>
+      </HotkeysProvider>,
+    );
+    await screen.findByLabelText(/url pattern/i);
+
+    await userEvent.keyboard('{Control>}s{/Control}');
+    expect(onSave).not.toHaveBeenCalled();
+
+    await userEvent.keyboard('{Control>}e{/Control}');
     await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
   });
 

@@ -197,4 +197,45 @@ describe('SidebarTree roving-focus navigation', () => {
 
     expect(await screen.findByRole('menuitem', { name: /rename/i })).toBeInTheDocument();
   });
+
+  // AC-005 side-effect-contract: Mod+Alt+F creates a new root folder.
+  it('should create a new folder if the new-folder shortcut is pressed', async () => {
+    const user = userEvent.setup();
+    const { gateway } = renderTree();
+    await screen.findByLabelText('Folder: Alpha');
+
+    await user.keyboard('{Control>}{Alt>}f{/Alt}{/Control}');
+
+    await waitFor(() => expect(gateway.addFolder).toHaveBeenCalledWith(null));
+  });
+
+  // AC-005 side-effect-contract: Alt+D duplicates the roving-selected rule row.
+  it('should duplicate the focused rule if the duplicate shortcut is pressed', async () => {
+    const user = userEvent.setup();
+    const { gateway } = renderTree();
+    await screen.findByLabelText('Folder: Alpha');
+
+    // Alpha + Beta are collapsed, so the visible order is Alpha, Beta, top;
+    // navigate down to make the 'top' rule the roving-selected row.
+    row('Folder: Alpha').focus();
+    await user.keyboard('{ArrowDown}{ArrowDown}');
+    await waitFor(() => expect(row('Rule: top')).toHaveFocus());
+
+    await user.keyboard('{Alt>}d{/Alt}');
+
+    await waitFor(() => expect(gateway.duplicateRule).toHaveBeenCalled());
+    expect(gateway.duplicateRule.mock.calls.at(-1)?.[0]).toMatchObject({ id: 'top' });
+  });
+
+  // AC-005 behavior: F2 on a focused folder opens its inline rename input.
+  it('should begin renaming the focused folder if the rename shortcut is pressed', async () => {
+    const user = userEvent.setup();
+    renderTree();
+    await screen.findByLabelText('Folder: Alpha');
+
+    row('Folder: Alpha').focus();
+    await user.keyboard('{F2}');
+
+    expect(await screen.findByRole('textbox', { name: /rename folder/i })).toBeInTheDocument();
+  });
 });

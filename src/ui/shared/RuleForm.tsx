@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useHotkeys } from '@tanstack/react-hotkeys';
 import { Plus, X } from 'lucide-react';
 import type { HttpMethod, PatternKind } from '../../rules/model';
 import { matchUrl } from '../../rules/match';
@@ -12,6 +11,7 @@ import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
 import type { OpRow, RuleDraft } from './ruleDraft';
 import { ScriptEditor } from './ScriptEditor';
+import { useActionHotkeys } from './useActionHotkeys';
 import type { ScriptStage } from './script/model';
 
 export type RuleFormProps = {
@@ -96,7 +96,7 @@ export const RuleForm = ({ draft, onDraftChange, onSave }: RuleFormProps) => {
     if (!result.ok) setError(result.error);
   };
 
-  useHotkeys([{ hotkey: 'Mod+S', callback: () => void onSubmit() }]);
+  useActionHotkeys({ 'save-rule': () => void onSubmit() });
 
   return (
     <form
