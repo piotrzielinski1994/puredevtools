@@ -53,11 +53,11 @@ const GECKO_ID = 'puredevtools@puredevtools.dev';
 
 const byTarget: Record<Target, Pick<Manifest, 'permissions' | 'background'> & Partial<Manifest>> = {
   chrome: {
-    permissions: ['storage'],
+    permissions: ['storage', 'cookies'],
     background: { service_worker: BACKGROUND_ENTRY, type: 'module' },
   },
   firefox: {
-    permissions: ['storage'],
+    permissions: ['storage', 'cookies'],
     background: { scripts: [BACKGROUND_ENTRY], type: 'module' },
     browser_specific_settings: {
       gecko: { id: GECKO_ID, strict_min_version: '128.0' },
