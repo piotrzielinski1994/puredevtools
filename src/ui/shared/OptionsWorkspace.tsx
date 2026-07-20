@@ -11,6 +11,8 @@ import { emptyDraft, ruleToDraft, draftToRule, draftsEqual, type RuleDraft } fro
 import { createTabsStore } from './createTabsStore';
 import { useDragWidth } from './useDragWidth';
 import { useRules } from './RulesProvider';
+import { useActionHotkeys } from './useActionHotkeys';
+import { collectFolderIds, findNode } from '../../rules/tree';
 
 const SIDEBAR_DEFAULT = 320;
 const SIDEBAR_MIN = 240;
@@ -23,7 +25,7 @@ export const OptionsWorkspace = ({
   tabsStore?: TabsStore;
   sidebarHeader?: React.ReactNode;
 }) => {
-  const { rules, status, error, addRule, updateRule } = useRules();
+  const { workspace, rules, status, error, addRule, updateRule, removeNode, toggleCollapse } = useRules();
   const [filter, setFilter] = useState('');
   const [pendingClose, setPendingClose] = useState<string | null>(null);
 
@@ -74,6 +76,34 @@ export const OptionsWorkspace = ({
     drafts.discard(key);
     close(key);
   };
+
+  const shiftActive = (delta: number) => {
+    if (openKeys.length === 0 || activeKey === null) return;
+    const index = openKeys.indexOf(activeKey);
+    if (index === -1) return;
+    const next = (index + delta + openKeys.length) % openKeys.length;
+    setActive(openKeys[next]);
+  };
+
+  const setCollapsedAll = (collapsed: boolean) =>
+    collectFolderIds(workspace).forEach((id) => {
+      const folder = findNode(workspace, id);
+      if (folder?.kind === 'folder' && folder.collapsed !== collapsed) void toggleCollapse(id);
+    });
+
+  useActionHotkeys({
+    'new-item': () => open(DRAFT_KEY),
+    'delete-item': () => {
+      if (activeKey !== null && activeKey !== DRAFT_KEY) void removeNode(activeKey);
+    },
+    'close-tab': () => {
+      if (activeKey !== null) requestClose(activeKey);
+    },
+    'next-tab': () => shiftActive(1),
+    'prev-tab': () => shiftActive(-1),
+    'collapse-all-folders': () => setCollapsedAll(true),
+    'expand-all-folders': () => setCollapsedAll(false),
+  });
 
   return (
     <div className="flex h-full flex-col">

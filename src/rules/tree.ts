@@ -84,7 +84,7 @@ export const updateRuleInTree = (tree: TreeNode[], rule: Rule): TreeNode[] =>
     return { ...node, children: updateRuleInTree(node.children, rule) };
   });
 
-const collectFolderIds = (tree: TreeNode[]): Set<string> => {
+export const collectFolderIds = (tree: TreeNode[]): Set<string> => {
   const ids = new Set<string>();
   const walk = (nodes: TreeNode[]): void =>
     nodes.forEach((node) => {

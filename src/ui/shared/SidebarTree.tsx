@@ -26,6 +26,7 @@ import { resolveShortcuts } from '../../shortcuts/resolve';
 import { expandedFolderIds, flattenSelectable, resolveTreeKey } from '../../shortcuts/tree-keyboard';
 import { useRules } from './RulesProvider';
 import { useShortcutOverrides } from './shortcutsContext';
+import { useActionHotkeys } from './useActionHotkeys';
 import { TreeNavProvider } from './tree-nav';
 import { TreeRow, TreeUiProvider } from './TreeRow';
 import { TreeDndProvider, type DropIndicator } from './tree-dnd';
@@ -293,6 +294,18 @@ export const SidebarTree = ({ onEdit, filter = '' }: { onEdit(ruleId: string): v
     const id = await addFolder(parentId);
     setRenamingId(id);
   };
+
+  useActionHotkeys({
+    'new-folder': () => void createFolder(null),
+    'duplicate-rule': () => {
+      const node = rovingId ? findNode(workspace, rovingId) : undefined;
+      if (node?.kind === 'rule') void duplicateRule(node.rule);
+    },
+    'rename-node': () => {
+      const node = rovingId ? findNode(workspace, rovingId) : undefined;
+      if (node?.kind === 'folder') beginRename(node.id);
+    },
+  });
 
   const menuItems = (node: TreeNode): MenuItem[] => {
     if (node.kind === 'folder') {
