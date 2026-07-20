@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useHotkeys } from '@tanstack/react-hotkeys';
 import { Plus } from 'lucide-react';
 import type { CookieMapping, SyncResult } from '../../cookies/model';
 import { useToast } from '../components/ui/toast';
 import { useDragWidth } from '../shared/useDragWidth';
+import { useActionHotkeys } from '../shared/useActionHotkeys';
 import { cn } from '../lib/utils';
 import { CookieMappingForm } from './CookieMappingForm';
 import { CookieSidebar } from './CookieSidebar';
@@ -94,11 +94,17 @@ export const CookieSyncView = ({
     toast.show(syncSummary(result), result.skipped.length > 0 ? 'error' : 'success');
   };
 
-  useHotkeys([
-    { hotkey: 'Mod+S', callback: () => toast.show('Saved', 'success') },
-  ]);
-
   const selected = mappings.find((mapping) => mapping.id === selectedId) ?? null;
+
+  useActionHotkeys({
+    'new-item': add,
+    'delete-item': () => {
+      if (selectedId !== null) remove(selectedId);
+    },
+    'sync-mapping': () => {
+      if (selected) void sync(selected);
+    },
+  });
 
   return (
     <div className="flex h-full min-h-0">

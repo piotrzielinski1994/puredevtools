@@ -47,6 +47,10 @@ The options page also has a top-level **Cookie sync** view (switch beside **Rule
 
 Open DevTools (F12) and select the **puredevtools** tab for a Network-style table of **only the overridden** `fetch`/`XHR` requests for the inspected tab. Each row shows time, method, status, and URL; click a row to see the request headers, request body, and the served response body (JSON pretty-printed), with a Copy button for the response body. Filter by URL substring, or Clear the log. This is how you inspect what the UI actually received, since the native Network panel shows pre-interception wire bytes. The background buffers up to the last 100 intercepts per tab, so reports fired before you open the panel are flushed in when it connects.
 
+### Keyboard shortcuts
+
+Every surface is keyboard-driven. The options page has a third **Shortcuts** view (beside **Rules** and **Cookie sync**, or press **Cmd/Ctrl+Shift+K**) that lists every action and lets you **rebind** it: press **Add** and type a combination (an action can hold several), click a binding to re-record it in place, remove the × to drop one (removing the last disables the action), or **Reset** to the default. Rebindings persist and sync live across open pages. Defaults avoid browser-reserved combos (Cmd/Ctrl+T/W/N/Tab/Shift+I etc. cannot be intercepted from a page), so e.g. new item is **Cmd/Ctrl+Alt+N**, close tab is **Alt+W**, save rule stays **Cmd/Ctrl+S**. The sidebar tree is fully navigable by keyboard (arrows move focus, Right/Left expand/collapse, Enter opens/toggles, Alt+arrows reorder/outdent/nest, Shift+F10 opens the row menu). The popup and DevTools panel bind their own subset (toggle global/theme; clear log / focus filter).
+
 ## Architecture
 
 A single manifest source (`src/manifest/index.ts`) generates both Chrome and Firefox variants. The rule model and UI are browser-agnostic, and there is a **single enforcement mechanism**:

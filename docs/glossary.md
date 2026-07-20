@@ -71,3 +71,19 @@ _Avoid_: cookie mirror, session transfer, cookie share
 ### Cookie mapping
 One source-URL -> target-URL entry plus the allow-list of cookie names to copy. The unit the Cookie sync UI edits; not a `Rule` and never part of the workspace tree.
 _Avoid_: cookie rule, sync rule, cookie pair
+
+### Shortcut action
+A named, rebindable command in the keyboard-shortcut registry (`ShortcutActionId` + `SHORTCUT_ACTIONS`), decoupled from the key(s) that trigger it. The unit the Shortcuts settings view lists and `useActionHotkeys` binds. Generic ids (`new-item`, `delete-item`) are contextual - the active options view supplies the handler.
+_Avoid_: hotkey (that's the key combo), command (reserve for the palette, later), keybinding (that's the binding)
+
+### Effective binding
+The resolved list of hotkey strings for an action after overlaying the user's stored overrides on the registry default (`resolveShortcuts`). Absent override -> `[default]`; present -> the normalized override list; explicit `[]` -> disabled (no trigger).
+_Avoid_: shortcut, mapping, active key
+
+### Shortcut override
+A user's stored replacement for an action's bindings, persisted under `puredevtools.shortcuts` (`Partial<Record<ShortcutActionId, string[]>>`). Distinct from "no override" (falls back to default) and from `[]` (deliberately disabled).
+_Avoid_: custom shortcut, remap, user key
+
+### Roving tabindex
+The sidebar-tree keyboard model: exactly one row is in the Tab order (`tabIndex=0`) at a time, arrow keys move focus + selection between rows, and focus follows the moved/navigated row. Ported from purerequest; additive over the existing DnD.
+_Avoid_: focus trap, tree focus, active row

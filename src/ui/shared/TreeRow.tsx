@@ -7,6 +7,19 @@ import { Switch } from '../components/ui/switch';
 import { cn } from '../lib/utils';
 import { useRules } from './RulesProvider';
 import { useTreeDnd } from './tree-dnd';
+import { openContextMenuOnKey, useTreeNav } from './tree-nav';
+
+const useRowNav = (id: string) => {
+  const { rovingId, contextMenuBindings, registerRow, handleKeyDown } = useTreeNav();
+  return {
+    tabIndex: rovingId === id ? 0 : -1,
+    ref: (el: HTMLElement | null) => registerRow(id, el),
+    onKeyDown: (event: React.KeyboardEvent) => {
+      if (openContextMenuOnKey(event, contextMenuBindings)) return;
+      handleKeyDown(id, event);
+    },
+  };
+};
 
 export type TreeUiContextValue = {
   onEdit(ruleId: string): void;
@@ -125,6 +138,7 @@ const FolderRow = ({ node, depth }: { node: FolderNode; depth: number }) => {
     node.id,
     draggable,
   );
+  const nav = useRowNav(node.id);
   const Chevron = node.collapsed ? ChevronRight : ChevronDown;
   const isEmpty = node.children.length === 0;
   const isDragActive = activeId !== null && activeId !== node.id;
@@ -134,12 +148,17 @@ const FolderRow = ({ node, depth }: { node: FolderNode; depth: number }) => {
     <li className="relative">
       {dropBefore ? <DropLine /> : null}
       <div
-        ref={setNodeRef}
+        ref={(el) => {
+          setNodeRef(el);
+          nav.ref(el);
+        }}
         {...attributes}
         {...listeners}
         role="treeitem"
+        tabIndex={nav.tabIndex}
         aria-expanded={!node.collapsed}
         aria-label={`Folder: ${node.name}`}
+        onKeyDown={nav.onKeyDown}
         onContextMenu={
           draggable
             ? (event) => {
@@ -188,16 +207,23 @@ const RuleRow = ({ node, depth }: { node: RuleNode; depth: number }) => {
   const { updateRule } = useRules();
   const { onEdit, onContextMenu, draggable } = useTreeUi();
   const { attributes, listeners, setNodeRef, isDragging, dropBefore, dropAfter } = useRowDnd(node.rule.id, draggable);
+  const nav = useRowNav(node.rule.id);
   const rule = node.rule;
 
   return (
     <li className="relative">
       {dropBefore ? <DropLine /> : null}
       <div
-        ref={setNodeRef}
+        ref={(el) => {
+          setNodeRef(el);
+          nav.ref(el);
+        }}
         {...attributes}
         {...listeners}
         role="treeitem"
+        tabIndex={nav.tabIndex}
+        aria-label={`Rule: ${rule.name}`}
+        onKeyDown={nav.onKeyDown}
         onContextMenu={
           draggable
             ? (event) => {

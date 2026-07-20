@@ -1,9 +1,12 @@
-import { StrictMode, useEffect, useReducer } from 'react';
+import { StrictMode, useEffect, useReducer, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
+import { HotkeysProvider } from '@tanstack/react-hotkeys';
 import browser from 'webextension-polyfill';
 import { emptyLog, reduceLog } from '../../devtools/reportLog';
 import type { PanelConnectMessage, PanelReportMessage } from '../../devtools/types';
 import { PANEL_PORT_NAME } from '../../devtools/types';
+import { ShortcutsProvider } from '../shared/ShortcutsProvider';
+import { useActionHotkeys } from '../shared/useActionHotkeys';
 import { useTheme } from '../shared/useTheme';
 import '../globals.css';
 import { InterceptTable } from './InterceptTable';
@@ -19,8 +22,9 @@ const inspectedTabId = (): number | undefined => {
   }
 };
 
-const Panel = () => {
+export const Panel = () => {
   const [log, dispatch] = useReducer(reduceLog, undefined, emptyLog);
+  const filterInputRef = useRef<HTMLInputElement>(null);
   useTheme();
 
   useEffect(() => {
@@ -36,7 +40,18 @@ const Panel = () => {
     return () => port.disconnect();
   }, []);
 
-  return <InterceptTable entries={log.entries} onClear={() => dispatch({ type: 'clear' })} />;
+  useActionHotkeys({
+    'clear-log': () => dispatch({ type: 'clear' }),
+    'focus-filter': () => filterInputRef.current?.focus(),
+  });
+
+  return (
+    <InterceptTable
+      entries={log.entries}
+      onClear={() => dispatch({ type: 'clear' })}
+      filterInputRef={filterInputRef}
+    />
+  );
 };
 
 const paintError = (root: HTMLElement, error: unknown): void => {
@@ -52,7 +67,11 @@ if (root) {
   try {
     createRoot(root).render(
       <StrictMode>
-        <Panel />
+        <HotkeysProvider>
+          <ShortcutsProvider>
+            <Panel />
+          </ShortcutsProvider>
+        </HotkeysProvider>
       </StrictMode>,
     );
   } catch (error) {

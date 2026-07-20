@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -22,7 +22,12 @@ import {
   parseEmptyZoneId,
   projectDropPosition,
 } from '../../rules/tree-locate';
+import { resolveShortcuts } from '../../shortcuts/resolve';
+import { expandedFolderIds, flattenSelectable, resolveTreeKey } from '../../shortcuts/tree-keyboard';
 import { useRules } from './RulesProvider';
+import { useShortcutOverrides } from './shortcutsContext';
+import { useActionHotkeys } from './useActionHotkeys';
+import { TreeNavProvider } from './tree-nav';
 import { TreeRow, TreeUiProvider } from './TreeRow';
 import { TreeDndProvider, type DropIndicator } from './tree-dnd';
 
@@ -148,13 +153,66 @@ const FilteredList = ({
 export const SidebarTree = ({ onEdit, filter = '' }: { onEdit(ruleId: string): void; filter?: string }) => {
   const { workspace, rules, updateRule, moveNode, addFolder, renameFolder, removeNode, duplicateRule, toggleCollapse } =
     useRules();
+  const bindings = resolveShortcuts(useShortcutOverrides());
   const isFiltering = filter.trim() !== '';
   const filtered = rules.filter((rule) => matchesFilter(rule, filter));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [indicator, setIndicator] = useState<DropIndicator | null>(null);
   const [menu, setMenu] = useState<MenuState | undefined>(undefined);
   const [renamingId, setRenamingId] = useState<string | undefined>(undefined);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const springLoad = useRef<{ id: string; timer: number } | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLElement>());
+  const pendingFocusId = useRef<string | null>(null);
+
+  const registerRow = useCallback((id: string, el: HTMLElement | null) => {
+    if (el) {
+      rowRefs.current.set(id, el);
+      return;
+    }
+    rowRefs.current.delete(id);
+  }, []);
+
+  const expandedIds = expandedFolderIds(workspace);
+  const visibleIds = flattenSelectable(workspace, expandedIds);
+  const rovingId =
+    selectedId !== null && visibleIds.includes(selectedId) ? selectedId : (visibleIds[0] ?? null);
+
+  const handleKeyDown = useCallback(
+    (focusedId: string, event: React.KeyboardEvent) => {
+      const command = resolveTreeKey({
+        tree: workspace,
+        expandedIds: expandedFolderIds(workspace),
+        focusedId,
+        event: event.nativeEvent,
+        bindings,
+      });
+      if (command.type === 'none') return;
+      event.preventDefault();
+      const run: Record<typeof command.type, () => void> = {
+        focus: () => setSelectedId(command.id),
+        activate: () => onEdit(command.id),
+        toggle: () => void toggleCollapse(command.id),
+        expand: () => void toggleCollapse(command.id),
+        collapse: () => void toggleCollapse(command.id),
+        move: () => command.type === 'move' && void moveNode(command.id, command.target),
+      };
+      run[command.type]();
+      const movesFocus = command.type === 'focus' || command.type === 'move';
+      if (movesFocus) {
+        setSelectedId(command.id);
+        pendingFocusId.current = command.id;
+      }
+    },
+    [workspace, bindings, onEdit, toggleCollapse, moveNode],
+  );
+
+  useEffect(() => {
+    const id = pendingFocusId.current;
+    if (id === null) return;
+    pendingFocusId.current = null;
+    rowRefs.current.get(id)?.focus();
+  });
 
   const clearSpringLoad = () => {
     if (springLoad.current !== null) {
@@ -237,6 +295,18 @@ export const SidebarTree = ({ onEdit, filter = '' }: { onEdit(ruleId: string): v
     setRenamingId(id);
   };
 
+  useActionHotkeys({
+    'new-folder': () => void createFolder(null),
+    'duplicate-rule': () => {
+      const node = rovingId ? findNode(workspace, rovingId) : undefined;
+      if (node?.kind === 'rule') void duplicateRule(node.rule);
+    },
+    'rename-node': () => {
+      const node = rovingId ? findNode(workspace, rovingId) : undefined;
+      if (node?.kind === 'folder') beginRename(node.id);
+    },
+  });
+
   const menuItems = (node: TreeNode): MenuItem[] => {
     if (node.kind === 'folder') {
       return [
@@ -284,36 +354,40 @@ export const SidebarTree = ({ onEdit, filter = '' }: { onEdit(ruleId: string): v
             }}
           >
             <TreeDndProvider value={{ activeId, indicator }}>
-              <TreeUiProvider
-                value={{
-                  onEdit,
-                  onContextMenu: openMenu,
-                  renamingId,
-                  beginRename,
-                  commitRename: (id, name) => {
-                    setRenamingId(undefined);
-                    void renameFolder(id, name);
-                  },
-                  cancelRename: () => setRenamingId(undefined),
-                  draggable: true,
-                }}
+              <TreeNavProvider
+                value={{ rovingId, contextMenuBindings: bindings['open-context-menu'], registerRow, handleKeyDown }}
               >
-                {workspace.length === 0 ? (
-                  <div className="m-3 border border-dashed border-border px-3 py-6 text-center">
-                    <p className="text-sm font-medium">No rules yet.</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Add a rule or a folder to start.</p>
-                  </div>
-                ) : (
-                  <ul role="tree" aria-label="Rules" className="flex list-none flex-col p-0">
-                    {workspace.map((node) => (
-                      <TreeRow key={nodeId(node)} node={node} depth={0} />
-                    ))}
-                  </ul>
-                )}
-                {workspace.length > 0 ? (
-                  <RootDropZone isDragActive={activeId !== null} isOver={indicator?.overId === ROOT_ZONE_ID} />
-                ) : null}
-              </TreeUiProvider>
+                <TreeUiProvider
+                  value={{
+                    onEdit,
+                    onContextMenu: openMenu,
+                    renamingId,
+                    beginRename,
+                    commitRename: (id, name) => {
+                      setRenamingId(undefined);
+                      void renameFolder(id, name);
+                    },
+                    cancelRename: () => setRenamingId(undefined),
+                    draggable: true,
+                  }}
+                >
+                  {workspace.length === 0 ? (
+                    <div className="m-3 border border-dashed border-border px-3 py-6 text-center">
+                      <p className="text-sm font-medium">No rules yet.</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Add a rule or a folder to start.</p>
+                    </div>
+                  ) : (
+                    <ul role="tree" aria-label="Rules" className="flex list-none flex-col p-0">
+                      {workspace.map((node) => (
+                        <TreeRow key={nodeId(node)} node={node} depth={0} />
+                      ))}
+                    </ul>
+                  )}
+                  {workspace.length > 0 ? (
+                    <RootDropZone isDragActive={activeId !== null} isOver={indicator?.overId === ROOT_ZONE_ID} />
+                  ) : null}
+                </TreeUiProvider>
+              </TreeNavProvider>
             </TreeDndProvider>
             <DragOverlay>
               {activeNode ? <div className="bg-accent px-2 py-1 text-sm shadow">{activeLabel}</div> : null}

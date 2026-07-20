@@ -166,12 +166,21 @@ describe('CookieSyncView', () => {
     ).toBeInTheDocument();
   });
 
-  it('should confirm the auto-save with a toast on Cmd/Ctrl+S instead of the browser save dialog (TC-015)', async () => {
-    const gateway = createFakeGateway([mapping()]);
+  it('should sync the selected mapping on Mod+Enter and toast the real result (TC-015)', async () => {
+    const gateway = createFakeGateway([mapping()], { copied: ['auth', 'sid'], skipped: [] });
     renderView(gateway);
     await within(detail()).findByLabelText(/mapping name/i);
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+    await waitFor(() => expect(gateway.sync).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/copied 2 cookie/i)).toBeInTheDocument();
+  });
+
+  it('should not show a fake Saved toast on Mod+S (TC-015)', async () => {
+    renderView(createFakeGateway([mapping()]));
+    await within(detail()).findByLabelText(/mapping name/i);
     await userEvent.keyboard('{Control>}s{/Control}');
-    expect(await screen.findByText(/saved/i)).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByText(/^saved$/i)).not.toBeInTheDocument();
   });
 
   it('should disable Sync now when source or target url is empty (edge)', async () => {

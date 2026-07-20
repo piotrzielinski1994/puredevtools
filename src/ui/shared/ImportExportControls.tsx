@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Download, Upload } from 'lucide-react';
 import { useToast } from '../components/ui/toast';
 import { useRules } from './RulesProvider';
+import { useActionHotkeys } from './useActionHotkeys';
 
 const REPLACE_MESSAGE = 'Import will replace all current rules. Continue?';
 
@@ -17,6 +18,11 @@ export const ImportExportControls = () => {
   const { exportRules, importRules } = useRules();
   const { show } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useActionHotkeys({
+    'import-rules': () => fileInputRef.current?.click(),
+    'export-rules': () => void exportRules(),
+  });
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
