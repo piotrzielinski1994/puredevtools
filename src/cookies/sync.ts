@@ -9,20 +9,32 @@ const isSecureTarget = (targetUrl: string): boolean => {
   }
 };
 
+const secureFor = (cookie: Cookies.Cookie, secureTarget: boolean): boolean =>
+  secureTarget ? cookie.secure : false;
+
+const sameSiteFor = (
+  cookie: Cookies.Cookie,
+  secure: boolean,
+): Cookies.SameSiteStatus =>
+  !secure && cookie.sameSite === 'no_restriction' ? 'lax' : cookie.sameSite;
+
 const toSetDetails = (
   cookie: Cookies.Cookie,
   targetUrl: string,
   secureTarget: boolean,
-): Cookies.SetDetailsType => ({
-  url: targetUrl,
-  name: cookie.name,
-  value: cookie.value,
-  path: cookie.path,
-  httpOnly: cookie.httpOnly,
-  sameSite: cookie.sameSite,
-  secure: secureTarget ? cookie.secure : false,
-  ...(cookie.expirationDate === undefined ? {} : { expirationDate: cookie.expirationDate }),
-});
+): Cookies.SetDetailsType => {
+  const secure = secureFor(cookie, secureTarget);
+  return {
+    url: targetUrl,
+    name: cookie.name,
+    value: cookie.value,
+    path: cookie.path,
+    httpOnly: cookie.httpOnly,
+    sameSite: sameSiteFor(cookie, secure),
+    secure,
+    ...(cookie.expirationDate === undefined ? {} : { expirationDate: cookie.expirationDate }),
+  };
+};
 
 export const syncMapping = async (
   mapping: CookieMapping,

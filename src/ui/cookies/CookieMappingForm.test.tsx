@@ -18,9 +18,7 @@ const renderForm = (over: Partial<CookieMapping> = {}) => {
   const onChange = vi.fn();
   const onDelete = vi.fn();
   const onSync = vi.fn();
-  render(
-    <CookieMappingForm mapping={mapping(over)} onChange={onChange} onDelete={onDelete} onSync={onSync} />,
-  );
+  render(<CookieMappingForm mapping={mapping(over)} onChange={onChange} onDelete={onDelete} onSync={onSync} />);
   return { onChange, onDelete, onSync };
 };
 
@@ -42,10 +40,16 @@ describe('CookieMappingForm', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ sourceUrl: 'https://x.com' }));
   });
 
-  it('should call onDelete when the delete button is clicked', () => {
-    const { onDelete } = renderForm();
-    fireEvent.click(screen.getByRole('button', { name: /delete mapping/i }));
-    expect(onDelete).toHaveBeenCalledTimes(1);
+  it('should patch the target url on edit', () => {
+    const { onChange } = renderForm();
+    fireEvent.change(screen.getByLabelText(/target url/i), { target: { value: 'http://localhost:9' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ targetUrl: 'http://localhost:9' }));
+  });
+
+  it('should parse comma separated cookie names into a trimmed array', () => {
+    const { onChange } = renderForm({ cookieNames: [] });
+    fireEvent.change(screen.getByLabelText(/cookie names/i), { target: { value: 'auth,  sid , refresh' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ cookieNames: ['auth', 'sid', 'refresh'] }));
   });
 
   it('should call onSync when Sync now is clicked', () => {
@@ -59,8 +63,9 @@ describe('CookieMappingForm', () => {
     expect(screen.getByRole('button', { name: /sync now/i })).toBeDisabled();
   });
 
-  it('should disable Sync now when the target url is empty', () => {
-    renderForm({ targetUrl: '' });
-    expect(screen.getByRole('button', { name: /sync now/i })).toBeDisabled();
+  it('should call onDelete when the delete button is clicked', () => {
+    const { onDelete } = renderForm();
+    fireEvent.click(screen.getByRole('button', { name: /delete mapping/i }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

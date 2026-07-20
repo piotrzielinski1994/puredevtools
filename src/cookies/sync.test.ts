@@ -108,6 +108,28 @@ describe('syncMapping', () => {
     expect((set.mock.calls[0][0] as Cookies.SetDetailsType).secure).toBe(true);
   });
 
+  it('should downgrade SameSite=None to lax when secure is dropped on an http target (set-rejected fix)', async () => {
+    const { port, set } = makePort([cookie({ sameSite: 'no_restriction', secure: true })]);
+    await syncMapping(mapping({ targetUrl: 'http://localhost:3000' }), port);
+    const details = set.mock.calls[0][0] as Cookies.SetDetailsType;
+    expect(details.secure).toBe(false);
+    expect(details.sameSite).toBe('lax');
+  });
+
+  it('should preserve SameSite=None when the target is https (secure kept)', async () => {
+    const { port, set } = makePort([cookie({ sameSite: 'no_restriction', secure: true })]);
+    await syncMapping(mapping({ targetUrl: 'https://staging.x.com' }), port);
+    const details = set.mock.calls[0][0] as Cookies.SetDetailsType;
+    expect(details.secure).toBe(true);
+    expect(details.sameSite).toBe('no_restriction');
+  });
+
+  it('should leave a non-None sameSite unchanged when secure is dropped', async () => {
+    const { port, set } = makePort([cookie({ sameSite: 'strict', secure: true })]);
+    await syncMapping(mapping({ targetUrl: 'http://localhost:3000' }), port);
+    expect((set.mock.calls[0][0] as Cookies.SetDetailsType).sameSite).toBe('strict');
+  });
+
   it('should omit expirationDate for a session cookie', async () => {
     const { port, set } = makePort([cookie({ session: true, expirationDate: undefined })]);
     await syncMapping(mapping(), port);

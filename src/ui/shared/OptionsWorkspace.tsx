@@ -1,28 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Input } from '../components/ui/input';
-import { GlobalSwitch } from './GlobalSwitch';
-import { ImportExportControls } from './ImportExportControls';
 import { RuleForm } from './RuleForm';
 import { CloseConfirmDialog } from './CloseConfirmDialog';
 import { SidebarTree } from './SidebarTree';
 import { RuleTabs } from './RuleTabs';
-import { ThemeSwitch } from './ThemeSwitch';
 import { useOpenTabs, DRAFT_KEY, type TabsStore } from './useOpenTabs';
 import { useRuleDrafts } from './useRuleDrafts';
 import { emptyDraft, ruleToDraft, draftToRule, draftsEqual, type RuleDraft } from './ruleDraft';
 import { createTabsStore } from './createTabsStore';
 import { useDragWidth } from './useDragWidth';
 import { useRules } from './RulesProvider';
-import { useTheme } from './useTheme';
 
 const SIDEBAR_DEFAULT = 320;
 const SIDEBAR_MIN = 240;
 const SIDEBAR_MAX = 560;
 
-export const OptionsWorkspace = ({ tabsStore }: { tabsStore?: TabsStore }) => {
+export const OptionsWorkspace = ({
+  tabsStore,
+  sidebarHeader,
+}: {
+  tabsStore?: TabsStore;
+  sidebarHeader?: React.ReactNode;
+}) => {
   const { rules, status, error, addRule, updateRule } = useRules();
-  const [theme, setTheme] = useTheme();
   const [filter, setFilter] = useState('');
   const [pendingClose, setPendingClose] = useState<string | null>(null);
 
@@ -85,14 +86,7 @@ export const OptionsWorkspace = ({ tabsStore }: { tabsStore?: TabsStore }) => {
       ) : (
         <div className="flex min-h-0 flex-1">
           <aside className="flex flex-col bg-muted/30" style={{ width: sidebar.width }}>
-            <div className="flex h-9 shrink-0 items-center justify-between border-b pl-3 text-sm font-semibold">
-              puredevtools
-              <div className="flex h-full items-center gap-3 pr-3">
-                <ImportExportControls />
-                <GlobalSwitch />
-                <ThemeSwitch theme={theme} onChange={setTheme} />
-              </div>
-            </div>
+            {sidebarHeader}
             <div className="flex h-9 shrink-0 items-stretch border-b">
               <Input
                 aria-label="Search rules"

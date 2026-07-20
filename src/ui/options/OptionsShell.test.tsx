@@ -41,15 +41,39 @@ describe('OptionsShell', () => {
 
   it('should switch to the cookie sync view when the Cookie sync tab is clicked (TC-012)', async () => {
     renderShell();
-    fireEvent.click(await screen.findByRole('button', { name: /cookie sync/i }));
+    fireEvent.click(await screen.findByRole('tab', { name: /cookie sync/i }));
     await waitFor(() => expect(screen.getByText(/no cookie mappings/i)).toBeInTheDocument());
   });
 
   it('should switch back to the rules workspace from the cookie sync view (TC-012)', async () => {
     renderShell();
-    fireEvent.click(await screen.findByRole('button', { name: /cookie sync/i }));
+    fireEvent.click(await screen.findByRole('tab', { name: /cookie sync/i }));
     await screen.findByText(/no cookie mappings/i);
-    fireEvent.click(screen.getByRole('button', { name: /^rules$/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^rules$/i }));
     await waitFor(() => expect(screen.queryByText(/no cookie mappings/i)).not.toBeInTheDocument());
+  });
+
+  it('should render the section switcher inside the sidebar, above the search field (TC-012)', async () => {
+    renderShell();
+    const tablist = await screen.findByRole('tablist', { name: /section/i });
+    const search = screen.getByLabelText(/search rules/i);
+    expect(tablist.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('should render the chrome controls above the section switcher (TC-012)', async () => {
+    renderShell();
+    const chrome = await screen.findByRole('button', { name: /import rules/i });
+    const tablist = screen.getByRole('tablist', { name: /section/i });
+    expect(chrome.compareDocumentPosition(tablist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('should keep the import/export/global/theme controls visible in the cookie sync view (TC-012)', async () => {
+    renderShell();
+    fireEvent.click(await screen.findByRole('tab', { name: /cookie sync/i }));
+    await screen.findByText(/no cookie mappings/i);
+    expect(screen.getByRole('button', { name: /import rules/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /export rules/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/global enabled/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /switch to (dark|light) theme/i })).toBeInTheDocument();
   });
 });
