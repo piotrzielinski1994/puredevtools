@@ -1,20 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import browser from 'webextension-polyfill';
 import { STORAGE_KEYS } from '../../shared/constants';
 import type { ShortcutActionId, ShortcutOverrides } from '../../shortcuts/registry';
 import { resolveShortcuts, safeNormalize } from '../../shortcuts/resolve';
 import { shortcutOverridesSchema } from '../../shortcuts/schema';
+import { ShortcutsContext, type ShortcutsContextValue } from './shortcutsContext';
 
-export type ShortcutMutators = {
-  addShortcut(id: ShortcutActionId, hotkey: string): void;
-  removeShortcut(id: ShortcutActionId, hotkey: string): void;
-  replaceShortcut(id: ShortcutActionId, oldHotkey: string, newHotkey: string): void;
-  resetShortcut(id: ShortcutActionId): void;
-};
-
-type ShortcutsContextValue = ShortcutMutators & { overrides: ShortcutOverrides };
-
-const ShortcutsContext = createContext<ShortcutsContextValue | undefined>(undefined);
+export { useShortcutOverrides, useShortcuts } from './shortcutsContext';
+export type { ShortcutMutators } from './shortcutsContext';
 
 const readOverrides = async (): Promise<ShortcutOverrides> => {
   const stored = await browser.storage.local.get([STORAGE_KEYS.shortcuts]);
@@ -107,17 +100,4 @@ export const ShortcutsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return <ShortcutsContext.Provider value={value}>{children}</ShortcutsContext.Provider>;
-};
-
-const useShortcutsContext = (): ShortcutsContextValue => {
-  const value = useContext(ShortcutsContext);
-  if (!value) throw new Error('useShortcuts must be used within a ShortcutsProvider');
-  return value;
-};
-
-export const useShortcutOverrides = (): ShortcutOverrides => useShortcutsContext().overrides;
-
-export const useShortcuts = (): ShortcutMutators => {
-  const { addShortcut, removeShortcut, replaceShortcut, resetShortcut } = useShortcutsContext();
-  return { addShortcut, removeShortcut, replaceShortcut, resetShortcut };
 };

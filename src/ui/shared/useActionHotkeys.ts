@@ -2,7 +2,7 @@ import { useHotkeys, type UseHotkeyDefinition } from '@tanstack/react-hotkeys';
 import type { Hotkey } from '@tanstack/hotkeys';
 import type { ShortcutActionId } from '../../shortcuts/registry';
 import { resolveShortcuts } from '../../shortcuts/resolve';
-import { useShortcutOverrides } from './ShortcutsProvider';
+import { useShortcutOverrides } from './shortcutsContext';
 
 export const useActionHotkeys = (handlers: Partial<Record<ShortcutActionId, () => void>>): void => {
   const effective = resolveShortcuts(useShortcutOverrides());
