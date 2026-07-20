@@ -19,6 +19,16 @@ const headersToRecord = (headers: Headers): Record<string, string> => {
   return record;
 };
 
+const parseBody = (body: string): unknown => {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return body;
+  }
+};
+
+const serializeBody = (body: unknown): string => (typeof body === 'string' ? body : JSON.stringify(body));
+
 export type RequestFacade = ReturnType<typeof createRequestFacade>;
 export type ResponseFacade = ReturnType<typeof createResponseFacade>;
 export type ConsoleFacade = ReturnType<typeof createConsoleFacade>;
@@ -36,9 +46,9 @@ export const createRequestFacade = (req: MutableRequest) => ({
   setHeader: (name: string, value: string): void => req.headers.set(name, value),
   removeHeader: (name: string): void => req.headers.delete(name),
   getHeaders: (): Record<string, string> => headersToRecord(req.headers),
-  getBody: (): string => req.body ?? '',
-  setBody: (body: string): void => {
-    req.body = body;
+  getBody: (): unknown => parseBody(req.body ?? ''),
+  setBody: (body: unknown): void => {
+    req.body = serializeBody(body);
   },
 });
 
@@ -48,9 +58,9 @@ export const createResponseFacade = (res: MutableResponse) => ({
   setHeader: (name: string, value: string): void => res.headers.set(name, value),
   removeHeader: (name: string): void => res.headers.delete(name),
   getHeaders: (): Record<string, string> => headersToRecord(res.headers),
-  getBody: (): string => res.body,
-  setBody: (body: string): void => {
-    res.body = body;
+  getBody: (): unknown => parseBody(res.body),
+  setBody: (body: unknown): void => {
+    res.body = serializeBody(body);
   },
   getJson: (): unknown => {
     try {
