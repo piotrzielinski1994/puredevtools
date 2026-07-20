@@ -142,3 +142,31 @@ Overrides persist under a new storage key `puredevtools.shortcuts` (add to `STOR
 | Conflict | Inline `role=alert` "<action> already uses that shortcut"; nothing persisted. |
 | Overridden | Reset button visible; chips reflect override. |
 | Disabled | No chips; "(disabled)" text; action binds nothing. |
+
+## Status: COMPLETE (2026-07-20)
+
+All 13 ACs implemented + verified (fresh verifier subagent, clean context). 175 shortcut tests pass; full suite 775 pass / 1 fail (pre-existing `patchFetch.ts` TC-010 AbortSignal, byte-identical to main, unrelated). Lint + typecheck clean. Coverage 94.66% (>=90% gate), every new file >=90% lines/functions.
+
+### AC -> proving test traceability
+
+| AC | Proving test(s) |
+| -- | --------------- |
+| AC-001 | `src/shortcuts/registry.test.ts` - "should define every in-scope action exactly once", "...defaults exactly as the spec tables list them" |
+| AC-002 | `src/shortcuts/resolve.test.ts` - resolveShortcuts default/override/disabled/invalid-drop |
+| AC-003 | `src/shortcuts/resolve.test.ts` - findConflict owner/null/self/garbage |
+| AC-004 | `src/ui/shared/useActionHotkeys.test.tsx` - fires / multi-binding / disabled-no-fire / unsupplied-no-fire |
+| AC-005 | `src/ui/options/OptionsShell.shortcuts.test.tsx` (save/new/delete/cycle/tabs/import/export/collapse/expand) + `src/ui/shared/tree-nav.test.tsx` (new-folder/duplicate/rename via key) + `src/ui/shared/RuleForm.test.tsx` (save + rebound save) |
+| AC-006 | `OptionsShell.shortcuts.test.tsx` (contextual new/delete, real Mod+Enter sync, no fake Saved) + `CookieSyncView.test.tsx` |
+| AC-007 | `src/shortcuts/tree-keyboard.test.ts` (resolver + move math + impossible->none) + `src/ui/shared/tree-nav.test.tsx` (roving focus, reorder, Shift+F10) |
+| AC-008 | `src/ui/popup/App.test.tsx` - toggle-global + toggle-theme + persistence |
+| AC-009 | `src/ui/devtools/Panel.test.tsx` - clear-log + focus-filter (activeElement) |
+| AC-010 | `src/ui/shortcuts/ShortcutsSection.test.tsx` + `ShortcutRow.test.tsx` - list/add/edit/remove/reset/disabled |
+| AC-011 | `ShortcutsSection.test.tsx` (conflict alert, no persist) + `src/ui/shared/ShortcutsProvider.test.tsx` (persist + storage.onChanged live sync) + `RuleForm.test.tsx` (rebound key takes effect) |
+| AC-012 | `src/shortcuts/record-hotkey.test.ts` (physical key from event.code) + `src/ui/shared/useRecordHotkey.test.tsx` (hook) |
+| AC-013 | `src/shortcuts/registry.test.ts` - "should not bind any default to a browser-reserved combo" (RESERVED_COMBOS blocklist) |
+
+### Deviations from plan
+- **RuleForm save routed through the registry** (verifier finding): originally RuleForm kept its own raw `useHotkeys(['Mod+S'])`; that made save-rule un-rebindable. Now uses `useActionHotkeys({'save-rule'})` so the settings-view override actually moves the save chord.
+- **schema.ts** uses `z.record(z.string(), z.array(z.string())).catch({})` (not a per-id `.strict()` keyed schema) - unknown ids are dropped by `resolveShortcuts` anyway, and a loose record tolerates a registry that grows without a stored-data migration.
+- **Recorder split across two files** (node vs jsdom test env), per plan.
+- **Real-browser smoke NOT run**: repo is Vitest-only (no E2E harness, ADR 2026-07-09); MV3 unpacked load isn't drivable from the available MCP browser. Static evidence only (build ok, bundle contains shortcut code, manifest has no `commands`). Manual load-unpacked click-test left to the user; `dist/chrome` rebuilt.
