@@ -3,4 +3,5 @@ export const STORAGE_KEYS = {
   globalEnabled: 'puredevtools.globalEnabled',
   theme: 'puredevtools.theme',
   openTabs: 'puredevtools.openTabs',
+  cookieSync: 'puredevtools.cookieSync',
 } as const;

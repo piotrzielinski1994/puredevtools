@@ -18,7 +18,7 @@ export default defineConfig({
     setupFiles: ['./src/ui/test-setup.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/rules/**', 'src/engine/**', 'src/background/**', 'src/ui/shared/**', 'src/devtools/**', 'src/ui/devtools/**', 'src/content/channel.ts'],
+      include: ['src/rules/**', 'src/cookies/**', 'src/engine/**', 'src/background/**', 'src/ui/shared/**', 'src/ui/cookies/**', 'src/devtools/**', 'src/ui/devtools/**', 'src/content/channel.ts'],
       exclude: [
         '**/*.test.{ts,tsx}',
         'src/background/index.ts',
@@ -30,6 +30,9 @@ export default defineConfig({
         'src/ui/shared/createGateway.ts',
         'src/ui/shared/test-gateway.ts',
         'src/ui/shared/createTabsStore.ts',
+        'src/cookies/model.ts',
+        'src/ui/cookies/cookieGateway.ts',
+        'src/ui/cookies/createCookieGateway.ts',
         'src/ui/shared/ScriptEditor.tsx',
         'src/ui/components/**',
         'src/engine/page/types.ts',

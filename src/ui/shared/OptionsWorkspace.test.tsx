@@ -91,13 +91,12 @@ afterEach(() => {
 });
 
 describe('OptionsWorkspace', () => {
-  it('should render the shell with a New rule action, theme, and global switch (AC-001)', async () => {
-    // behavior: master-detail shell exposes create + theme + global controls
+  it('should render the shell with a New rule action (AC-001)', async () => {
+    // behavior: master-detail shell exposes the create control (theme/global chrome
+    // now lives in the injected sidebarHeader, covered by OptionsShell tests)
     renderWorkspace(createGatewayWith(threeRules()));
 
     await screen.findByRole('button', { name: 'New rule' });
-    expect(screen.getByRole('button', { name: /switch to (light|dark) theme/i })).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /global enabled/i })).toBeInTheDocument();
   });
 
   it('should keep the full rule list in the sidebar while a rule is being edited (AC-002)', async () => {

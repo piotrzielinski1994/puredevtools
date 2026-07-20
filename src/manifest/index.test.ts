@@ -25,9 +25,14 @@ describe('buildManifest', () => {
     expect(chrome.description).toBe(firefox.description);
   });
 
-  it('should request only the storage permission on both engines (AC-008)', () => {
-    expect(buildManifest('chrome').permissions).toEqual(['storage']);
-    expect(buildManifest('firefox').permissions).toEqual(['storage']);
+  it('should request the storage and cookies permissions on both engines (TC-001)', () => {
+    expect(buildManifest('chrome').permissions).toEqual(['storage', 'cookies']);
+    expect(buildManifest('firefox').permissions).toEqual(['storage', 'cookies']);
+  });
+
+  it('should keep host_permissions at all_urls on both engines (TC-001)', () => {
+    expect(buildManifest('chrome').host_permissions).toEqual(['<all_urls>']);
+    expect(buildManifest('firefox').host_permissions).toEqual(['<all_urls>']);
   });
 
   it('should not add gecko settings to the chrome manifest', () => {

@@ -37,6 +37,12 @@ Open the extension popup for a quick rule tree and the global on/off switch, or 
 - Export all rules (folders included) to a JSON file and import them back (replaces the current set).
 - Rules persist in extension storage and survive browser restarts.
 
+The options page also has a top-level **Cookie sync** view (switch beside **Rules**):
+
+- **Cookie sync** copies named cookies from a **source URL** to a **target URL** on demand - the "log in on prod, get the same session on `http://localhost:3000`" job. Add a mapping (name, source URL, target URL, and a comma-separated allow-list of cookie names), then click **Sync now** to copy just those cookies. A toast reports how many were copied and how many were skipped (name not found on the source, or rejected by the browser).
+- It is **manual only** (no background auto-mirror) and **orthogonal to rules** - it uses the browser `cookies` API, not the `fetch`/`XHR` patch, and syncs `HttpOnly` cookies that page-side rules cannot touch.
+- **Caveats.** The source cookie's `domain` is dropped so the copy is scoped to the target host; a `Secure` cookie is copied **without** `Secure` when the target is `http://` (e.g. localhost), so it can actually be set. Copying an auth cookie does **not** guarantee a working session - a backend can bind a token to its origin/CSRF/user-agent and still reject the copy. Cookie values are never logged; only names and counts appear in toasts.
+
 ### puredevtools DevTools panel
 
 Open DevTools (F12) and select the **puredevtools** tab for a Network-style table of **only the overridden** `fetch`/`XHR` requests for the inspected tab. Each row shows time, method, status, and URL; click a row to see the request headers, request body, and the served response body (JSON pretty-printed), with a Copy button for the response body. Filter by URL substring, or Clear the log. This is how you inspect what the UI actually received, since the native Network panel shows pre-interception wire bytes. The background buffers up to the last 100 intercepts per tab, so reports fired before you open the panel are flushed in when it connects.
@@ -48,7 +54,7 @@ A single manifest source (`src/manifest/index.ts`) generates both Chrome and Fir
 - **Page layer** (cross-browser): a MAIN-world content script (`src/content/page-main.ts`) monkey-patches `window.fetch` and `XMLHttpRequest`. On a matching rule it rewrites the request URL, applies the request-header ops + body rewrite, runs the pre-request script, forwards the real request, then applies the response-header ops + body rewrite, runs the post-response script, before the page's `fetch`/XHR callback sees the response (the same mechanism MockExpress/Requestly use). Scripts run via `AsyncFunction` in the page context (`src/engine/page/script/`), gated by a re-entrancy guard. An ISOLATED-world bridge (`src/content/bridge.ts`) syncs rules from storage into the page. Every override is logged to the page console as `[puredevtools] rewrote <method> <url> -> <status>` and forwarded to the **puredevtools DevTools panel**.
 - **DevTools panel** (cross-browser): a `devtools_page` registers a "puredevtools" panel (`src/ui/devtools/`) that renders an intercept-only network table. Reports flow page sink -> bridge -> background relay (keyed by the inspected tab id) -> panel, so each panel shows only the traffic for the tab it inspects.
 
-There is no network layer: `declarativeNetRequest`/`webRequest` are not used, and the only requested permission is `storage`.
+There is no network layer for interception: `declarativeNetRequest`/`webRequest` are not used. Requested permissions are `storage` (rules + settings) and `cookies` (the Cookie sync feature - read/write cookies across the domains you map). Paired with the `<all_urls>` host access, `cookies` lets the extension read and write cookies on any site; it is used only when you click **Sync now** on a cookie mapping.
 
 ## Platform limitations
 
