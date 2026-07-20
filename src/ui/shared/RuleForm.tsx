@@ -153,6 +153,16 @@ export const RuleForm = ({ draft, onDraftChange, onSave }: RuleFormProps) => {
         </div>
       ) : activeTab === 'request' ? (
         <div role="tabpanel" id="rule-panel-request" aria-labelledby="rule-tab-request" className="flex flex-col gap-3 p-4">
+          <Field htmlFor="rule-rewrite-request-url" label="Rewrite request URL">
+            <Input
+              id="rule-rewrite-request-url"
+              aria-label="Rewrite request URL"
+              className="font-mono"
+              value={draft.requestUrl}
+              onChange={(event) => patch({ requestUrl: event.target.value })}
+              placeholder="http://localhost:3000"
+            />
+          </Field>
           <HeaderOpEditor legend="Modify request headers" rows={draft.requestOps} onChange={(requestOps) => patch({ requestOps })} />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="rule-rewrite-request-body">Rewrite request body</Label>

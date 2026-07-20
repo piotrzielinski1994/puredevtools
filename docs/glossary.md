@@ -59,3 +59,7 @@ _Avoid_: pre-request hook, request interceptor, before-send
 ### Post-script
 The `Script` that runs after the declarative response override and before the page's callback sees the response; it mutates the returned response (headers, body) via `res`, but not the status.
 _Avoid_: post-response hook, response interceptor, after-receive
+
+### Request URL rewrite
+A request-side rule action that redirects a matched request to a different URL before it is forwarded (e.g. prod API -> localhost). An origin-only target swaps scheme/host/port and keeps the original path/query/hash; a target with a path replaces the URL, preserving the original query/hash the target omits. The declarative counterpart to setting `req.url` in a pre-script.
+_Avoid_: redirect (reserve for HTTP 3xx), proxy, map remote, host override

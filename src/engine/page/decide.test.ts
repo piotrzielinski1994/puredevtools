@@ -188,6 +188,42 @@ describe('decideInterception (AC-001, AC-006)', () => {
     expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
   });
 
+  it('should map a rewriteRequestUrl-only rule to an override carrying the resolved requestUrl (TC-008, AC-003)', () => {
+    // behavior: a rule whose only action is rewriteRequestUrl still overrides (not passthrough),
+    // and requestUrl holds the URL resolved from the descriptor url + target (origin swap here).
+    const rule = buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000' }]);
+    const result = decideInterception([rule], descriptor(), true);
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.requestUrl).toBe('http://localhost:3000/users');
+    expect(result.headerOps).toEqual([]);
+    expect(result.body).toBeUndefined();
+    expect(result.requestHeaderOps).toEqual([]);
+    expect(result.requestBody).toBeUndefined();
+  });
+
+  it('should resolve a full-replace target against the descriptor url on the override requestUrl (TC-008, AC-003)', () => {
+    // behavior: an explicit target path resolves to a full replace, backfilling the original query
+    const rule = buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }]);
+    const result = decideInterception(
+      [rule],
+      descriptor({ url: 'https://api.x/users?page=2' }),
+      true,
+    );
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.requestUrl).toBe('http://localhost:3000/mock?page=2');
+  });
+
+  it('should leave requestUrl undefined on an override that carries no rewriteRequestUrl action (TC-008, AC-003)', () => {
+    // behavior: a rule without the URL-rewrite action does not populate requestUrl
+    const rule = buildRule([{ type: 'rewriteBody', body: 'x' }]);
+    const result = decideInterception([rule], descriptor(), true);
+    expect(isOverride(result)).toBe(true);
+    if (!isOverride(result)) throw new Error('expected override');
+    expect(result.requestUrl).toBeUndefined();
+  });
+
   it('should ignore legacy stored action types and fall through to passthrough (AC-006, rollout)', () => {
     const legacy = {
       id: 'legacy',

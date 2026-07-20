@@ -15,6 +15,7 @@ const makeDraft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   rewriteBody: '',
   requestOps: [],
   requestBody: '',
+  requestUrl: '',
   preScript: '',
   postScript: '',
   ...overrides,
@@ -48,6 +49,7 @@ const gotoResponse = () => fireEvent.click(screen.getByRole('tab', { name: /resp
 const gotoRequest = () => fireEvent.click(screen.getByRole('tab', { name: /request/i }));
 const gotoScripts = () => fireEvent.click(screen.getByRole('tab', { name: /^scripts$/i }));
 const getRequestBody = () => screen.getByLabelText(/rewrite request body/i);
+const getRewriteRequestUrl = () => screen.getByLabelText(/rewrite request url/i);
 const selectOption = (combobox: HTMLElement, optionName: RegExp) => {
   fireEvent.click(combobox);
   fireEvent.click(screen.getByRole('option', { name: optionName }));
@@ -232,6 +234,26 @@ describe('RuleForm', () => {
 
     expect(onDraftChange).toHaveBeenCalledWith(
       expect.objectContaining({ requestOps: [{ op: 'set', name: 'X-New', value: 'staging' }] }),
+    );
+  });
+
+  it('should render a Rewrite request URL input on the Request tab prefilled from the draft (TC-014)', () => {
+    // behavior: the Request tab exposes a URL-rewrite input mirroring the draft's requestUrl
+    setup({ draft: makeDraft({ requestUrl: 'http://localhost:3000' }) });
+    gotoRequest();
+
+    expect(getRewriteRequestUrl()).toHaveValue('http://localhost:3000');
+  });
+
+  it('should call onDraftChange with the new requestUrl if the rewrite request URL input is edited (TC-014)', () => {
+    // side-effect-contract: typing in the URL-rewrite input emits a patched draft carrying requestUrl
+    const { onDraftChange } = setup();
+    gotoRequest();
+
+    fireEvent.change(getRewriteRequestUrl(), { target: { value: 'http://localhost:4000/mock' } });
+
+    expect(onDraftChange).toHaveBeenCalledWith(
+      expect.objectContaining({ requestUrl: 'http://localhost:4000/mock' }),
     );
   });
 

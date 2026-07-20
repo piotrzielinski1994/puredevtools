@@ -110,15 +110,57 @@ describe('createRequestFacade (AC-004)', () => {
     expect(facade.getBody()).toBe('');
   });
 
-  it('should read back a set body and write it to the underlying MutableRequest', () => {
-    // behavior + side-effect-contract: setBody is visible in-run and persisted
+  it('should parse a JSON body into an object via getBody', () => {
+    // behavior: getBody returns parsed JSON when the body is valid JSON
+    const facade = createRequestFacade(mutableRequest({ body: '{"q":2}' }));
+
+    expect(facade.getBody()).toEqual({ q: 2 });
+  });
+
+  it('should return the raw string from getBody when the body is not valid JSON', () => {
+    // behavior: getBody falls back to the raw string for non-JSON bodies
+    const facade = createRequestFacade(mutableRequest({ body: 'name=piotr&x=1' }));
+
+    expect(facade.getBody()).toBe('name=piotr&x=1');
+  });
+
+  it('should parse a bare JSON number body via getBody', () => {
+    // behavior: a bare number is valid JSON and is returned as a number
+    const facade = createRequestFacade(mutableRequest({ body: '42' }));
+
+    expect(facade.getBody()).toBe(42);
+  });
+
+  it('should stringify an object passed to setBody and persist it as a JSON string', () => {
+    // behavior + side-effect-contract: setBody(object) JSON-stringifies onto the MutableRequest
     const req = mutableRequest();
     const facade = createRequestFacade(req);
 
-    facade.setBody('{"q":2}');
+    facade.setBody({ q: 2 });
 
-    expect(facade.getBody()).toBe('{"q":2}');
     expect(req.body).toBe('{"q":2}');
+    expect(facade.getBody()).toEqual({ q: 2 });
+  });
+
+  it('should store a string passed to setBody verbatim', () => {
+    // behavior: a string argument is stored as-is, not double-encoded
+    const req = mutableRequest();
+    const facade = createRequestFacade(req);
+
+    facade.setBody('raw text');
+
+    expect(req.body).toBe('raw text');
+    expect(facade.getBody()).toBe('raw text');
+  });
+
+  it('should stringify a bare number passed to setBody', () => {
+    // behavior: a number is valid JSON and is stringified on write
+    const req = mutableRequest();
+    const facade = createRequestFacade(req);
+
+    facade.setBody(7);
+
+    expect(req.body).toBe('7');
   });
 });
 
@@ -163,8 +205,8 @@ describe('createResponseFacade (AC-005)', () => {
     expect(facade.getHeaders()).toMatchObject({ 'x-a': '1' });
   });
 
-  it('should read the body and read back a set body, writing it to the underlying response', () => {
-    // behavior + side-effect-contract: setBody is visible in-run and persisted
+  it('should read the raw string body and read back a set string body, writing it to the underlying response', () => {
+    // behavior + side-effect-contract: a non-JSON body round-trips as a raw string
     const res = mutableResponse({ body: 'orig' });
     const facade = createResponseFacade(res);
 
@@ -172,6 +214,24 @@ describe('createResponseFacade (AC-005)', () => {
     facade.setBody('changed');
     expect(facade.getBody()).toBe('changed');
     expect(res.body).toBe('changed');
+  });
+
+  it('should parse a JSON body into an object via getBody', () => {
+    // behavior: getBody returns parsed JSON when the body is valid JSON
+    const facade = createResponseFacade(mutableResponse({ body: '{"id":42,"ok":true}' }));
+
+    expect(facade.getBody()).toEqual({ id: 42, ok: true });
+  });
+
+  it('should stringify an object passed to setBody and reflect it in a later getBody', () => {
+    // behavior + side-effect-contract: setBody(object) persists a JSON string, getBody parses it back
+    const res = mutableResponse({ body: '{"a":1}' });
+    const facade = createResponseFacade(res);
+
+    facade.setBody({ a: 2 });
+
+    expect(res.body).toBe('{"a":2}');
+    expect(facade.getBody()).toEqual({ a: 2 });
   });
 
   it('should parse the body as JSON via getJson (AC-005)', () => {

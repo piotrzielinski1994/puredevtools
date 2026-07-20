@@ -651,6 +651,58 @@ describe('createPatchedXhr post-script (AC-008)', () => {
   });
 });
 
+describe('createPatchedXhr url rewrite (AC-005, AC-006)', () => {
+  it('should re-open the delegate to the resolved new url while exposing the original response (TC-012)', async () => {
+    // behavior: an origin-swap rewrite re-opens the delegate to the new url and passes the real response through
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000' }])],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('GET', 'https://api.x/users?page=2');
+    xhr.send();
+
+    await flush();
+
+    expect(fake.openArgs[fake.openArgs.length - 1]).toEqual({
+      method: 'GET',
+      url: 'http://localhost:3000/users?page=2',
+    });
+    expect(fake.sent).toHaveLength(1);
+    expect(xhr.status).toBe(200);
+    expect(xhr.responseText).toBe('real-body');
+  });
+
+  it('should re-apply the recorded request headers after re-opening to the rewritten url (TC-012)', async () => {
+    // behavior: a re-open resets delegate headers, so recorded request headers are re-applied
+    const fake = new FakeXhr('real-body', 200);
+    const Patched = createPatchedXhr(
+      createDeps({
+        OriginalXhr: xhrClassReturning(fake),
+        getRules: () => [buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }])],
+      }),
+    );
+
+    const xhr = new Patched();
+    xhr.open('POST', 'https://api.x/users?page=2');
+    xhr.setRequestHeader('X-Token', 'abc');
+    xhr.send('{"q":1}');
+
+    await flush();
+
+    expect(fake.openArgs[fake.openArgs.length - 1]).toEqual({
+      method: 'POST',
+      url: 'http://localhost:3000/mock?page=2',
+    });
+    expect(fake.requestHeaders).toContainEqual({ name: 'X-Token', value: 'abc' });
+    expect(fake.sent).toEqual(['{"q":1}']);
+  });
+});
+
 describe('createPatchedXhr script re-entrancy (AC-009)', () => {
   it('should pass an inner XHR opened+sent from a pre-script through without re-running the rule (AC-009)', async () => {
     // behavior: while a script runs, the guard makes an inner XHR pass through

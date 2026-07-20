@@ -23,6 +23,7 @@ export type RuleAction =
   | { type: 'rewriteBody'; body: string; contentType?: string }
   | { type: 'modifyRequestHeaders'; headers: HeaderOp[] }
   | { type: 'rewriteRequestBody'; body: string }
+  | { type: 'rewriteRequestUrl'; target: string }
   | { type: 'preScript'; source: string }
   | { type: 'postScript'; source: string };
 

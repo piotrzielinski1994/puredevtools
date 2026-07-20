@@ -129,6 +129,15 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
     };
   };
 
+  const applyUrlRewrite = (
+    interception: Extract<Interception, { kind: 'override' }>,
+    input: RequestInfo | URL,
+  ): RequestInfo | URL => {
+    if (interception.requestUrl === undefined) return input;
+    if (input instanceof Request) return new Request(interception.requestUrl, input);
+    return interception.requestUrl;
+  };
+
   const forwardInitOf = (
     interception: Extract<Interception, { kind: 'override' }>,
     input: RequestInfo | URL,
@@ -146,7 +155,8 @@ export const createPatchedFetch = (deps: PatchedFetchDeps): typeof fetch => {
     if (isScriptRunning()) return deps.originalFetch(input, init);
     const interception = decideInterception(deps.getRules(), descriptorOf(input, init), deps.getGlobalEnabled());
     if (interception.kind !== 'override') return deps.originalFetch(input, init);
-    const forwarded = await applyPreScript(interception, input, forwardInitOf(interception, input, init));
+    const rewritten = applyUrlRewrite(interception, input);
+    const forwarded = await applyPreScript(interception, rewritten, forwardInitOf(interception, rewritten, init));
     const request = {
       method: methodOf(forwarded.input, forwarded.init),
       url: urlOf(forwarded.input),

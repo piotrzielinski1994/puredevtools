@@ -652,6 +652,130 @@ describe('createPatchedFetch script error logging (AC-010, AC-011)', () => {
   });
 });
 
+const forwardedRequestBody = async (call: FetchCall): Promise<string | undefined> => {
+  const [input, init] = call;
+  if (typeof init?.body === 'string') return init.body;
+  if (input instanceof Request) return input.clone().text();
+  return undefined;
+};
+
+describe('createPatchedFetch url rewrite (AC-004, AC-006)', () => {
+  it('should forward a rewrite-only request to the resolved new url while returning the original response (TC-009)', async () => {
+    // behavior: an origin-swap rewrite reroutes the forward and passes the original response through
+    const original = new Response('backend-body', { status: 201, statusText: 'Created' });
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(original));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000' }])],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users?page=2');
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    expect(forwardedUrl(originalFetch.mock.calls[0])).toBe('http://localhost:3000/users?page=2');
+    expect(res).toBe(original);
+    expect(res.status).toBe(201);
+    expect(await res.text()).toBe('backend-body');
+  });
+
+  it('should full-replace the forwarded path when the target carries an explicit path (TC-009)', async () => {
+    // behavior: an explicit target path replaces the path and backfills the original query
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }])],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users?page=2');
+
+    expect(forwardedUrl(originalFetch.mock.calls[0])).toBe('http://localhost:3000/mock?page=2');
+  });
+
+  it('should preserve the method, headers and body of a Request-object input after the rewrite (TC-010)', async () => {
+    // behavior: rewriting a Request input keeps its method/headers/body, only the url changes
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000' }])],
+      }),
+    );
+
+    await fetchImpl(
+      new Request('https://api.x/users', {
+        method: 'POST',
+        headers: { 'X-Token': 'abc' },
+        body: '{"orig":true}',
+      }),
+    );
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    const call = originalFetch.mock.calls[0];
+    expect(forwardedUrl(call)).toBe('http://localhost:3000/users');
+    expect(forwardedMethod(call)).toBe('POST');
+    expect(forwardedHeaders(call).get('x-token')).toBe('abc');
+    expect(await forwardedRequestBody(call)).toBe('{"orig":true}');
+  });
+
+  it('should apply the declarative rewrite before the pre-script so the script observes it and its setUrl wins (TC-011)', async () => {
+    // behavior: declarative rewrite runs first (the script sees the localhost url), then the
+    // pre-script's setUrl wins. The script only emits the final url when it observed the rewrite,
+    // so a wrong order (or a missing declarative rewrite) forwards to the sentinel instead.
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'rewriteRequestUrl', target: 'http://localhost:3000' },
+            {
+              type: 'preScript',
+              source:
+                'req.setUrl(req.getUrl() === "http://localhost:3000/users" ? "https://third.example/final" : "https://order.wrong/sentinel");',
+            },
+          ]),
+        ],
+      }),
+    );
+
+    await fetchImpl('https://api.x/users');
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    expect(forwardedUrl(originalFetch.mock.calls[0])).toBe('https://third.example/final');
+  });
+});
+
+describe('createPatchedFetch url rewrite composition (AC-008)', () => {
+  it('should forward to the new url with the request header set and serve the response header override (TC-015)', async () => {
+    // behavior: rewrite + request-header set + response-header set compose in one rule
+    const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
+    const fetchImpl = createPatchedFetch(
+      createDeps({
+        originalFetch,
+        getRules: () => [
+          buildRule([
+            { type: 'rewriteRequestUrl', target: 'http://localhost:3000' },
+            { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
+            { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Resp', value: 'on' }] },
+          ]),
+        ],
+      }),
+    );
+
+    const res = await fetchImpl('https://api.x/users?page=2', { method: 'POST' });
+
+    expect(originalFetch).toHaveBeenCalledTimes(1);
+    const call = originalFetch.mock.calls[0];
+    expect(forwardedUrl(call)).toBe('http://localhost:3000/users?page=2');
+    expect(forwardedHeaders(call).get('x-env')).toBe('staging');
+    expect(res.headers.get('x-resp')).toBe('on');
+  });
+});
+
 describe('createPatchedFetch script re-entrancy (AC-009)', () => {
   it('should pass an inner fetch call through un-intercepted while a script is running (AC-009)', async () => {
     // behavior: the re-entrancy guard means a fetch made inside a pre-script does not

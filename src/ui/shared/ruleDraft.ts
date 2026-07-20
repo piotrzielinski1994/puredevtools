@@ -12,6 +12,7 @@ export type RuleDraft = {
   rewriteBody: string;
   requestOps: OpRow[];
   requestBody: string;
+  requestUrl: string;
   preScript: string;
   postScript: string;
 };
@@ -44,6 +45,7 @@ export const emptyDraft = (): RuleDraft => ({
   rewriteBody: '',
   requestOps: [],
   requestBody: '',
+  requestUrl: '',
   preScript: '',
   postScript: '',
 });
@@ -57,6 +59,7 @@ export const ruleToDraft = (rule: Rule): RuleDraft => ({
   rewriteBody: firstAction(rule, 'rewriteBody')?.body ?? '',
   requestOps: (firstAction(rule, 'modifyRequestHeaders')?.headers ?? []).map(opToRow),
   requestBody: firstAction(rule, 'rewriteRequestBody')?.body ?? '',
+  requestUrl: firstAction(rule, 'rewriteRequestUrl')?.target ?? '',
   preScript: firstAction(rule, 'preScript')?.source ?? '',
   postScript: firstAction(rule, 'postScript')?.source ?? '',
 });
@@ -69,6 +72,7 @@ const buildActions = (draft: RuleDraft): RuleAction[] => {
   if (draft.rewriteBody.trim() !== '') actions.push({ type: 'rewriteBody', body: draft.rewriteBody });
   if (reqOps.length > 0) actions.push({ type: 'modifyRequestHeaders', headers: reqOps });
   if (draft.requestBody.trim() !== '') actions.push({ type: 'rewriteRequestBody', body: draft.requestBody });
+  if (draft.requestUrl.trim() !== '') actions.push({ type: 'rewriteRequestUrl', target: draft.requestUrl });
   if (draft.preScript.trim() !== '') actions.push({ type: 'preScript', source: draft.preScript });
   if (draft.postScript.trim() !== '') actions.push({ type: 'postScript', source: draft.postScript });
   return actions;
@@ -107,6 +111,7 @@ export const draftsEqual = (a: RuleDraft, b: RuleDraft): boolean =>
   a.kind === b.kind &&
   a.rewriteBody === b.rewriteBody &&
   a.requestBody === b.requestBody &&
+  a.requestUrl === b.requestUrl &&
   a.preScript === b.preScript &&
   a.postScript === b.postScript &&
   methodsEqual(a.methods, b.methods) &&
