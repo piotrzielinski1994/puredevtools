@@ -41,6 +41,7 @@ const ruleAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('rewriteBody'), body: z.string(), contentType: z.string().optional() }),
   z.object({ type: z.literal('modifyRequestHeaders'), headers: z.array(headerOp) }),
   z.object({ type: z.literal('rewriteRequestBody'), body: z.string() }),
+  z.object({ type: z.literal('rewriteRequestUrl'), target: z.string() }),
   z.object({ type: z.literal('preScript'), source: z.string() }),
   z.object({ type: z.literal('postScript'), source: z.string() }),
 ]) satisfies z.ZodType<RuleAction>;

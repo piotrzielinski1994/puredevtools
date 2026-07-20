@@ -13,6 +13,7 @@ const draft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   rewriteBody: '',
   requestOps: [],
   requestBody: '',
+  requestUrl: '',
   preScript: '',
   postScript: '',
   ...overrides,

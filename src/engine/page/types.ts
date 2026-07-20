@@ -9,6 +9,7 @@ export type Interception =
       contentType?: string;
       requestHeaderOps: HeaderOp[];
       requestBody?: string;
+      requestUrl?: string;
       preScript?: string;
       postScript?: string;
     };

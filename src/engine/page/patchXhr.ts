@@ -107,6 +107,11 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
       interception: Extract<Interception, { kind: 'override' }>,
       body?: Document | XMLHttpRequestBodyInit | null,
     ): Document | XMLHttpRequestBodyInit | null | undefined {
+      if (interception.requestUrl !== undefined) {
+        this.url = interception.requestUrl;
+        (this.delegate.open as (m: string, u: string) => void)(this.method, interception.requestUrl);
+        Object.entries(this.requestHeaders).forEach(([name, value]) => this.delegate.setRequestHeader(name, value));
+      }
       interception.requestHeaderOps
         .filter((op): op is Extract<HeaderOp, { op: 'set' }> => op.op === 'set')
         .forEach((op) => this.delegate.setRequestHeader(op.name, op.value));
@@ -122,7 +127,8 @@ export const createPatchedXhr = (deps: PatchedXhrDeps): typeof XMLHttpRequest =>
       const headers = new Headers(this.requestHeaders);
       applyHeaderOps(headers, interception.requestHeaderOps);
       const startBody = interception.requestBody ?? (typeof body === 'string' ? body : undefined);
-      const mutable: MutableRequest = { url: this.url, method: this.method, headers, body: startBody };
+      const startUrl = interception.requestUrl ?? this.url;
+      const mutable: MutableRequest = { url: startUrl, method: this.method, headers, body: startBody };
       const outcome = await runScript(interception.preScript!, {
         req: createRequestFacade(mutable),
         console: createConsoleFacade(scriptConsoleSink),

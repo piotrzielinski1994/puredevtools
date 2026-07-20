@@ -20,6 +20,7 @@ const baseDraft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
   rewriteBody: '',
   requestOps: [],
   requestBody: '',
+  requestUrl: '',
   preScript: '',
   postScript: '',
   ...overrides,
@@ -37,6 +38,7 @@ describe('emptyDraft', () => {
       rewriteBody: '',
       requestOps: [],
       requestBody: '',
+      requestUrl: '',
       preScript: '',
       postScript: '',
     });
@@ -140,6 +142,20 @@ describe('ruleToDraft', () => {
 
     expect(draft.preScript).toBe('');
     expect(draft.postScript).toBe('');
+  });
+
+  it('should prefill requestUrl from a rewriteRequestUrl action target (TC-013)', () => {
+    // behavior: the URL-rewrite action's target projects back into the draft's requestUrl field
+    const draft = ruleToDraft(
+      buildRule({ actions: [{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }] }),
+    );
+
+    expect(draft.requestUrl).toBe('http://localhost:3000/mock');
+  });
+
+  it('should default requestUrl to empty when the rule has no rewriteRequestUrl action (TC-013)', () => {
+    // behavior: absent URL-rewrite action projects to an empty requestUrl
+    expect(ruleToDraft(buildRule()).requestUrl).toBe('');
   });
 });
 
@@ -298,6 +314,26 @@ describe('draftToRule', () => {
     expect(result.rule.actions).toContainEqual({ type: 'postScript', source: 'res.setBody(res.getBody());' });
   });
 
+  it('should emit a rewriteRequestUrl action when requestUrl is non-empty (TC-013)', () => {
+    // behavior: a non-empty requestUrl projects to the URL-rewrite action carrying its target
+    const result = draftToRule(baseDraft({ requestUrl: 'http://localhost:3000' }));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions).toContainEqual({ type: 'rewriteRequestUrl', target: 'http://localhost:3000' });
+  });
+
+  it('should round-trip a rewriteRequestUrl target through ruleToDraft and draftToRule (TC-013)', () => {
+    // behavior: rule -> draft -> rule keeps the URL-rewrite target intact
+    const rule = buildRule({ actions: [{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }] });
+
+    const result = draftToRule(ruleToDraft(rule), rule);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rule.actions).toContainEqual({ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' });
+  });
+
   it('should fail with an error when the pattern is empty', () => {
     // behavior: an empty URL pattern is invalid and returns the error branch
     const result = draftToRule(baseDraft({ pattern: '' }));
@@ -391,5 +427,15 @@ describe('draftsEqual', () => {
     const b = baseDraft({ preScript: 'req.setUrl("x");', postScript: 'res.setBody("y");' });
 
     expect(draftsEqual(a, b)).toBe(true);
+  });
+
+  it('should return false when requestUrl differs (TC-013)', () => {
+    // behavior: a changed URL-rewrite target reads as dirty
+    expect(
+      draftsEqual(
+        baseDraft({ requestUrl: 'http://localhost:3000' }),
+        baseDraft({ requestUrl: 'http://localhost:4000' }),
+      ),
+    ).toBe(false);
   });
 });

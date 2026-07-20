@@ -99,6 +99,34 @@ describe('ruleSchema', () => {
     const rule = { ...validRule, actions: [{ type: 'sideScript', source: 'x' }] };
     expect(ruleSchema.safeParse(rule).success).toBe(false);
   });
+
+  it('should parse a rule carrying a rewriteRequestUrl action (TC-007, AC-001)', () => {
+    // behavior: the new declarative URL-rewrite action variant is accepted by the schema
+    const rule = {
+      ...validRule,
+      actions: [{ type: 'rewriteRequestUrl', target: 'http://localhost:3000' }],
+    };
+
+    expect(ruleSchema.safeParse(rule).success).toBe(true);
+  });
+
+  it('should round-trip a rewriteRequestUrl action through portable state (TC-007, AC-001)', () => {
+    // behavior: the target survives an export -> JSON -> import cycle verbatim
+    const rule = {
+      ...validRule,
+      actions: [{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }],
+    };
+
+    const first = portableSchema.safeParse({ enabled: true, workspace: [{ kind: 'rule', rule }] });
+    expect(first.success).toBe(true);
+    if (!first.success) throw new Error('expected valid portable state');
+
+    const roundTripped = portableSchema.safeParse(JSON.parse(JSON.stringify(first.data)));
+    expect(roundTripped.success).toBe(true);
+    if (!roundTripped.success) throw new Error('expected valid round-trip');
+    expect(roundTripped.data.workspace).toEqual(first.data.workspace);
+  });
+
 });
 
 describe('workspaceSchema', () => {
