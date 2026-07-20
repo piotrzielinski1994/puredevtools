@@ -63,3 +63,11 @@ _Avoid_: post-response hook, response interceptor, after-receive
 ### Request URL rewrite
 A request-side rule action that redirects a matched request to a different URL before it is forwarded (e.g. prod API -> localhost). An origin-only target swaps scheme/host/port and keeps the original path/query/hash; a target with a path replaces the URL, preserving the original query/hash the target omits. The declarative counterpart to setting `req.url` in a pre-script.
 _Avoid_: redirect (reserve for HTTP 3xx), proxy, map remote, host override
+
+### Cookie sync
+Copying named cookies from a source URL to a target URL via the browser's `cookies` API, so a session established on one origin (e.g. prod) is reproduced on another (e.g. localhost). A separate subsystem from rules/interception - it never patches `fetch`/`XHR` and holds no rule. Manual only ("Sync now").
+_Avoid_: cookie mirror, session transfer, cookie share
+
+### Cookie mapping
+One source-URL -> target-URL entry plus the allow-list of cookie names to copy. The unit the Cookie sync UI edits; not a `Rule` and never part of the workspace tree.
+_Avoid_: cookie rule, sync rule, cookie pair
