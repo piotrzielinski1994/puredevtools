@@ -75,7 +75,7 @@ export const OptionsWorkspace = ({ tabsStore }: { tabsStore?: TabsStore }) => {
   };
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-full flex-col">
       {status === 'loading' ? (
         <p className="p-4 text-sm text-muted-foreground">Loading rules…</p>
       ) : status === 'error' ? (
