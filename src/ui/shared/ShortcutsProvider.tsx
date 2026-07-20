@@ -39,7 +39,10 @@ export const ShortcutsProvider = ({ children }: { children: ReactNode }) => {
       if (change) setOverrides(shortcutOverridesSchema.parse(change.newValue) as ShortcutOverrides);
     };
     browser.storage.onChanged.addListener(listener);
-    return () => browser.storage.onChanged.removeListener(listener);
+    return () => {
+      active = false;
+      browser.storage.onChanged.removeListener(listener);
+    };
   }, []);
 
   const update = useCallback((next: (base: ShortcutOverrides) => ShortcutOverrides) => {

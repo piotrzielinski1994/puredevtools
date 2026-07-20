@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type RefObject } from 'react';
 import type { PanelEntry } from '../../devtools/types';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 export type InterceptTableProps = {
   entries: PanelEntry[];
   onClear(): void;
+  filterInputRef?: RefObject<HTMLInputElement>;
 };
 
 const prettyBody = (body: string): string => {
@@ -49,7 +50,7 @@ const DetailSection = ({ title, children }: { title: string; children: string })
   </section>
 );
 
-export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
+export const InterceptTable = ({ entries, onClear, filterInputRef }: InterceptTableProps) => {
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
 
@@ -72,6 +73,7 @@ export const InterceptTable = ({ entries, onClear }: InterceptTableProps) => {
           Clear
         </button>
         <Input
+          ref={filterInputRef}
           aria-label="Filter by URL"
           placeholder="Filter URLs"
           className="h-full max-w-xs border-0 border-r border-r-border font-mono shadow-none focus-visible:ring-0"
