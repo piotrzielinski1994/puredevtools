@@ -126,7 +126,7 @@ export const OptionsWorkspace = ({
                 onChange={(event) => setFilter(event.target.value)}
               />
             </div>
-            <SidebarTree filter={filter} onEdit={(ruleId) => open(ruleId)} />
+            <SidebarTree filter={filter} onEdit={(ruleId) => open(ruleId)} onNewRule={() => open(DRAFT_KEY)} />
           </aside>
 
           <div

@@ -33,31 +33,45 @@ const mapping = (over: Partial<CookieMapping> = {}): CookieMapping => ({
   ...over,
 });
 
+const mappingNode = (over: Partial<CookieMapping> = {}) => ({ kind: 'mapping' as const, mapping: mapping(over) });
+
 describe('CookieSyncRepository', () => {
-  it('should return an empty state when the key is missing (TC-003)', async () => {
+  it('should return an empty tree when the key is missing (TC-003)', async () => {
     const repo = new CookieSyncRepository(createFakeStorageArea());
-    expect(await repo.getAll()).toEqual({ mappings: [] });
+    expect(await repo.getAll()).toEqual({ tree: [] });
   });
 
-  it('should return an empty state when the stored value is malformed (TC-003)', async () => {
+  it('should return an empty tree when the stored value is malformed (TC-003)', async () => {
     const repo = new CookieSyncRepository(
-      createFakeStorageArea({ [STORAGE_KEYS.cookieSync]: { mappings: [{ id: 'x' }] } }),
+      createFakeStorageArea({ [STORAGE_KEYS.cookieSync]: { tree: [{ kind: 'mapping', mapping: { id: 'x' } }] } }),
     );
-    expect(await repo.getAll()).toEqual({ mappings: [] });
+    expect(await repo.getAll()).toEqual({ tree: [] });
   });
 
-  it('should return the parsed state when the stored value is valid (TC-003)', async () => {
-    const state = { mappings: [mapping(), mapping({ id: 'cm2' })] };
+  it('should return the parsed tree when the stored value is valid (TC-003)', async () => {
+    const state = { tree: [mappingNode(), mappingNode({ id: 'cm2' })] };
     const repo = new CookieSyncRepository(
       createFakeStorageArea({ [STORAGE_KEYS.cookieSync]: state }),
     );
     expect(await repo.getAll()).toEqual(state);
   });
 
-  it('should persist the state under the cookie sync key (TC-003)', async () => {
+  it('should migrate a legacy flat {mappings} store to a single-level tree (TC-001)', async () => {
+    const repo = new CookieSyncRepository(
+      createFakeStorageArea({ [STORAGE_KEYS.cookieSync]: { mappings: [mapping(), mapping({ id: 'cm2' })] } }),
+    );
+    expect(await repo.getAll()).toEqual({
+      tree: [
+        { kind: 'mapping', mapping: mapping() },
+        { kind: 'mapping', mapping: mapping({ id: 'cm2' }) },
+      ],
+    });
+  });
+
+  it('should persist the tree under the cookie sync key (TC-003)', async () => {
     const area = createFakeStorageArea();
     const repo = new CookieSyncRepository(area);
-    const state = { mappings: [mapping()] };
+    const state = { tree: [mappingNode()] };
 
     await repo.save(state);
 

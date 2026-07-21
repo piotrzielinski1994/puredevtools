@@ -11,6 +11,7 @@ export type UiGateway = {
   addRule(rule: Rule): Promise<void>;
   updateRule(rule: Rule): Promise<void>;
   duplicateRule(rule: Rule, newId: string): Promise<void>;
+  duplicateNode(id: string): Promise<void>;
   removeNode(id: string): Promise<void>;
   moveNode(dragId: string, target: MoveTarget): Promise<void>;
   addFolder(parentId: string | null): Promise<string>;

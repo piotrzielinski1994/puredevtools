@@ -18,7 +18,7 @@ vi.mock('webextension-polyfill', () => ({
 }));
 
 const cookieGateway = (): CookieGateway => ({
-  getAll: async () => ({ mappings: [] }),
+  getAll: async () => ({ tree: [] }),
   save: async () => undefined,
   sync: async () => ({ copied: [], skipped: [] }),
 });

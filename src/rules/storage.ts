@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from '../shared/constants';
 import type { Rule, TreeNode } from './model';
 import {
   addFolderNode,
+  duplicateNode as duplicateTreeNode,
   flatten,
   insertNode,
   moveNode as moveTreeNode,
@@ -63,6 +64,11 @@ export class RuleRepository {
   async removeNode(id: string): Promise<void> {
     const tree = await this.getWorkspace();
     await this.persist(removeTreeNode(tree, id).tree);
+  }
+
+  async duplicateNode(id: string): Promise<void> {
+    const tree = await this.getWorkspace();
+    await this.persist(duplicateTreeNode(tree, id));
   }
 
   async moveNode(dragId: string, target: MoveTarget): Promise<void> {

@@ -28,14 +28,14 @@ const folder = (id: string, children: TreeNode[] = [], collapsed = false): Folde
   children,
 });
 
-const renderTree = (initial: TreeNode[], onEdit = vi.fn(), filter = '') => {
+const renderTree = (initial: TreeNode[], onEdit = vi.fn(), filter = '', onNewRule = vi.fn()) => {
   const gateway = createFakeGateway(initial);
   const utils = render(
     <RulesProvider gateway={gateway}>
-      <SidebarTree onEdit={onEdit} filter={filter} />
+      <SidebarTree onEdit={onEdit} filter={filter} onNewRule={onNewRule} />
     </RulesProvider>,
   );
-  return { gateway, onEdit, ...utils };
+  return { gateway, onEdit, onNewRule, ...utils };
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -55,23 +55,87 @@ describe('SidebarTree rendering', () => {
     renderTree([]);
     expect(await screen.findByText(/no rules yet/i)).toBeInTheDocument();
   });
+
+  it('should summarize request-side and script actions without leaving empty commas', async () => {
+    renderTree([
+      ruleNode('r1', {
+        actions: [
+          { type: 'modifyRequestHeaders', headers: [{ op: 'remove', name: 'Authorization' }] },
+          { type: 'rewriteRequestUrl', target: 'http://localhost:3000' },
+          { type: 'preScript', source: 'noop()' },
+        ],
+      }),
+    ]);
+    const summary = await screen.findByTestId('rule-action-summary-r1');
+
+    expect(summary).toHaveTextContent('request headers, request url, pre-script');
+    expect(summary.textContent).not.toMatch(/,\s*,/);
+    expect(summary.textContent).not.toContain('undefined');
+  });
+
+  it('should label response-side actions in the rule subtitle', async () => {
+    renderTree([
+      ruleNode('r1', {
+        actions: [
+          { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X', value: 'y' }] },
+          { type: 'rewriteBody', body: '{}' },
+          { type: 'postScript', source: 'noop()' },
+        ],
+      }),
+    ]);
+    const summary = await screen.findByTestId('rule-action-summary-r1');
+
+    expect(summary).toHaveTextContent('response headers, response body, post-script');
+  });
 });
 
 describe('SidebarTree folder CRUD', () => {
-  it('should call addFolder(null) when the New folder bar button is clicked (AC-007)', async () => {
+  it('should not render a top New folder bar button', async () => {
+    renderTree([ruleNode('r1')]);
+    await screen.findByRole('button', { name: 'Edit: r1' });
+
+    expect(screen.queryByRole('button', { name: /^new folder$/i })).not.toBeInTheDocument();
+  });
+
+  it('should stop the empty-area contextmenu event from reaching window so the menu does not self-dismiss', async () => {
+    renderTree([ruleNode('r1')]);
+    await screen.findByRole('button', { name: 'Edit: r1' });
+    const windowListener = vi.fn();
+    window.addEventListener('contextmenu', windowListener);
+
+    fireEvent.contextMenu(screen.getByTestId('sidebar-background'));
+
+    window.removeEventListener('contextmenu', windowListener);
+    expect(windowListener).not.toHaveBeenCalled();
+    expect(await screen.findByRole('menuitem', { name: /new folder/i })).toBeInTheDocument();
+  });
+
+  it('should call addFolder(null) from the empty-area context menu New folder item (AC-007)', async () => {
     const { gateway } = renderTree([ruleNode('r1')]);
     await screen.findByRole('button', { name: 'Edit: r1' });
 
-    fireEvent.click(screen.getByRole('button', { name: /new folder/i }));
+    fireEvent.contextMenu(screen.getByTestId('sidebar-background'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /new folder/i }));
 
     await waitFor(() => expect(gateway.addFolder).toHaveBeenCalledWith(null));
+  });
+
+  it('should call onNewRule from the empty-area context menu New rule item', async () => {
+    const { onNewRule } = renderTree([ruleNode('r1')]);
+    await screen.findByRole('button', { name: 'Edit: r1' });
+
+    fireEvent.contextMenu(screen.getByTestId('sidebar-background'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /new rule/i }));
+
+    await waitFor(() => expect(onNewRule).toHaveBeenCalledTimes(1));
   });
 
   it('should open the newly created folder in inline-rename mode (AC-007, TC-009)', async () => {
     const { gateway } = renderTree([ruleNode('r1')]);
     await screen.findByRole('button', { name: 'Edit: r1' });
 
-    fireEvent.click(screen.getByRole('button', { name: /new folder/i }));
+    fireEvent.contextMenu(screen.getByTestId('sidebar-background'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /new folder/i }));
 
     const input = await screen.findByRole('textbox', { name: /rename folder/i });
     fireEvent.change(input, { target: { value: 'API' } });
@@ -106,6 +170,18 @@ describe('SidebarTree folder CRUD', () => {
     await waitFor(() => expect(gateway.renameFolder).toHaveBeenCalledWith('f', 'Auth'));
   });
 
+  it('should not trigger a tree-activate toggle when Enter commits a rename', async () => {
+    const { gateway } = renderTree([folder('f')]);
+    fireEvent.doubleClick(await screen.findByLabelText('Folder: f'));
+
+    const input = await screen.findByRole('textbox', { name: /rename folder/i });
+    fireEvent.change(input, { target: { value: 'Auth' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(gateway.renameFolder).toHaveBeenCalledWith('f', 'Auth'));
+    expect(gateway.toggleCollapse).not.toHaveBeenCalled();
+  });
+
   it('should cancel a rename on Escape without calling renameFolder (AC-008)', async () => {
     const { gateway } = renderTree([folder('f')]);
     fireEvent.doubleClick(await screen.findByLabelText('Folder: f'));
@@ -138,6 +214,17 @@ describe('SidebarTree folder CRUD', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /delete/i }));
 
     expect(gateway.removeNode).not.toHaveBeenCalled();
+  });
+
+  it('should duplicate a folder from its context menu (TC-007, AC-001, side-effect-contract)', async () => {
+    const { gateway } = renderTree([folder('f', [ruleNode('r1'), ruleNode('r2')])]);
+    const row = await screen.findByLabelText('Folder: f');
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByRole('menuitem', { name: /duplicate/i }));
+
+    await waitFor(() => expect(gateway.duplicateNode).toHaveBeenCalledTimes(1));
+    expect(gateway.duplicateNode).toHaveBeenCalledWith('f');
   });
 });
 

@@ -30,6 +30,7 @@ export const createGateway = (): UiGateway => {
     addRule: (rule) => repository.addRuleNode(rule),
     updateRule: (rule) => repository.updateRule(rule),
     duplicateRule: (rule, newId) => repository.addRuleNode(cloneRule(rule, newId)),
+    duplicateNode: (id) => repository.duplicateNode(id),
     removeNode: (id) => repository.removeNode(id),
     moveNode: (dragId, target) => repository.moveNode(dragId, target),
     addFolder: (parentId) => repository.addFolder(parentId),

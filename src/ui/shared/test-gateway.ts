@@ -3,6 +3,7 @@ import type { Rule, TreeNode } from '../../rules/model';
 import { cloneRule } from '../../rules/clone';
 import {
   addFolderNode,
+  duplicateNode as duplicateTreeNode,
   insertNode,
   moveNode as moveTreeNode,
   newFolderId,
@@ -34,6 +35,9 @@ export const createFakeGateway = (initial: TreeNode[] = [], globalEnabled = true
     }),
     duplicateRule: vi.fn<(rule: Rule, newId: string) => Promise<void>>(async (rule, newId) => {
       store = insertNode(store, ruleNode(cloneRule(rule, newId)), { parentId: null, index: store.length });
+    }),
+    duplicateNode: vi.fn<(id: string) => Promise<void>>(async (id) => {
+      store = duplicateTreeNode(store, id);
     }),
     removeNode: vi.fn<(id: string) => Promise<void>>(async (id) => {
       store = removeTreeNode(store, id).tree;

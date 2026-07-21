@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { HotkeysProvider } from '@tanstack/react-hotkeys';
 import type { CookieMapping, CookieSyncState, SyncResult } from '../../cookies/model';
+import { flatten } from '../../cookies/tree';
 import type { TreeNode } from '../../rules/model';
 import { RulesProvider } from '../shared/RulesProvider';
 import { ShortcutsProvider } from '../shared/ShortcutsProvider';
@@ -49,13 +50,15 @@ const createFakeCookieGateway = (
   const saved: CookieSyncState[] = [];
   return {
     saved,
-    getAll: async () => ({ mappings: initial }),
+    getAll: async () => ({ tree: initial.map((mapping) => ({ kind: 'mapping', mapping })) }),
     save: async (state) => {
       saved.push(state);
     },
     sync: vi.fn(async () => syncResult),
   };
 };
+
+const savedMappings = (state: CookieSyncState | undefined): CookieMapping[] => (state ? flatten(state.tree) : []);
 
 const renderShell = (
   initial: TreeNode[] = [],
@@ -139,7 +142,7 @@ describe('OptionsShell keyboard shortcuts', () => {
 
     await user.keyboard('{Control>}{Alt>}n{/Alt}{/Control}');
 
-    await waitFor(() => expect(cookieGateway.saved.at(-1)?.mappings.length).toBe(1));
+    await waitFor(() => expect(savedMappings(cookieGateway.saved.at(-1)).length).toBe(1));
   });
 
   // TC-014, AC-006 side-effect-contract: delete-item removes the active rule in Rules view.
@@ -163,7 +166,7 @@ describe('OptionsShell keyboard shortcuts', () => {
 
     await user.keyboard('{Control>}{Backspace}{/Control}');
 
-    await waitFor(() => expect(cookieGateway.saved.at(-1)?.mappings).toEqual([]));
+    await waitFor(() => expect(savedMappings(cookieGateway.saved.at(-1))).toEqual([]));
   });
 
   // TC-015, AC-006 side-effect-contract: Mod+Enter syncs the selected mapping for real.

@@ -1,17 +1,22 @@
 import { STORAGE_KEYS } from '../shared/constants';
 import type { StorageArea } from '../rules/storage';
 import type { CookieSyncState } from './model';
-import { cookieSyncStateSchema } from './schema';
+import { cookieSyncStateSchema, legacyCookieSyncStateSchema } from './schema';
+import { migrateLegacy } from './tree';
 
-const EMPTY: CookieSyncState = { mappings: [] };
+const EMPTY: CookieSyncState = { tree: [] };
 
 export class CookieSyncRepository {
   constructor(private readonly area: StorageArea) {}
 
   async getAll(): Promise<CookieSyncState> {
     const stored = await this.area.get([STORAGE_KEYS.cookieSync]);
-    const parsed = cookieSyncStateSchema.safeParse(stored[STORAGE_KEYS.cookieSync]);
-    return parsed.success ? parsed.data : EMPTY;
+    const value = stored[STORAGE_KEYS.cookieSync];
+    const parsed = cookieSyncStateSchema.safeParse(value);
+    if (parsed.success) return parsed.data;
+    const legacy = legacyCookieSyncStateSchema.safeParse(value);
+    if (legacy.success) return { tree: migrateLegacy(legacy.data.mappings) };
+    return EMPTY;
   }
 
   async save(state: CookieSyncState): Promise<void> {
