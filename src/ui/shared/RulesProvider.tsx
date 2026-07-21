@@ -12,6 +12,7 @@ export type RulesContextValue = {
   addRule(rule: Rule): Promise<void>;
   updateRule(rule: Rule): Promise<void>;
   duplicateRule(rule: Rule): Promise<void>;
+  duplicateFolder(id: string): Promise<void>;
   removeNode(id: string): Promise<void>;
   moveNode(dragId: string, target: MoveTarget): Promise<void>;
   addFolder(parentId: string | null): Promise<string>;
@@ -95,6 +96,14 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     [gateway, refresh, rules],
   );
 
+  const duplicateFolder = useCallback(
+    async (id: string) => {
+      await gateway.duplicateNode(id);
+      await refresh();
+    },
+    [gateway, refresh],
+  );
+
   const removeNode = useCallback(
     async (id: string) => {
       await gateway.removeNode(id);
@@ -164,6 +173,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     addRule,
     updateRule,
     duplicateRule,
+    duplicateFolder,
     removeNode,
     moveNode,
     addFolder,

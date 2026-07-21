@@ -178,6 +178,42 @@ describe('RuleRepository.addFolder', () => {
   });
 });
 
+describe('RuleRepository.duplicateNode', () => {
+  it('should persist a folder clone as a sibling right after the source (AC-002)', async () => {
+    const repo = new RuleRepository(createFakeStorageArea());
+    await repo.saveWorkspace([folder('f', [ruleNode('r1'), ruleNode('r2')])]);
+
+    await repo.duplicateNode('f');
+
+    const workspace = await repo.getWorkspace();
+    expect(workspace).toHaveLength(2);
+    const [source, clone] = workspace;
+    expect(source.kind === 'folder' ? source.name : null).toBe('f');
+    expect(clone.kind === 'folder' ? clone.name : null).toBe('f (copy)');
+  });
+
+  it('should persist fresh rule ids so the flattened workspace has no duplicate ids (AC-005)', async () => {
+    const repo = new RuleRepository(createFakeStorageArea());
+    await repo.saveWorkspace([folder('f', [ruleNode('r1'), ruleNode('r2')])]);
+
+    await repo.duplicateNode('f');
+
+    const ids = (await repo.getAll()).map((rule) => rule.id);
+    expect(ids).toHaveLength(4);
+    expect(new Set(ids).size).toBe(4);
+  });
+
+  it('should leave the stored workspace unchanged if the id is unknown', async () => {
+    const repo = new RuleRepository(createFakeStorageArea());
+    await repo.saveWorkspace([folder('f', [ruleNode('r1')])]);
+    const before = await repo.getWorkspace();
+
+    await repo.duplicateNode('nope');
+
+    expect(await repo.getWorkspace()).toEqual(before);
+  });
+});
+
 describe('RuleRepository.renameFolder', () => {
   it('should persist a folder rename (AC-008)', async () => {
     const repo = new RuleRepository(createFakeStorageArea());

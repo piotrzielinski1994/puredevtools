@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import type { Rule } from './model';
 import type { FolderNode, RuleNode, TreeNode } from './model';
 import {
+  collectFolderIds,
   containsId,
+  duplicateNode,
   findNode,
   flatten,
   insertNode,
@@ -256,5 +258,157 @@ describe('walkRuleIds', () => {
 
   it('should return an empty list if the tree has no rules', () => {
     expect(walkRuleIds([folder('f', [folder('g')])])).toEqual([]);
+  });
+});
+
+const folderChildren = (node: TreeNode | undefined): TreeNode[] =>
+  node && node.kind === 'folder' ? node.children : [];
+
+const folderNameAt = (tree: TreeNode[], index: number): string | null => {
+  const node = tree[index];
+  return node && node.kind === 'folder' ? node.name : null;
+};
+
+const walkFolderIds = (tree: TreeNode[]): string[] =>
+  tree.flatMap((node) => (node.kind === 'folder' ? [node.id, ...walkFolderIds(node.children)] : []));
+
+describe('duplicateNode', () => {
+  it('should insert the clone as a sibling right after the source folder holding fresh rule ids (TC-001)', () => {
+    const tree: TreeNode[] = [folder('f', [ruleNode(buildRule({ id: 'r1' })), ruleNode(buildRule({ id: 'r2' }))])];
+
+    const result = duplicateNode(tree, 'f');
+
+    expect(rootIds(result)).toEqual(['f', 'folder-1']);
+    expect(folderNameAt(result, 0)).toBe('f');
+    expect(folderNameAt(result, 1)).toBe('f (copy)');
+    const cloneRuleIds = walkRuleIds([result[1]]);
+    expect(cloneRuleIds).toHaveLength(2);
+    expect(cloneRuleIds).not.toContain('r1');
+    expect(cloneRuleIds).not.toContain('r2');
+  });
+
+  it('should keep the source folder unchanged after duplication (TC-001)', () => {
+    const tree: TreeNode[] = [folder('f', [ruleNode(buildRule({ id: 'r1' })), ruleNode(buildRule({ id: 'r2' }))])];
+
+    const result = duplicateNode(tree, 'f');
+
+    expect(rootIds(folderChildren(result[0]))).toEqual(['r1', 'r2']);
+    expect(folderNameAt(result, 0)).toBe('f');
+  });
+
+  it('should mint fresh ids for every nested folder and rule while preserving nested names (TC-002, AC-003, AC-005)', () => {
+    const tree: TreeNode[] = [
+      folder('outer', [folder('inner', [ruleNode(buildRule({ id: 'deep', name: 'deep rule' }))])], {
+        name: 'outer',
+      }),
+    ];
+
+    const result = duplicateNode(tree, 'outer');
+    const clone = result[1];
+
+    expect(folderNameAt(result, 1)).toBe('outer (copy)');
+    const cloneFolderIds = [...collectFolderIds([clone])];
+    expect(cloneFolderIds).not.toContain('outer');
+    expect(cloneFolderIds).not.toContain('inner');
+    const innerClone = folderChildren(clone)[0];
+    expect(innerClone && innerClone.kind === 'folder' ? innerClone.name : null).toBe('inner');
+    const deepClone = folderChildren(innerClone)[0];
+    expect(deepClone && deepClone.kind === 'rule' ? deepClone.rule.name : null).toBe('deep rule');
+    expect(deepClone && deepClone.kind === 'rule' ? deepClone.rule.id : null).not.toBe('deep');
+  });
+
+  it('should not affect the original when the clone rule actions are mutated (TC-003, AC-004)', () => {
+    const tree: TreeNode[] = [folder('f', [ruleNode(buildRule({ id: 'r1' }))])];
+
+    const result = duplicateNode(tree, 'f');
+    const cloneRuleNode = folderChildren(result[1])[0];
+    if (cloneRuleNode && cloneRuleNode.kind === 'rule') {
+      cloneRuleNode.rule.actions.push({ type: 'rewriteBody', body: 'injected' });
+    }
+
+    const originalRuleNode = folderChildren(result[0])[0];
+    expect(originalRuleNode && originalRuleNode.kind === 'rule' ? originalRuleNode.rule.actions.length : -1).toBe(1);
+  });
+
+  it('should not affect the original when the clone matchers methods are mutated (TC-003, AC-004)', () => {
+    const source = buildRule({ id: 'r1', matchers: { url: { pattern: 'https://x/*', kind: 'glob' }, methods: ['GET'] } });
+    const tree: TreeNode[] = [folder('f', [ruleNode(source)])];
+
+    const result = duplicateNode(tree, 'f');
+    const cloneRuleNode = folderChildren(result[1])[0];
+    if (cloneRuleNode && cloneRuleNode.kind === 'rule') {
+      cloneRuleNode.rule.matchers.methods?.push('DELETE');
+    }
+
+    const originalRuleNode = folderChildren(result[0])[0];
+    expect(originalRuleNode && originalRuleNode.kind === 'rule' ? originalRuleNode.rule.matchers.methods : null).toEqual([
+      'GET',
+    ]);
+  });
+
+  it('should not affect the original children when the clone children array is mutated (TC-003, AC-004)', () => {
+    const tree: TreeNode[] = [folder('f', [ruleNode(buildRule({ id: 'r1' }))])];
+
+    const result = duplicateNode(tree, 'f');
+    const clone = result[1];
+    if (clone && clone.kind === 'folder') {
+      clone.children.push(ruleNode(buildRule({ id: 'injected' })));
+    }
+
+    expect(folderChildren(result[0])).toHaveLength(1);
+  });
+
+  it('should insert an empty (copy) clone preserving the collapsed flag if the source folder is empty (TC-004)', () => {
+    const tree: TreeNode[] = [folder('f', [], { collapsed: true })];
+
+    const result = duplicateNode(tree, 'f');
+    const clone = result[1];
+
+    expect(rootIds(result)).toEqual(['f', 'folder-1']);
+    expect(folderNameAt(result, 1)).toBe('f (copy)');
+    expect(folderChildren(clone)).toEqual([]);
+    expect(clone && clone.kind === 'folder' ? clone.collapsed : null).toBe(true);
+  });
+
+  it('should land the clone as a sibling inside the same parent if the source is a nested folder (TC-005)', () => {
+    const tree: TreeNode[] = [folder('parent', [folder('child', [ruleNode(buildRule({ id: 'r1' }))])])];
+
+    const result = duplicateNode(tree, 'child');
+
+    expect(rootIds(result)).toEqual(['parent']);
+    const parentChildren = folderChildren(result[0]);
+    expect(rootIds(parentChildren)).toEqual(['child', 'folder-1']);
+    expect(parentChildren[1] && parentChildren[1].kind === 'folder' ? parentChildren[1].name : null).toBe('child (copy)');
+  });
+
+  it('should mint ids that avoid every taken id and each other (TC-006, AC-005)', () => {
+    const tree: TreeNode[] = [
+      folder('folder-1', [ruleNode(buildRule({ id: 'r1' })), folder('folder-2', [ruleNode(buildRule({ id: 'r2' }))])]),
+    ];
+
+    const result = duplicateNode(tree, 'folder-1');
+
+    const allIds = [...walkFolderIds(result), ...walkRuleIds(result)];
+    expect(new Set(allIds).size).toBe(allIds.length);
+  });
+
+  it('should suffix only the top node name and leave every nested name untouched (AC-003)', () => {
+    const tree: TreeNode[] = [
+      folder('f', [folder('sub', [ruleNode(buildRule({ id: 'r1', name: 'kept' }))], { name: 'sub' })], { name: 'f' }),
+    ];
+
+    const result = duplicateNode(tree, 'f');
+    const clone = result[1];
+    const subClone = folderChildren(clone)[0];
+    const ruleInSub = folderChildren(subClone)[0];
+
+    expect(clone && clone.kind === 'folder' ? clone.name : null).toBe('f (copy)');
+    expect(subClone && subClone.kind === 'folder' ? subClone.name : null).toBe('sub');
+    expect(ruleInSub && ruleInSub.kind === 'rule' ? ruleInSub.rule.name : null).toBe('kept');
+  });
+
+  it('should return the tree unchanged if the id is unknown', () => {
+    const tree: TreeNode[] = [folder('f', [ruleNode(buildRule({ id: 'r1' }))]), ruleNode(buildRule({ id: 'r2' }))];
+    expect(duplicateNode(tree, 'nope')).toEqual(tree);
   });
 });
