@@ -3,7 +3,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HotkeysProvider } from '@tanstack/react-hotkeys';
-import type { CookieMapping, CookieSyncState, SyncResult } from '../../cookies/model';
+import type { CookieMapping, CookieSyncState, CookieTreeNode, SyncResult } from '../../cookies/model';
+import { flatten } from '../../cookies/tree';
 import { ToastProvider } from '../components/ui/toast';
 import { CookieSyncView } from './CookieSyncView';
 import type { CookieGateway } from './cookieGateway';
@@ -32,13 +33,15 @@ const createFakeGateway = (
   const saved: CookieSyncState[] = [];
   return {
     saved,
-    getAll: async () => ({ mappings: initial }),
+    getAll: async () => ({ tree: initial.map((mapping) => ({ kind: 'mapping', mapping })) }),
     save: async (state) => {
       saved.push(state);
     },
     sync: vi.fn(async () => syncResult),
   };
 };
+
+const savedMappings = (state: CookieSyncState | undefined): CookieMapping[] => (state ? flatten(state.tree) : []);
 
 const renderView = (gateway: CookieGateway) =>
   render(
@@ -84,7 +87,7 @@ describe('CookieSyncView', () => {
     renderView(gateway);
     const region = detail();
     fireEvent.click(await within(region).findByRole('button', { name: /add mapping/i }));
-    await waitFor(() => expect(gateway.saved.at(-1)?.mappings.length).toBe(1));
+    await waitFor(() => expect(savedMappings(gateway.saved.at(-1)).length).toBe(1));
     expect(within(sidebar()).queryByRole('button', { name: /add mapping/i })).not.toBeInTheDocument();
   });
 
@@ -104,15 +107,39 @@ describe('CookieSyncView', () => {
     const gateway = createFakeGateway([]);
     renderView(gateway);
     fireEvent.click(await screen.findByRole('button', { name: /add mapping/i }));
-    await waitFor(() => expect(gateway.saved.at(-1)?.mappings.length).toBe(1));
+    await waitFor(() => expect(savedMappings(gateway.saved.at(-1)).length).toBe(1));
     expect(within(detail()).getByLabelText(/mapping name/i)).toBeInTheDocument();
+  });
+
+  it('should add a new mapping from the empty-area sidebar context menu', async () => {
+    const gateway = createFakeGateway([]);
+    renderView(gateway);
+    await screen.findByText(/no cookie mappings/i);
+
+    fireEvent.contextMenu(screen.getByTestId('sidebar-background'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /new mapping/i }));
+
+    await waitFor(() => expect(savedMappings(gateway.saved.at(-1)).length).toBe(1));
+  });
+
+  it('should not let the sidebar contextmenu event reach window so the menu does not self-dismiss', async () => {
+    renderView(createFakeGateway([mapping()]));
+    await screen.findByDisplayValue('prod -> local');
+    const windowListener = vi.fn();
+    window.addEventListener('contextmenu', windowListener);
+
+    fireEvent.contextMenu(screen.getByTestId('sidebar-background'));
+
+    window.removeEventListener('contextmenu', windowListener);
+    expect(windowListener).not.toHaveBeenCalled();
+    expect(await screen.findByRole('menuitem', { name: /new mapping/i })).toBeInTheDocument();
   });
 
   it('should delete the selected mapping and persist the removal (TC-011)', async () => {
     const gateway = createFakeGateway([mapping()]);
     renderView(gateway);
     fireEvent.click(await within(detail()).findByRole('button', { name: /delete mapping/i }));
-    await waitFor(() => expect(gateway.saved.at(-1)?.mappings).toEqual([]));
+    await waitFor(() => expect(savedMappings(gateway.saved.at(-1))).toEqual([]));
   });
 
   it('should persist an edit to the target url (TC-014)', async () => {
@@ -120,7 +147,7 @@ describe('CookieSyncView', () => {
     renderView(gateway);
     const input = await within(detail()).findByLabelText(/target url/i);
     fireEvent.change(input, { target: { value: 'http://localhost:4000' } });
-    await waitFor(() => expect(gateway.saved.at(-1)?.mappings[0].targetUrl).toBe('http://localhost:4000'));
+    await waitFor(() => expect(savedMappings(gateway.saved.at(-1))[0].targetUrl).toBe('http://localhost:4000'));
   });
 
   it('should reflect a name edit in the sidebar row label (TC-011)', async () => {
@@ -139,7 +166,7 @@ describe('CookieSyncView', () => {
     const input = await within(detail()).findByLabelText(/cookie names/i);
     fireEvent.change(input, { target: { value: 'auth,  sid , refresh' } });
     await waitFor(() =>
-      expect(gateway.saved.at(-1)?.mappings[0].cookieNames).toEqual(['auth', 'sid', 'refresh']),
+      expect(savedMappings(gateway.saved.at(-1))[0].cookieNames).toEqual(['auth', 'sid', 'refresh']),
     );
   });
 
@@ -193,5 +220,95 @@ describe('CookieSyncView', () => {
     renderView(gateway);
     fireEvent.click(await within(detail()).findByRole('button', { name: /sync now/i }));
     expect(await screen.findByText(/copied 0 cookie/i)).toBeInTheDocument();
+  });
+});
+
+const createTreeGateway = (
+  tree: CookieTreeNode[],
+): CookieGateway & { saved: CookieSyncState[]; sync: ReturnType<typeof vi.fn> } => {
+  const saved: CookieSyncState[] = [];
+  return {
+    saved,
+    getAll: async () => ({ tree }),
+    save: async (state) => {
+      saved.push(state);
+    },
+    sync: vi.fn(async () => ({ copied: [], skipped: [] })),
+  };
+};
+
+const mappingNode = (over: Partial<CookieMapping> = {}): CookieTreeNode => ({ kind: 'mapping', mapping: mapping(over) });
+const cookieFolder = (id: string, children: CookieTreeNode[] = [], collapsed = false): CookieTreeNode => ({
+  kind: 'folder',
+  id,
+  name: id,
+  collapsed,
+  children,
+});
+
+describe('CookieSyncView folders', () => {
+  it('should render a nested folder/mapping tree to arbitrary depth (TC-005)', async () => {
+    renderView(createTreeGateway([cookieFolder('env', [cookieFolder('prod', [mappingNode({ id: 'cm1', name: 'auth' })])])]));
+    expect(await screen.findByLabelText('Folder: env')).toBeInTheDocument();
+    expect(screen.getByLabelText('Folder: prod')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mapping: auth')).toBeInTheDocument();
+  });
+
+  it('should offer New folder / Rename / Duplicate / Delete on a folder context menu (TC-006)', async () => {
+    renderView(createTreeGateway([cookieFolder('env')]));
+    fireEvent.contextMenu(await screen.findByLabelText('Folder: env'));
+    expect(await screen.findByRole('menuitem', { name: /new folder/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /rename/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /duplicate/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /delete/i })).toBeInTheDocument();
+  });
+
+  it('should offer Edit / Duplicate / Delete on a mapping context menu (TC-007)', async () => {
+    const gateway = createTreeGateway([mappingNode({ id: 'cm1', name: 'auth' })]);
+    renderView(gateway);
+    fireEvent.contextMenu(await screen.findByLabelText('Mapping: auth'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /duplicate/i }));
+    await waitFor(() => expect(savedMappings(gateway.saved.at(-1))).toHaveLength(2));
+  });
+
+  it('should add a folder from the empty-area context menu (TC-008)', async () => {
+    const gateway = createTreeGateway([mappingNode({ id: 'cm1' })]);
+    renderView(gateway);
+    await screen.findByLabelText('Mapping: prod -> local');
+    fireEvent.contextMenu(screen.getByTestId('sidebar-background'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /new folder/i }));
+    await waitFor(() => expect(gateway.saved.at(-1)?.tree.some((node) => node.kind === 'folder')).toBe(true));
+  });
+
+  it('should delete a folder and its whole subtree after a confirm (TC-011)', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const gateway = createTreeGateway([cookieFolder('env', [mappingNode({ id: 'cm1' })])]);
+    renderView(gateway);
+    fireEvent.contextMenu(await screen.findByLabelText('Folder: env'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /delete/i }));
+    await waitFor(() => expect(gateway.saved.at(-1)?.tree).toEqual([]));
+  });
+
+  it('should duplicate a folder subtree with fresh mapping ids (TC-012)', async () => {
+    const gateway = createTreeGateway([cookieFolder('env', [mappingNode({ id: 'cm1' })])]);
+    renderView(gateway);
+    fireEvent.contextMenu(await screen.findByLabelText('Folder: env'));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /duplicate/i }));
+    await waitFor(() => expect(savedMappings(gateway.saved.at(-1))).toHaveLength(2));
+    const ids = savedMappings(gateway.saved.at(-1)).map((m) => m.id);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it('should hide a collapsed folder children and persist the collapsed flag when toggled (TC-010)', async () => {
+    const gateway = createTreeGateway([cookieFolder('env', [mappingNode({ id: 'cm1', name: 'auth' })], true)]);
+    renderView(gateway);
+    const folderRow = await screen.findByLabelText('Folder: env');
+    expect(screen.queryByLabelText('Mapping: auth')).not.toBeInTheDocument();
+
+    fireEvent.click(folderRow);
+
+    await waitFor(() => expect(screen.getByLabelText('Mapping: auth')).toBeInTheDocument());
+    const savedFolder = gateway.saved.at(-1)?.tree[0];
+    expect(savedFolder && savedFolder.kind === 'folder' ? savedFolder.collapsed : null).toBe(false);
   });
 });

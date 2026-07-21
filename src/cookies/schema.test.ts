@@ -31,21 +31,45 @@ describe('cookieMappingSchema', () => {
   });
 });
 
+const mappingNode = (over: Record<string, unknown> = {}) => ({ kind: 'mapping', mapping: { ...validMapping, ...over } });
+const folderNode = (children: unknown[] = []) => ({
+  kind: 'folder',
+  id: 'folder-1',
+  name: 'env',
+  collapsed: false,
+  children,
+});
+
 describe('cookieSyncStateSchema', () => {
-  it('should parse a state carrying an array of mappings (TC-002)', () => {
-    const state = { mappings: [validMapping, { ...validMapping, id: 'cm2' }] };
+  it('should parse a state carrying a tree of mapping nodes (TC-003)', () => {
+    const state = { tree: [mappingNode(), mappingNode({ id: 'cm2' })] };
     expect(cookieSyncStateSchema.safeParse(state).success).toBe(true);
   });
 
-  it('should parse an empty state', () => {
-    expect(cookieSyncStateSchema.safeParse({ mappings: [] }).success).toBe(true);
+  it('should parse a nested folder tree to arbitrary depth (TC-003)', () => {
+    const state = { tree: [folderNode([folderNode([mappingNode()])])] };
+    expect(cookieSyncStateSchema.safeParse(state).success).toBe(true);
   });
 
-  it('should reject a state missing its mappings array', () => {
+  it('should parse an empty tree', () => {
+    expect(cookieSyncStateSchema.safeParse({ tree: [] }).success).toBe(true);
+  });
+
+  it('should reject a state missing its tree array', () => {
     expect(cookieSyncStateSchema.safeParse({}).success).toBe(false);
   });
 
   it('should reject a state carrying an unknown key (strict)', () => {
-    expect(cookieSyncStateSchema.safeParse({ mappings: [], foo: 1 }).success).toBe(false);
+    expect(cookieSyncStateSchema.safeParse({ tree: [], foo: 1 }).success).toBe(false);
+  });
+
+  it('should reject a mapping node carrying an unknown field (TC-004, strict)', () => {
+    const state = { tree: [{ kind: 'mapping', mapping: { ...validMapping, extra: 1 } }] };
+    expect(cookieSyncStateSchema.safeParse(state).success).toBe(false);
+  });
+
+  it('should reject a folder node carrying an unknown field (TC-004, strict)', () => {
+    const state = { tree: [{ ...folderNode(), extra: 1 }] };
+    expect(cookieSyncStateSchema.safeParse(state).success).toBe(false);
   });
 });

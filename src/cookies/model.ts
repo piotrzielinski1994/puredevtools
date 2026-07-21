@@ -9,8 +9,20 @@ export type CookieMapping = {
   cookieNames: string[];
 };
 
+export type CookieMappingNode = { kind: 'mapping'; mapping: CookieMapping };
+
+export type CookieFolderNode = {
+  kind: 'folder';
+  id: string;
+  name: string;
+  collapsed: boolean;
+  children: CookieTreeNode[];
+};
+
+export type CookieTreeNode = CookieMappingNode | CookieFolderNode;
+
 export type CookieSyncState = {
-  mappings: CookieMapping[];
+  tree: CookieTreeNode[];
 };
 
 export type SkipReason = 'not-found' | 'set-rejected';

@@ -1,15 +1,15 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import type { FolderNode, RuleNode, TreeNode } from '../../rules/model';
-import { emptyZoneId } from '../../rules/tree-locate';
-import { Switch } from '../components/ui/switch';
+import { emptyZoneId, type TreeFolder } from '../../shared/tree';
+import { isFolderNode, type SidebarLeaf, type SidebarNode } from './treeAdapter';
 import { cn } from '../lib/utils';
-import { useRules } from './RulesProvider';
 import { useTreeDnd } from './tree-dnd';
 import { openContextMenuOnKey, useTreeNav } from './tree-nav';
 
-const useRowNav = (id: string) => {
+type AnyNode = SidebarNode<SidebarLeaf>;
+
+export const useRowNav = (id: string) => {
   const { rovingId, contextMenuBindings, registerRow, handleKeyDown } = useTreeNav();
   return {
     tabIndex: rovingId === id ? 0 : -1,
@@ -22,26 +22,29 @@ const useRowNav = (id: string) => {
 };
 
 export type TreeUiContextValue = {
-  onEdit(ruleId: string): void;
-  onContextMenu(node: TreeNode, x: number, y: number): void;
+  onActivateLeaf(id: string): void;
+  onContextMenu(node: AnyNode, x: number, y: number): void;
   renamingId: string | undefined;
   beginRename(id: string): void;
   commitRename(id: string, name: string): void;
   cancelRename(): void;
   draggable: boolean;
+  toggleCollapse(id: string): void;
+  renderLeaf(node: SidebarLeaf, depth: number): ReactNode;
+  nodeId(node: AnyNode): string;
 };
 
 const TreeUiContext = createContext<TreeUiContextValue | undefined>(undefined);
 
 export const TreeUiProvider = TreeUiContext.Provider;
 
-const useTreeUi = (): TreeUiContextValue => {
+export const useTreeUi = (): TreeUiContextValue => {
   const value = useContext(TreeUiContext);
   if (!value) throw new Error('TreeRow must be used within a TreeUiProvider');
   return value;
 };
 
-const useRowDnd = (id: string, enabled: boolean) => {
+export const useRowDnd = (id: string, enabled: boolean) => {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({ id, disabled: !enabled });
   const { setNodeRef: setDropRef } = useDroppable({ id, disabled: !enabled });
   const { indicator } = useTreeDnd();
@@ -60,9 +63,62 @@ const useRowDnd = (id: string, enabled: boolean) => {
   };
 };
 
-const DropLine = () => (
+export const DropLine = () => (
   <div aria-hidden="true" data-testid="drop-line" className="pointer-events-none h-0.5 bg-primary" />
 );
+
+export const LeafRow = ({
+  node,
+  id,
+  ariaLabel,
+  depth,
+  children,
+}: {
+  node: AnyNode;
+  id: string;
+  ariaLabel: string;
+  depth: number;
+  children: ReactNode;
+}) => {
+  const { onContextMenu, draggable } = useTreeUi();
+  const { attributes, listeners, setNodeRef, isDragging, dropBefore, dropAfter } = useRowDnd(id, draggable);
+  const nav = useRowNav(id);
+
+  return (
+    <li className="relative">
+      {dropBefore ? <DropLine /> : null}
+      <div
+        ref={(el) => {
+          setNodeRef(el);
+          nav.ref(el);
+        }}
+        {...attributes}
+        {...listeners}
+        role="treeitem"
+        tabIndex={nav.tabIndex}
+        aria-label={ariaLabel}
+        onKeyDown={nav.onKeyDown}
+        onContextMenu={
+          draggable
+            ? (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onContextMenu(node, event.clientX, event.clientY);
+              }
+            : undefined
+        }
+        style={{ paddingLeft: `${depth * 14 + 8}px` }}
+        className={cn(
+          'group flex touch-none items-center gap-2 border-b border-b-border py-1.5 pr-2 transition-colors last:border-b-0 hover:bg-accent/40',
+          isDragging && 'opacity-50',
+        )}
+      >
+        {children}
+      </div>
+      {dropAfter ? <DropLine /> : null}
+    </li>
+  );
+};
 
 const RenameInput = ({ id, name }: { id: string; name: string }) => {
   const { commitRename, cancelRename } = useTreeUi();
@@ -94,6 +150,7 @@ const RenameInput = ({ id, name }: { id: string; name: string }) => {
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
+        event.stopPropagation();
         if (event.key === 'Enter') {
           event.preventDefault();
           finish(true);
@@ -130,9 +187,8 @@ const EmptyDropZone = ({ folderId, depth }: { folderId: string; depth: number })
   );
 };
 
-const FolderRow = ({ node, depth }: { node: FolderNode; depth: number }) => {
-  const { toggleCollapse } = useRules();
-  const { onContextMenu, renamingId, beginRename, draggable } = useTreeUi();
+const FolderRow = ({ node, depth }: { node: TreeFolder<SidebarLeaf>; depth: number }) => {
+  const { onContextMenu, renamingId, beginRename, draggable, toggleCollapse, nodeId } = useTreeUi();
   const { activeId } = useTreeDnd();
   const { attributes, listeners, setNodeRef, isDragging, dropBefore, dropAfter, dropInside } = useRowDnd(
     node.id,
@@ -168,7 +224,7 @@ const FolderRow = ({ node, depth }: { node: FolderNode; depth: number }) => {
               }
             : undefined
         }
-        onClick={() => void toggleCollapse(node.id)}
+        onClick={() => toggleCollapse(node.id)}
         onDoubleClick={draggable ? () => beginRename(node.id) : undefined}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
         className={cn(
@@ -184,7 +240,7 @@ const FolderRow = ({ node, depth }: { node: FolderNode; depth: number }) => {
       {node.collapsed ? null : (
         <ul className="flex list-none flex-col p-0">
           {node.children.map((child) => (
-            <TreeRow key={child.kind === 'rule' ? child.rule.id : child.id} node={child} depth={depth + 1} />
+            <TreeRow key={nodeId(child)} node={child} depth={depth + 1} />
           ))}
           {isEmpty && isDragActive ? <EmptyDropZone folderId={node.id} depth={depth + 1} /> : null}
         </ul>
@@ -193,77 +249,8 @@ const FolderRow = ({ node, depth }: { node: FolderNode; depth: number }) => {
   );
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  modifyResponseHeaders: 'headers',
-  rewriteBody: 'body',
-};
-
-const actionSummary = (node: RuleNode): string => {
-  const labels = node.rule.actions.map((action) => ACTION_LABELS[action.type]);
-  return labels.length > 0 ? labels.join(', ') : 'no actions';
-};
-
-const RuleRow = ({ node, depth }: { node: RuleNode; depth: number }) => {
-  const { updateRule } = useRules();
-  const { onEdit, onContextMenu, draggable } = useTreeUi();
-  const { attributes, listeners, setNodeRef, isDragging, dropBefore, dropAfter } = useRowDnd(node.rule.id, draggable);
-  const nav = useRowNav(node.rule.id);
-  const rule = node.rule;
-
-  return (
-    <li className="relative">
-      {dropBefore ? <DropLine /> : null}
-      <div
-        ref={(el) => {
-          setNodeRef(el);
-          nav.ref(el);
-        }}
-        {...attributes}
-        {...listeners}
-        role="treeitem"
-        tabIndex={nav.tabIndex}
-        aria-label={`Rule: ${rule.name}`}
-        onKeyDown={nav.onKeyDown}
-        onContextMenu={
-          draggable
-            ? (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onContextMenu(node, event.clientX, event.clientY);
-              }
-            : undefined
-        }
-        style={{ paddingLeft: `${depth * 14 + 8}px` }}
-        className={cn(
-          'group flex touch-none items-center gap-2 border-b border-b-border py-1.5 pr-2 transition-colors last:border-b-0 hover:bg-accent/40',
-          isDragging && 'opacity-50',
-        )}
-      >
-        <Switch
-          aria-label={`Enabled: ${rule.name}`}
-          checked={rule.enabled}
-          onChange={() => void updateRule({ ...rule, enabled: !rule.enabled })}
-        />
-        <button
-          type="button"
-          className="min-w-0 flex-1 cursor-pointer text-left"
-          aria-label={`Edit: ${rule.name}`}
-          onClick={() => onEdit(rule.id)}
-        >
-          <p className={`truncate text-sm font-medium ${rule.enabled ? '' : 'text-muted-foreground line-through'}`}>
-            {rule.name}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            <span className="font-mono">{rule.matchers.url.pattern || '(any URL)'}</span> · {actionSummary(node)}
-          </p>
-        </button>
-      </div>
-      {dropAfter ? <DropLine /> : null}
-    </li>
-  );
-};
-
-export const TreeRow = ({ node, depth }: { node: TreeNode; depth: number }) => {
-  if (node.kind === 'folder') return <FolderRow node={node} depth={depth} />;
-  return <RuleRow node={node} depth={depth} />;
+export const TreeRow = ({ node, depth }: { node: AnyNode; depth: number }) => {
+  const { renderLeaf } = useTreeUi();
+  if (isFolderNode(node)) return <FolderRow node={node} depth={depth} />;
+  return <>{renderLeaf(node, depth)}</>;
 };
