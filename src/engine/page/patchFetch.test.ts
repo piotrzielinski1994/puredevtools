@@ -1,8 +1,22 @@
-// @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+// @vitest-environment node
+// Runs in the node env, not jsdom: this file exercises pure request-plumbing
+// (fetch/Request/Headers), and Vitest 4's jsdom-env compat Request wrapper drops
+// method/headers when copying a Request that carries a body (it spreads {...init}),
+// which the real browser and node's spec-compliant Request both preserve. The only
+// DOM dependency is location.origin for relative-URL resolution, stubbed below to a
+// fixed page origin (resolveUrl reads globalThis.location.href exactly as in a page).
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Matchers, Rule, RuleAction } from '../../rules/model';
 import type { InterceptReport } from './types';
 import { createPatchedFetch } from './patchFetch';
+
+const PAGE_ORIGIN = 'http://localhost:3000';
+beforeAll(() => {
+  vi.stubGlobal('location', { href: `${PAGE_ORIGIN}/`, origin: PAGE_ORIGIN });
+});
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 const buildRule = (
   actions: RuleAction[],
@@ -274,7 +288,7 @@ describe('createPatchedFetch input normalization (AC-001)', () => {
 
 describe('createPatchedFetch relative URL resolution', () => {
   it('should resolve a relative string input against the page origin before matching a full-URL rule', async () => {
-    const origin = window.location.origin;
+    const origin = location.origin;
     const originalFetch = vi.fn<typeof fetch>(() => Promise.resolve(new Response('orig', { status: 200 })));
     const fetchImpl = createPatchedFetch(
       createDeps({
@@ -294,7 +308,7 @@ describe('createPatchedFetch relative URL resolution', () => {
   });
 
   it('should report the resolved absolute url in the sink for a relative request', async () => {
-    const origin = window.location.origin;
+    const origin = location.origin;
     const reports: InterceptReport[] = [];
     const fetchImpl = createPatchedFetch(
       createDeps({
