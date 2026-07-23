@@ -1,7 +1,7 @@
+import { Input } from "@pziel/pureui";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { collectFolderIds, findNode } from "../../rules/tree";
-import { Input } from "../components/ui/input";
 import { CloseConfirmDialog } from "./CloseConfirmDialog";
 import { createTabsStore } from "./createTabsStore";
 import { RuleForm } from "./RuleForm";

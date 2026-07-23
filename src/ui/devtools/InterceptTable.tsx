@@ -1,7 +1,6 @@
-import { Button } from "@pziel/pureui";
+import { Button, Input } from "@pziel/pureui";
 import { type RefObject, useMemo, useState } from "react";
 import type { PanelEntry } from "../../devtools/types";
-import { Input } from "../components/ui/input";
 
 export type InterceptTableProps = {
   entries: PanelEntry[];
