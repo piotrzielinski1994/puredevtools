@@ -676,8 +676,15 @@ describe("OptionsWorkspace", () => {
     setName("edited alpha");
 
     fireEvent.click(closeTab("alpha rule"));
-    const dialog = await confirmDialog();
-    fireEvent.click(dialog.parentElement as HTMLElement);
+    await confirmDialog();
+    // pureui's Dialog is a Radix compound: the backdrop is the sibling overlay
+    // element (data-slot="dialog-overlay"), dismissed by a real pointer press
+    // outside the content (Radix's DismissableLayer). fireEvent's synthetic
+    // pointer misses it; userEvent replays the full pointer sequence Radix needs.
+    const overlay = document.querySelector(
+      '[data-slot="dialog-overlay"]',
+    ) as HTMLElement;
+    await userEvent.pointer({ target: overlay, keys: "[MouseLeft]" });
 
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),

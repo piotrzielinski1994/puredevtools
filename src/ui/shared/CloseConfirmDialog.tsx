@@ -1,5 +1,12 @@
-import { Button } from "@pziel/pureui";
-import { Dialog } from "../components/ui/dialog";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@pziel/pureui";
 
 export type CloseConfirmDialogProps = {
   open: boolean;
@@ -18,13 +25,21 @@ export const CloseConfirmDialog = ({
   onDiscard,
   onCancel,
 }: CloseConfirmDialogProps) => (
-  <Dialog open={open} onClose={onCancel} title="Unsaved changes">
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        "{ruleLabel}" has unsaved changes.
-        {!canSave ? " Add a URL pattern to save, or discard." : null}
-      </p>
-      <div className="flex justify-end gap-2">
+  <Dialog
+    open={open}
+    onOpenChange={(next) => {
+      if (!next) onCancel();
+    }}
+  >
+    <DialogContent showCloseButton={false} className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Unsaved changes</DialogTitle>
+        <DialogDescription>
+          "{ruleLabel}" has unsaved changes.
+          {!canSave ? " Add a URL pattern to save, or discard." : null}
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
         <Button type="button" disabled={!canSave} onClick={onSave}>
           Save
         </Button>
@@ -34,7 +49,7 @@ export const CloseConfirmDialog = ({
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-      </div>
-    </div>
+      </DialogFooter>
+    </DialogContent>
   </Dialog>
 );
