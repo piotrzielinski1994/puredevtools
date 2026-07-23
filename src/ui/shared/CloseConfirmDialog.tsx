@@ -1,4 +1,4 @@
-import { Button } from "../components/ui/button";
+import { Button } from "@pziel/pureui";
 import { Dialog } from "../components/ui/dialog";
 
 export type CloseConfirmDialogProps = {

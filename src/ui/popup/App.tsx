@@ -1,7 +1,7 @@
+import { Button } from "@pziel/pureui";
 import { Settings } from "lucide-react";
 import { useMemo } from "react";
 import browser from "webextension-polyfill";
-import { Button } from "../components/ui/button";
 import { createGateway } from "../shared/createGateway";
 import { GlobalSwitch } from "../shared/GlobalSwitch";
 import { RulesProvider, useRules } from "../shared/RulesProvider";

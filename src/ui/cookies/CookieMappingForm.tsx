@@ -1,6 +1,6 @@
+import { Button } from "@pziel/pureui";
 import { RefreshCw, Trash2 } from "lucide-react";
 import type { CookieMapping } from "../../cookies/model";
-import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
 const parseNames = (raw: string): string[] =>

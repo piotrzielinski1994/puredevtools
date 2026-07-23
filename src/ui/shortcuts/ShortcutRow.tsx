@@ -1,3 +1,4 @@
+import { Button } from "@pziel/pureui";
 import { formatForDisplay } from "@tanstack/hotkeys";
 import { useState } from "react";
 import {
@@ -6,7 +7,6 @@ import {
   type ShortcutActionId,
 } from "../../shortcuts/registry";
 import { findConflict } from "../../shortcuts/resolve";
-import { Button } from "../components/ui/button";
 import { useShortcuts } from "../shared/shortcutsContext";
 import { useRecordHotkey } from "../shared/useRecordHotkey";
 

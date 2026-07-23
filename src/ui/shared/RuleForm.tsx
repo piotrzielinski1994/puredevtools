@@ -1,9 +1,8 @@
-import { cn } from "@pziel/pureui";
+import { Button, cn } from "@pziel/pureui";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { matchUrl } from "../../rules/match";
 import type { HttpMethod, PatternKind } from "../../rules/model";
-import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
