@@ -18,6 +18,15 @@ if (
   }
   window.PointerEvent = PointerEventShim as unknown as typeof PointerEvent;
 }
+// jsdom has no layout engine, so Element.scrollIntoView is undefined; Radix
+// Select (SelectItem) calls it when the listbox opens. Stub it so the compound
+// can mount and be driven in tests.
+if (
+  typeof Element !== "undefined" &&
+  typeof Element.prototype.scrollIntoView !== "function"
+) {
+  Element.prototype.scrollIntoView = () => undefined;
+}
 if (
   typeof Element !== "undefined" &&
   typeof Element.prototype.hasPointerCapture !== "function"

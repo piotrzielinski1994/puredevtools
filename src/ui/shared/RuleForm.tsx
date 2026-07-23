@@ -1,11 +1,19 @@
-import { Button, cn, Input } from "@pziel/pureui";
+import {
+  Button,
+  cn,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@pziel/pureui";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { matchUrl } from "../../rules/match";
 import type { HttpMethod, PatternKind } from "../../rules/model";
 import { Checkbox } from "../components/ui/checkbox";
 import { Label } from "../components/ui/label";
-import { Select } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import type { OpRow, RuleDraft } from "./ruleDraft";
 import { ScriptEditor } from "./ScriptEditor";
@@ -181,16 +189,20 @@ export const RuleForm = ({ draft, onDraftChange, onSave }: RuleFormProps) => {
           <div className="flex gap-3">
             <Field htmlFor="rule-kind" label="Match kind">
               <Select
-                id="rule-kind"
-                aria-label="Pattern kind"
-                className="w-40"
                 value={draft.kind}
-                onChange={(event) =>
-                  patch({ kind: event.target.value as PatternKind })
-                }
+                onValueChange={(value) => patch({ kind: value as PatternKind })}
               >
-                <option value="glob">glob</option>
-                <option value="regex">regex</option>
+                <SelectTrigger
+                  id="rule-kind"
+                  aria-label="Pattern kind"
+                  className="w-40"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="glob">glob</SelectItem>
+                  <SelectItem value="regex">regex</SelectItem>
+                </SelectContent>
               </Select>
             </Field>
             <div className="flex flex-1 flex-col gap-1.5">
@@ -361,15 +373,21 @@ const HeaderOpEditor = ({
       {rows.map((row, index) => (
         <div key={index} className="flex flex-wrap items-center gap-2">
           <Select
-            className="w-28"
-            aria-label={`${legend} op ${index}`}
             value={row.op}
-            onChange={(event) =>
-              update(index, { op: event.target.value as OpRow["op"] })
+            onValueChange={(value) =>
+              update(index, { op: value as OpRow["op"] })
             }
           >
-            <option value="set">set</option>
-            <option value="remove">remove</option>
+            <SelectTrigger
+              className="w-28"
+              aria-label={`${legend} op ${index}`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="set">set</SelectItem>
+              <SelectItem value="remove">remove</SelectItem>
+            </SelectContent>
           </Select>
           <Input
             className="w-40"
