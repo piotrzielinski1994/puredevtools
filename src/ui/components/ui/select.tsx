@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import { Check, ChevronDown } from "lucide-react";
 import {
   Children,
@@ -7,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "../../lib/utils";
 
 type Option = { value: string; label: ReactNode };
 

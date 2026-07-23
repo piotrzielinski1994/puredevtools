@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { matchUrl } from "../../rules/match";
@@ -8,7 +9,6 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { cn } from "../lib/utils";
 import type { OpRow, RuleDraft } from "./ruleDraft";
 import { ScriptEditor } from "./ScriptEditor";
 import type { ScriptStage } from "./script/model";

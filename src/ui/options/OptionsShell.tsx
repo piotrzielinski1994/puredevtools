@@ -1,7 +1,7 @@
+import { cn } from "@pziel/pureui";
 import { useState } from "react";
 import { CookieSyncView } from "../cookies/CookieSyncView";
 import type { CookieGateway } from "../cookies/cookieGateway";
-import { cn } from "../lib/utils";
 import { OptionsWorkspace } from "../shared/OptionsWorkspace";
 import { useRules } from "../shared/RulesProvider";
 import { SidebarChrome } from "../shared/SidebarChrome";

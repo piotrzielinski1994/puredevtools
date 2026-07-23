@@ -1,4 +1,5 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { cn } from "@pziel/pureui";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   createContext,
@@ -9,7 +10,6 @@ import {
   useState,
 } from "react";
 import { emptyZoneId, type TreeFolder } from "../../shared/tree";
-import { cn } from "../lib/utils";
 import { useTreeDnd } from "./tree-dnd";
 import { openContextMenuOnKey, useTreeNav } from "./tree-nav";
 import {

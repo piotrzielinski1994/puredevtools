@@ -1,3 +1,4 @@
+import { cn } from "@pziel/pureui";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -21,7 +22,6 @@ import {
 } from "../../cookies/tree";
 import type { MoveTarget } from "../../shared/tree";
 import { useToast } from "../components/ui/toast";
-import { cn } from "../lib/utils";
 import type { ContextMenuItem } from "../shared/ContextMenu";
 import { TreeSidebar } from "../shared/TreeSidebar";
 import type { TreeAdapter } from "../shared/treeAdapter";

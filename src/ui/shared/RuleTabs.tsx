@@ -1,5 +1,5 @@
+import { cn } from "@pziel/pureui";
 import { X } from "lucide-react";
-import { cn } from "../lib/utils";
 
 export type RuleTab = { key: string; label: string; isDirty?: boolean };
 

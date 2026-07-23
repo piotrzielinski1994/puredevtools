@@ -1,6 +1,6 @@
+import { cn } from "@pziel/pureui";
 import { cva, type VariantProps } from "class-variance-authority";
 import { forwardRef } from "react";
-import { cn } from "../../lib/utils";
 
 export const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium outline-none transition-all focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:pointer-events-none",
