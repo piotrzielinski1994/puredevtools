@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 export type InterceptTableProps = {
   entries: PanelEntry[];
   onClear(): void;
-  filterInputRef?: RefObject<HTMLInputElement>;
+  filterInputRef?: RefObject<HTMLInputElement | null>;
 };
 
 const prettyBody = (body: string): string => {
