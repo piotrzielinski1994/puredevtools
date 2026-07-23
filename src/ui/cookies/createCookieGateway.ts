@@ -1,8 +1,8 @@
-import browser from 'webextension-polyfill';
-import type { CookieApiPort } from '../../cookies/model';
-import { CookieSyncRepository } from '../../cookies/storage';
-import { syncMapping } from '../../cookies/sync';
-import type { CookieGateway } from './cookieGateway';
+import browser from "webextension-polyfill";
+import type { CookieApiPort } from "../../cookies/model";
+import { CookieSyncRepository } from "../../cookies/storage";
+import { syncMapping } from "../../cookies/sync";
+import type { CookieGateway } from "./cookieGateway";
 
 export const createCookieGateway = (): CookieGateway => {
   const repository = new CookieSyncRepository(browser.storage.local);

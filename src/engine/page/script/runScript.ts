@@ -15,7 +15,9 @@ export const runScript = async (
   const names = Object.keys(bindings);
   const values = names.map((name) => bindings[name]);
 
-  const buildFn = (): ((...values: unknown[]) => Promise<unknown>) | { error: string } => {
+  const buildFn = ():
+    | ((...values: unknown[]) => Promise<unknown>)
+    | { error: string } => {
     try {
       return new AsyncFunction(...names, source);
     } catch (cause) {
@@ -24,14 +26,17 @@ export const runScript = async (
   };
 
   const fn = buildFn();
-  if ('error' in fn) return { ok: false, error: fn.error };
+  if ("error" in fn) return { ok: false, error: fn.error };
 
   running = true;
   try {
     await fn(...values);
     return { ok: true };
   } catch (cause) {
-    return { ok: false, error: cause instanceof Error ? cause.message : String(cause) };
+    return {
+      ok: false,
+      error: cause instanceof Error ? cause.message : String(cause),
+    };
   } finally {
     running = false;
   }

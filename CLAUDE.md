@@ -20,7 +20,7 @@ Briefing for Claude Code. Read [README.md](README.md) first - build/dev commands
 - **`webextension-polyfill`** - promise-based cross-browser WebExtension API. Import `browser` from it; do not touch the global `chrome.*` directly.
 - **`zod` v3** - validate/parse anything crossing a boundary (message payloads, stored + imported rules).
 - **Vitest** (+ `@testing-library/react`, jsdom) - the only test layer. No Playwright/E2E.
-- **ESLint** (flat config). Package manager **npm**. Node managed by **mise** (`mise.toml` pins node 22) - no `.nvmrc`.
+- **Biome** (`biome.json` extends `@pziel/pureui/biome`, shared with the pure* suite; `npm run lint` = `biome check .`, `lint:fix` writes). Package manager **npm**. Node managed by **mise** (`mise.toml` pins node 22) - no `.nvmrc`.
 
 ## Cross-browser
 

@@ -1,16 +1,21 @@
-import { createContext, useContext } from 'react';
-import { matchesKeyboardEvent, type Hotkey } from '@tanstack/hotkeys';
+import { type Hotkey, matchesKeyboardEvent } from "@tanstack/hotkeys";
+import { createContext, useContext } from "react";
 
-export const openContextMenuOnKey = (event: React.KeyboardEvent, bindings: string[]): boolean => {
+export const openContextMenuOnKey = (
+  event: React.KeyboardEvent,
+  bindings: string[],
+): boolean => {
   const isMenuKey =
-    event.key === 'ContextMenu' ||
-    bindings.some((binding) => matchesKeyboardEvent(event.nativeEvent, binding as Hotkey));
+    event.key === "ContextMenu" ||
+    bindings.some((binding) =>
+      matchesKeyboardEvent(event.nativeEvent, binding as Hotkey),
+    );
   if (!isMenuKey) return false;
   const el = event.currentTarget as HTMLElement;
   const rect = el.getBoundingClientRect();
   event.preventDefault();
   el.dispatchEvent(
-    new MouseEvent('contextmenu', {
+    new MouseEvent("contextmenu", {
       bubbles: true,
       cancelable: true,
       clientX: Math.round(rect.left + rect.width / 2),
@@ -29,7 +34,7 @@ export type TreeNavState = {
 
 const TreeNavContext = createContext<TreeNavState>({
   rovingId: null,
-  contextMenuBindings: ['Shift+F10'],
+  contextMenuBindings: ["Shift+F10"],
   registerRow: () => {},
   handleKeyDown: () => {},
 });

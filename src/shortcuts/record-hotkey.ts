@@ -1,13 +1,13 @@
 import {
-  PUNCTUATION_CODE_MAP,
   detectPlatform,
   isModifierKey,
   normalizeHotkeyFromParsed,
   normalizeKeyName,
+  PUNCTUATION_CODE_MAP,
   rawHotkeyToParsedHotkey,
-} from '@tanstack/hotkeys';
+} from "@tanstack/hotkeys";
 
-type Platform = 'mac' | 'windows' | 'linux';
+type Platform = "mac" | "windows" | "linux";
 
 export type KeyEventLike = {
   ctrlKey?: boolean;
@@ -25,21 +25,24 @@ const physicalKey = (event: KeyEventLike): string | null => {
   const isModifier: boolean = isModifierKey(key);
   if (isModifier) return null;
   if (isAsciiLetter(key)) return key.toUpperCase();
-  const code = event.code ?? '';
-  if (code.startsWith('Key')) {
+  const code = event.code ?? "";
+  if (code.startsWith("Key")) {
     const letter = code.slice(3);
     if (isAsciiLetter(letter)) return letter.toUpperCase();
   }
-  if (code.startsWith('Digit')) {
+  if (code.startsWith("Digit")) {
     const digit = code.slice(5);
     if (/^[0-9]$/.test(digit)) return digit;
   }
   if (code in PUNCTUATION_CODE_MAP) return PUNCTUATION_CODE_MAP[code];
-  if (key === 'Dead' || key.length === 0) return null;
+  if (key === "Dead" || key.length === 0) return null;
   return key;
 };
 
-export const eventToHotkey = (event: KeyEventLike, platform: Platform = detectPlatform()): string | null => {
+export const eventToHotkey = (
+  event: KeyEventLike,
+  platform: Platform = detectPlatform(),
+): string | null => {
   const key = physicalKey(event);
   if (key === null) return null;
   const parsed = rawHotkeyToParsedHotkey(

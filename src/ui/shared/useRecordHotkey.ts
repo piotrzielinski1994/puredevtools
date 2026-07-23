@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { eventToHotkey } from '../../shortcuts/record-hotkey';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { eventToHotkey } from "../../shortcuts/record-hotkey";
 
 type RecordHotkeyOptions = {
   onRecord: (hotkey: string) => void;
@@ -12,7 +12,9 @@ type RecordHotkeyApi = {
   cancelRecording: () => void;
 };
 
-export const useRecordHotkey = (options: RecordHotkeyOptions): RecordHotkeyApi => {
+export const useRecordHotkey = (
+  options: RecordHotkeyOptions,
+): RecordHotkeyApi => {
   const [isRecording, setIsRecording] = useState(false);
   const optionsRef = useRef(options);
   useEffect(() => {
@@ -27,7 +29,7 @@ export const useRecordHotkey = (options: RecordHotkeyOptions): RecordHotkeyApi =
     const handler = (event: KeyboardEvent): void => {
       event.preventDefault();
       event.stopPropagation();
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         setIsRecording(false);
         optionsRef.current.onCancel?.();
         return;
@@ -37,8 +39,8 @@ export const useRecordHotkey = (options: RecordHotkeyOptions): RecordHotkeyApi =
       setIsRecording(false);
       optionsRef.current.onRecord(hotkey);
     };
-    document.addEventListener('keydown', handler, true);
-    return () => document.removeEventListener('keydown', handler, true);
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
   }, [isRecording]);
 
   return { isRecording, startRecording, cancelRecording };

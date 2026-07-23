@@ -1,7 +1,7 @@
-import browser from 'webextension-polyfill';
-import { z } from 'zod';
-import { STORAGE_KEYS } from '../../shared/constants';
-import type { OpenTabsState, TabsStore } from './useOpenTabs';
+import browser from "webextension-polyfill";
+import { z } from "zod";
+import { STORAGE_KEYS } from "../../shared/constants";
+import type { OpenTabsState, TabsStore } from "./useOpenTabs";
 
 const EMPTY: OpenTabsState = { openKeys: [], activeKey: null };
 

@@ -1,3 +1,5 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-export const shortcutOverridesSchema = z.record(z.string(), z.array(z.string())).catch({});
+export const shortcutOverridesSchema = z
+  .record(z.string(), z.array(z.string()))
+  .catch({});

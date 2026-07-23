@@ -1,8 +1,8 @@
-import { STORAGE_KEYS } from '../shared/constants';
-import type { StorageArea } from '../rules/storage';
-import type { CookieSyncState } from './model';
-import { cookieSyncStateSchema, legacyCookieSyncStateSchema } from './schema';
-import { migrateLegacy } from './tree';
+import type { StorageArea } from "../rules/storage";
+import { STORAGE_KEYS } from "../shared/constants";
+import type { CookieSyncState } from "./model";
+import { cookieSyncStateSchema, legacyCookieSyncStateSchema } from "./schema";
+import { migrateLegacy } from "./tree";
 
 const EMPTY: CookieSyncState = { tree: [] };
 

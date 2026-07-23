@@ -1,47 +1,62 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   DndContext,
+  type DragEndEvent,
+  type DragOverEvent,
   DragOverlay,
+  type DragStartEvent,
   PointerSensor,
   pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
-import { Copy, FilePlus, FolderPlus, Pencil, Trash2 } from 'lucide-react';
+} from "@dnd-kit/core";
+import { Copy, FilePlus, FolderPlus, Pencil, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ROOT_ZONE_ID,
   dropTargetBy,
   findNodeBy,
   locateNodeBy,
   parseEmptyZoneId,
   projectDropPosition,
-} from '../../shared/tree';
-import { resolveShortcuts } from '../../shortcuts/resolve';
-import { createTreeKeyboard } from '../../shared/tree-keyboard';
-import { useShortcutOverrides } from './shortcutsContext';
-import { useActionHotkeys } from './useActionHotkeys';
-import { TreeNavProvider } from './tree-nav';
-import { TreeRow, TreeUiProvider } from './TreeRow';
-import { TreeDndProvider, type DropIndicator } from './tree-dnd';
-import { ContextMenu, type ContextMenuItem } from './ContextMenu';
-import { isFolderNode, type SidebarLeaf, type SidebarNode, type TreeAdapter } from './treeAdapter';
+  ROOT_ZONE_ID,
+} from "../../shared/tree";
+import { createTreeKeyboard } from "../../shared/tree-keyboard";
+import { resolveShortcuts } from "../../shortcuts/resolve";
+import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import { useShortcutOverrides } from "./shortcutsContext";
+import { TreeRow, TreeUiProvider } from "./TreeRow";
+import { type DropIndicator, TreeDndProvider } from "./tree-dnd";
+import { TreeNavProvider } from "./tree-nav";
+import {
+  isFolderNode,
+  type SidebarLeaf,
+  type SidebarNode,
+  type TreeAdapter,
+} from "./treeAdapter";
+import { useActionHotkeys } from "./useActionHotkeys";
 
 const SPRING_LOAD_MS = 600;
 
-type MenuState<Leaf extends SidebarLeaf> = { node: SidebarNode<Leaf> | null; x: number; y: number };
+type MenuState<Leaf extends SidebarLeaf> = {
+  node: SidebarNode<Leaf> | null;
+  x: number;
+  y: number;
+};
 
-const RootDropZone = ({ isDragActive, isOver }: { isDragActive: boolean; isOver: boolean }) => {
+const RootDropZone = ({
+  isDragActive,
+  isOver,
+}: {
+  isDragActive: boolean;
+  isOver: boolean;
+}) => {
   const { setNodeRef } = useDroppable({ id: ROOT_ZONE_ID });
   return (
     <div
       ref={setNodeRef}
       aria-hidden="true"
       data-testid="root-drop-zone"
-      className={`min-h-16 ${isDragActive && isOver ? 'bg-accent/40' : ''}`}
+      className={`min-h-16 ${isDragActive && isOver ? "bg-accent/40" : ""}`}
     />
   );
 };
@@ -53,7 +68,11 @@ const pointerY = (event: DragOverEvent): number | null => {
   return rect ? rect.top + rect.height / 2 : null;
 };
 
-export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: TreeAdapter<Leaf> }) => {
+export const TreeSidebar = <Leaf extends SidebarLeaf>({
+  adapter,
+}: {
+  adapter: TreeAdapter<Leaf>;
+}) => {
   const {
     workspace,
     nodeId,
@@ -76,9 +95,13 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
   } = adapter;
 
   const bindings = resolveShortcuts(useShortcutOverrides());
-  const findNode = (tree: Array<SidebarNode<Leaf>>, id: string) => findNodeBy(tree, id, nodeId);
-  const locateNode = (tree: Array<SidebarNode<Leaf>>, id: string) => locateNodeBy(tree, id, nodeId);
-  const kb = useRef(createTreeKeyboard<Leaf>({ nodeId, findNode, locateNode })).current;
+  const findNode = (tree: Array<SidebarNode<Leaf>>, id: string) =>
+    findNodeBy(tree, id, nodeId);
+  const locateNode = (tree: Array<SidebarNode<Leaf>>, id: string) =>
+    locateNodeBy(tree, id, nodeId);
+  const kb = useRef(
+    createTreeKeyboard<Leaf>({ nodeId, findNode, locateNode }),
+  ).current;
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [indicator, setIndicator] = useState<DropIndicator | null>(null);
@@ -99,7 +122,10 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
 
   const expandedIds = kb.expandedFolderIds(workspace);
   const visibleIds = kb.flattenSelectable(workspace, expandedIds);
-  const rovingId = selectedId !== null && visibleIds.includes(selectedId) ? selectedId : (visibleIds[0] ?? null);
+  const rovingId =
+    selectedId !== null && visibleIds.includes(selectedId)
+      ? selectedId
+      : (visibleIds[0] ?? null);
 
   const handleKeyDown = useCallback(
     (focusedId: string, event: React.KeyboardEvent) => {
@@ -110,7 +136,7 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
         event: event.nativeEvent,
         bindings,
       });
-      if (command.type === 'none') return;
+      if (command.type === "none") return;
       event.preventDefault();
       const run: Record<typeof command.type, () => void> = {
         focus: () => setSelectedId(command.id),
@@ -118,10 +144,11 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
         toggle: () => void toggleCollapse(command.id),
         expand: () => void toggleCollapse(command.id),
         collapse: () => void toggleCollapse(command.id),
-        move: () => command.type === 'move' && void moveNode(command.id, command.target),
+        move: () =>
+          command.type === "move" && void moveNode(command.id, command.target),
       };
       run[command.type]();
-      const movesFocus = command.type === 'focus' || command.type === 'move';
+      const movesFocus = command.type === "focus" || command.type === "move";
       if (movesFocus) {
         setSelectedId(command.id);
         pendingFocusId.current = command.id;
@@ -143,11 +170,14 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
       springLoad.current = null;
     }
   };
-  useEffect(() => clearSpringLoad, []);
+  useEffect(() => clearSpringLoad, [clearSpringLoad]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
-  const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id));
+  const handleDragStart = (event: DragStartEvent) =>
+    setActiveId(String(event.active.id));
 
   const handleDragOver = (event: DragOverEvent) => {
     const overId = event.over ? String(event.over.id) : null;
@@ -157,7 +187,7 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
     }
     if (parseEmptyZoneId(overId) !== null || overId === ROOT_ZONE_ID) {
       clearSpringLoad();
-      setIndicator({ overId, position: 'inside' });
+      setIndicator({ overId, position: "inside" });
       return;
     }
     const over = findNode(workspace, overId);
@@ -180,8 +210,12 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
     const y = pointerY(event);
     const position =
       overRect && y !== null
-        ? projectDropPosition(y, { top: overRect.top, height: overRect.height }, Boolean(isOverFolder))
-        : 'before';
+        ? projectDropPosition(
+            y,
+            { top: overRect.top, height: overRect.height },
+            Boolean(isOverFolder),
+          )
+        : "before";
     setIndicator({ overId, position });
   };
 
@@ -192,15 +226,28 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
     setActiveId(null);
     setIndicator(null);
     if (!current || current.overId === dragId) return;
-    const target = dropTargetBy(workspace, dragId, current.overId, current.position, nodeId);
+    const target = dropTargetBy(
+      workspace,
+      dragId,
+      current.overId,
+      current.position,
+      nodeId,
+    );
     if (!target) return;
     const from = locateNode(workspace, dragId);
-    if (from && from.parentId === target.parentId && from.index === target.index) return;
+    if (
+      from &&
+      from.parentId === target.parentId &&
+      from.index === target.index
+    )
+      return;
     void moveNode(dragId, target);
   };
 
-  const openMenu = (node: SidebarNode<Leaf>, x: number, y: number) => setMenu({ node, x, y });
-  const openBackgroundMenu = (x: number, y: number) => setMenu({ node: null, x, y });
+  const openMenu = (node: SidebarNode<Leaf>, x: number, y: number) =>
+    setMenu({ node, x, y });
+  const openBackgroundMenu = (x: number, y: number) =>
+    setMenu({ node: null, x, y });
   const closeMenu = () => setMenu(undefined);
 
   const confirmRemove = (node: SidebarNode<Leaf>) => {
@@ -219,12 +266,12 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
   };
 
   useActionHotkeys({
-    'new-folder': () => void createFolder(null),
-    'duplicate-rule': () => {
+    "new-folder": () => void createFolder(null),
+    "duplicate-rule": () => {
       const node = rovingId ? findNode(workspace, rovingId) : undefined;
       if (node && !isFolderNode(node)) void adapter.duplicateLeaf(nodeId(node));
     },
-    'rename-node': () => {
+    "rename-node": () => {
       const node = rovingId ? findNode(workspace, rovingId) : undefined;
       if (node && isFolderNode(node)) beginRename(node.id);
     },
@@ -234,22 +281,43 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
     if (node === null) {
       return [
         { label: newLeafLabel, icon: FilePlus, onSelect: () => onNewLeaf() },
-        { label: 'New folder', icon: FolderPlus, onSelect: () => void createFolder(null) },
+        {
+          label: "New folder",
+          icon: FolderPlus,
+          onSelect: () => void createFolder(null),
+        },
       ];
     }
     if (isFolderNode(node)) {
       return [
-        { label: 'New folder', icon: FolderPlus, onSelect: () => void createFolder(node.id) },
-        { label: 'Rename', icon: Pencil, onSelect: () => beginRename(node.id) },
-        { label: 'Duplicate', icon: Copy, onSelect: () => void duplicateFolder(node.id) },
-        { label: 'Delete', icon: Trash2, destructive: true, onSelect: () => confirmRemove(node) },
+        {
+          label: "New folder",
+          icon: FolderPlus,
+          onSelect: () => void createFolder(node.id),
+        },
+        { label: "Rename", icon: Pencil, onSelect: () => beginRename(node.id) },
+        {
+          label: "Duplicate",
+          icon: Copy,
+          onSelect: () => void duplicateFolder(node.id),
+        },
+        {
+          label: "Delete",
+          icon: Trash2,
+          destructive: true,
+          onSelect: () => confirmRemove(node),
+        },
       ];
     }
     return leafMenuItems(node);
   };
 
   const activeNode = activeId ? findNode(workspace, activeId) : undefined;
-  const activeLabel = activeNode ? (isFolderNode(activeNode) ? activeNode.name : adapter.leafLabel(activeNode)) : '';
+  const activeLabel = activeNode
+    ? isFolderNode(activeNode)
+      ? activeNode.name
+      : adapter.leafLabel(activeNode)
+    : "";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -279,7 +347,12 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
           >
             <TreeDndProvider value={{ activeId, indicator }}>
               <TreeNavProvider
-                value={{ rovingId, contextMenuBindings: bindings['open-context-menu'], registerRow, handleKeyDown }}
+                value={{
+                  rovingId,
+                  contextMenuBindings: bindings["open-context-menu"],
+                  registerRow,
+                  handleKeyDown,
+                }}
               >
                 <TreeUiProvider
                   value={{
@@ -301,29 +374,45 @@ export const TreeSidebar = <Leaf extends SidebarLeaf>({ adapter }: { adapter: Tr
                   {workspace.length === 0 ? (
                     <div className="m-3 border border-dashed border-border px-3 py-6 text-center">
                       <p className="text-sm font-medium">{emptyTitle}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{emptyHint}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {emptyHint}
+                      </p>
                     </div>
                   ) : (
-                    <ul role="tree" aria-label={adapter.treeLabel} className="flex list-none flex-col p-0">
+                    <ul
+                      aria-label={adapter.treeLabel}
+                      className="flex list-none flex-col p-0"
+                    >
                       {workspace.map((node) => (
                         <TreeRow key={nodeId(node)} node={node} depth={0} />
                       ))}
                     </ul>
                   )}
                   {workspace.length > 0 ? (
-                    <RootDropZone isDragActive={activeId !== null} isOver={indicator?.overId === ROOT_ZONE_ID} />
+                    <RootDropZone
+                      isDragActive={activeId !== null}
+                      isOver={indicator?.overId === ROOT_ZONE_ID}
+                    />
                   ) : null}
                 </TreeUiProvider>
               </TreeNavProvider>
             </TreeDndProvider>
             <DragOverlay>
-              {activeNode ? <div className="bg-accent px-2 py-1 text-sm shadow">{activeLabel}</div> : null}
+              {activeNode ? (
+                <div className="bg-accent px-2 py-1 text-sm shadow">
+                  {activeLabel}
+                </div>
+              ) : null}
             </DragOverlay>
           </DndContext>
         )}
       </div>
       {menu ? (
-        <ContextMenu position={{ x: menu.x, y: menu.y }} items={menuItems(menu.node)} onClose={closeMenu} />
+        <ContextMenu
+          position={{ x: menu.x, y: menu.y }}
+          items={menuItems(menu.node)}
+          onClose={closeMenu}
+        />
       ) : null}
     </div>
   );

@@ -1,15 +1,16 @@
-import { parse } from 'espree';
-import { analyze, type Scope, type Reference } from 'eslint-scope';
-import globals from 'globals';
-import type { Program } from 'estree';
-import type { EditorView } from '@codemirror/view';
-import type { Diagnostic } from '@codemirror/lint';
-import type { ScriptStage } from './model';
+import type { Diagnostic } from "@codemirror/lint";
+import type { EditorView } from "@codemirror/view";
+import { analyze, type Reference, type Scope } from "eslint-scope";
+import { parse } from "espree";
+import type { Program } from "estree";
+import globals from "globals";
+import type { ScriptStage } from "./model";
 
 const ECMA_VERSION = 2022;
 
 const knownGlobalsFor = (stage: ScriptStage): ReadonlySet<string> => {
-  const stageGlobals = stage === 'post' ? ['console', 'req', 'res'] : ['console', 'req'];
+  const stageGlobals =
+    stage === "post" ? ["console", "req", "res"] : ["console", "req"];
   return new Set([...Object.keys(globals.builtin), ...stageGlobals]);
 };
 
@@ -23,13 +24,16 @@ export const jsUndefLinter =
   (view: EditorView): Diagnostic[] => {
     const doc = view.state.doc;
     const code = doc.toString();
-    if (code.trim() === '') return [];
+    if (code.trim() === "") return [];
 
     const known = knownGlobalsFor(stage);
     const ast = parseOrNull(code);
     if (ast === null) return [];
 
-    const scopeManager = analyze(ast, { ecmaVersion: ECMA_VERSION, sourceType: 'module' });
+    const scopeManager = analyze(ast, {
+      ecmaVersion: ECMA_VERSION,
+      sourceType: "module",
+    });
     if (scopeManager.globalScope === null) return [];
     const undefinedRefs = unresolvedReferences(scopeManager.globalScope).filter(
       (reference) => !known.has(reference.identifier.name),
@@ -42,7 +46,7 @@ export const jsUndefLinter =
       return {
         from: Math.min(from, doc.length),
         to: Math.min(Math.max(to, from + 1), doc.length),
-        severity: 'error',
+        severity: "error",
         message: `'${name}' is not defined.`,
       };
     });
@@ -50,7 +54,11 @@ export const jsUndefLinter =
 
 const parseOrNull = (code: string): Program | null => {
   try {
-    return parse(code, { ecmaVersion: ECMA_VERSION, sourceType: 'module', loc: true }) as unknown as Program;
+    return parse(code, {
+      ecmaVersion: ECMA_VERSION,
+      sourceType: "module",
+      loc: true,
+    }) as unknown as Program;
   } catch {
     return null;
   }

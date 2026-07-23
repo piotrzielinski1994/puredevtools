@@ -1,21 +1,31 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 const DISMISS_MS = 2500;
 
-type ToastVariant = 'success' | 'error';
+type ToastVariant = "success" | "error";
 
 type Toast = { id: number; message: string; variant?: ToastVariant };
 
-type ToastContextValue = { show(message: string, variant?: ToastVariant): void };
+type ToastContextValue = {
+  show(message: string, variant?: ToastVariant): void;
+};
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const NOOP: ToastContextValue = { show: () => undefined };
 
 const variantClass = (variant?: ToastVariant): string => {
-  if (variant === 'success') return 'text-emerald-600';
-  if (variant === 'error') return 'text-destructive';
-  return 'text-popover-foreground';
+  if (variant === "success") return "text-emerald-600";
+  if (variant === "error") return "text-destructive";
+  return "text-popover-foreground";
 };
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
@@ -26,7 +36,10 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     nextId.current += 1;
     const id = nextId.current;
     setToasts((current) => [...current, { id, message, variant }]);
-    setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), DISMISS_MS);
+    setTimeout(
+      () => setToasts((current) => current.filter((toast) => toast.id !== id)),
+      DISMISS_MS,
+    );
   }, []);
 
   const value = useMemo<ToastContextValue>(() => ({ show }), [show]);
@@ -52,4 +65,5 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useToast = (): ToastContextValue => useContext(ToastContext) ?? NOOP;
+export const useToast = (): ToastContextValue =>
+  useContext(ToastContext) ?? NOOP;

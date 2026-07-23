@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react';
-import type { DropPosition } from '../../rules/tree-locate';
+import { createContext, useContext } from "react";
+import type { DropPosition } from "../../rules/tree-locate";
 
 export type DropIndicator = { overId: string; position: DropPosition };
 
@@ -8,7 +8,10 @@ export type TreeDndState = {
   indicator: DropIndicator | null;
 };
 
-const TreeDndContext = createContext<TreeDndState>({ activeId: null, indicator: null });
+const TreeDndContext = createContext<TreeDndState>({
+  activeId: null,
+  indicator: null,
+});
 
 export const TreeDndProvider = TreeDndContext.Provider;
 

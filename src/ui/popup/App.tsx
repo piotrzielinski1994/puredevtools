@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
-import { Settings } from 'lucide-react';
-import browser from 'webextension-polyfill';
-import { Button } from '../components/ui/button';
-import { createGateway } from '../shared/createGateway';
-import { GlobalSwitch } from '../shared/GlobalSwitch';
-import { PopupTree } from './PopupTree';
-import { RulesProvider, useRules } from '../shared/RulesProvider';
-import { ShortcutsProvider } from '../shared/ShortcutsProvider';
-import { useActionHotkeys } from '../shared/useActionHotkeys';
-import { useTheme } from '../shared/useTheme';
+import { Settings } from "lucide-react";
+import { useMemo } from "react";
+import browser from "webextension-polyfill";
+import { Button } from "../components/ui/button";
+import { createGateway } from "../shared/createGateway";
+import { GlobalSwitch } from "../shared/GlobalSwitch";
+import { RulesProvider, useRules } from "../shared/RulesProvider";
+import { ShortcutsProvider } from "../shared/ShortcutsProvider";
+import { useActionHotkeys } from "../shared/useActionHotkeys";
+import { useTheme } from "../shared/useTheme";
+import { PopupTree } from "./PopupTree";
 
 const Summary = () => {
   const { status } = useRules();
-  if (status === 'loading') return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (status === "loading")
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
   return <PopupTree onEdit={() => void browser.runtime.openOptionsPage()} />;
 };
 
@@ -21,8 +22,8 @@ const PopupBody = () => {
   const [theme, setTheme] = useTheme();
 
   useActionHotkeys({
-    'toggle-global': () => void toggleGlobal(!globalEnabled),
-    'toggle-theme': () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+    "toggle-global": () => void toggleGlobal(!globalEnabled),
+    "toggle-theme": () => setTheme(theme === "dark" ? "light" : "dark"),
   });
 
   return (

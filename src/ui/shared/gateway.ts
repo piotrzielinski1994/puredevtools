@@ -1,9 +1,9 @@
-import type { Rule, TreeNode } from '../../rules/model';
-import type { MoveTarget } from '../../rules/tree';
+import type { Rule, TreeNode } from "../../rules/model";
+import type { MoveTarget } from "../../rules/tree";
 
 export type ImportOutcome = { ok: true } | { ok: false; error: string };
 
-export type ImportMode = 'replace' | 'merge';
+export type ImportMode = "replace" | "merge";
 
 export type UiGateway = {
   getWorkspace(): Promise<TreeNode[]>;

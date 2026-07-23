@@ -1,17 +1,17 @@
-import browser from 'webextension-polyfill';
-import type { TreeNode } from '../../rules/model';
-import { cloneRule } from '../../rules/clone';
-import { exportRules, importRules } from '../../rules/portable';
-import { mergeRules } from '../../rules/merge';
-import { RuleRepository } from '../../rules/storage';
-import type { ImportOutcome, UiGateway } from './gateway';
+import browser from "webextension-polyfill";
+import { cloneRule } from "../../rules/clone";
+import { mergeRules } from "../../rules/merge";
+import type { TreeNode } from "../../rules/model";
+import { exportRules, importRules } from "../../rules/portable";
+import { RuleRepository } from "../../rules/storage";
+import type { ImportOutcome, UiGateway } from "./gateway";
 
 const download = (json: string) => {
-  const blob = new Blob([json], { type: 'application/json' });
+  const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
+  const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = 'puredevtools.json';
+  anchor.download = "puredevtools.json";
   anchor.click();
   URL.revokeObjectURL(url);
 };
@@ -29,7 +29,8 @@ export const createGateway = (): UiGateway => {
     getGlobalEnabled: () => repository.getGlobalEnabled(),
     addRule: (rule) => repository.addRuleNode(rule),
     updateRule: (rule) => repository.updateRule(rule),
-    duplicateRule: (rule, newId) => repository.addRuleNode(cloneRule(rule, newId)),
+    duplicateRule: (rule, newId) =>
+      repository.addRuleNode(cloneRule(rule, newId)),
     duplicateNode: (id) => repository.duplicateNode(id),
     removeNode: (id) => repository.removeNode(id),
     moveNode: (dragId, target) => repository.moveNode(dragId, target),
@@ -47,9 +48,12 @@ export const createGateway = (): UiGateway => {
     importFromFile: async (json, mode): Promise<ImportOutcome> => {
       const result = importRules(json);
       if (!result.ok) return { ok: false, error: result.error };
-      if (mode === 'merge') {
+      if (mode === "merge") {
         const current = await repository.getWorkspace();
-        await persist(mergeRules(current, result.state.workspace), await repository.getGlobalEnabled());
+        await persist(
+          mergeRules(current, result.state.workspace),
+          await repository.getGlobalEnabled(),
+        );
         return { ok: true };
       }
       await persist(result.state.workspace, result.state.enabled);

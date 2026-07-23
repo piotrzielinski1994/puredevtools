@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from "react";
 
 export type DialogProps = {
   open: boolean;
@@ -9,7 +9,7 @@ export type DialogProps = {
 
 export const Dialog = ({ open, onClose, title, children }: DialogProps) => {
   const panelRef = useRef<HTMLDivElement>(null);
-  const titleId = 'dialog-title';
+  const titleId = "dialog-title";
 
   useEffect(() => {
     if (open) panelRef.current?.focus();
@@ -30,7 +30,7 @@ export const Dialog = ({ open, onClose, title, children }: DialogProps) => {
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') onClose();
+          if (event.key === "Escape") onClose();
         }}
         className="w-full max-w-md border border-border bg-popover text-popover-foreground shadow-md outline-none"
       >

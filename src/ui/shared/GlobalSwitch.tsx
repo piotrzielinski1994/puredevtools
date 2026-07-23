@@ -1,5 +1,5 @@
-import { Switch } from '../components/ui/switch';
-import { useRules } from './RulesProvider';
+import { Switch } from "../components/ui/switch";
+import { useRules } from "./RulesProvider";
 
 export const GlobalSwitch = () => {
   const { globalEnabled, toggleGlobal } = useRules();

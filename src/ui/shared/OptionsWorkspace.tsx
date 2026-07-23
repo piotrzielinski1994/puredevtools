@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
-import { Input } from '../components/ui/input';
-import { RuleForm } from './RuleForm';
-import { CloseConfirmDialog } from './CloseConfirmDialog';
-import { SidebarTree } from './SidebarTree';
-import { RuleTabs } from './RuleTabs';
-import { useOpenTabs, DRAFT_KEY, type TabsStore } from './useOpenTabs';
-import { useRuleDrafts } from './useRuleDrafts';
-import { emptyDraft, ruleToDraft, draftToRule, draftsEqual, type RuleDraft } from './ruleDraft';
-import { createTabsStore } from './createTabsStore';
-import { useDragWidth } from './useDragWidth';
-import { useRules } from './RulesProvider';
-import { useActionHotkeys } from './useActionHotkeys';
-import { collectFolderIds, findNode } from '../../rules/tree';
+import { Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { collectFolderIds, findNode } from "../../rules/tree";
+import { Input } from "../components/ui/input";
+import { CloseConfirmDialog } from "./CloseConfirmDialog";
+import { createTabsStore } from "./createTabsStore";
+import { RuleForm } from "./RuleForm";
+import { useRules } from "./RulesProvider";
+import { RuleTabs } from "./RuleTabs";
+import {
+  draftsEqual,
+  draftToRule,
+  emptyDraft,
+  type RuleDraft,
+  ruleToDraft,
+} from "./ruleDraft";
+import { SidebarTree } from "./SidebarTree";
+import { useActionHotkeys } from "./useActionHotkeys";
+import { useDragWidth } from "./useDragWidth";
+import { DRAFT_KEY, type TabsStore, useOpenTabs } from "./useOpenTabs";
+import { useRuleDrafts } from "./useRuleDrafts";
 
 const SIDEBAR_DEFAULT = 320;
 const SIDEBAR_MIN = 240;
@@ -25,8 +31,17 @@ export const OptionsWorkspace = ({
   tabsStore?: TabsStore;
   sidebarHeader?: React.ReactNode;
 }) => {
-  const { workspace, rules, status, error, addRule, updateRule, removeNode, toggleCollapse } = useRules();
-  const [filter, setFilter] = useState('');
+  const {
+    workspace,
+    rules,
+    status,
+    error,
+    addRule,
+    updateRule,
+    removeNode,
+    toggleCollapse,
+  } = useRules();
+  const [filter, setFilter] = useState("");
   const [pendingClose, setPendingClose] = useState<string | null>(null);
 
   const sidebar = useDragWidth(SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX);
@@ -35,11 +50,14 @@ export const OptionsWorkspace = ({
   const ruleIds = useMemo(() => rules.map((rule) => rule.id), [rules]);
   const { openKeys, activeKey, open, close, setActive } = useOpenTabs(ruleIds, {
     store,
-    ready: status === 'ready',
+    ready: status === "ready",
   });
 
   const drafts = useRuleDrafts();
-  const rulesById = useMemo(() => new Map(rules.map((rule) => [rule.id, rule] as const)), [rules]);
+  const rulesById = useMemo(
+    () => new Map(rules.map((rule) => [rule.id, rule] as const)),
+    [rules],
+  );
 
   useEffect(() => {
     drafts.prune(openKeys);
@@ -50,18 +68,29 @@ export const OptionsWorkspace = ({
     const rule = rulesById.get(key);
     return rule ? ruleToDraft(rule) : emptyDraft();
   };
-  const draftFor = (key: string): RuleDraft => drafts.getEdit(key) ?? baselineFor(key);
+  const draftFor = (key: string): RuleDraft =>
+    drafts.getEdit(key) ?? baselineFor(key);
   const isDirty = (key: string): boolean => {
     const edit = drafts.getEdit(key);
     return edit !== undefined && !draftsEqual(edit, baselineFor(key));
   };
 
-  const labelFor = (key: string): string => (key === DRAFT_KEY ? 'New rule' : (rulesById.get(key)?.name ?? key));
+  const labelFor = (key: string): string =>
+    key === DRAFT_KEY ? "New rule" : (rulesById.get(key)?.name ?? key);
 
-  const tabs = openKeys.map((key) => ({ key, label: labelFor(key), isDirty: isDirty(key) }));
+  const tabs = openKeys.map((key) => ({
+    key,
+    label: labelFor(key),
+    isDirty: isDirty(key),
+  }));
 
-  const commitTab = async (key: string): Promise<{ ok: boolean; error?: string; ruleId?: string }> => {
-    const built = draftToRule(draftFor(key), key === DRAFT_KEY ? undefined : rulesById.get(key));
+  const commitTab = async (
+    key: string,
+  ): Promise<{ ok: boolean; error?: string; ruleId?: string }> => {
+    const built = draftToRule(
+      draftFor(key),
+      key === DRAFT_KEY ? undefined : rulesById.get(key),
+    );
     if (!built.ok) return { ok: false, error: built.error };
     await (key === DRAFT_KEY ? addRule(built.rule) : updateRule(built.rule));
     drafts.discard(key);
@@ -88,34 +117,39 @@ export const OptionsWorkspace = ({
   const setCollapsedAll = (collapsed: boolean) =>
     collectFolderIds(workspace).forEach((id) => {
       const folder = findNode(workspace, id);
-      if (folder?.kind === 'folder' && folder.collapsed !== collapsed) void toggleCollapse(id);
+      if (folder?.kind === "folder" && folder.collapsed !== collapsed)
+        void toggleCollapse(id);
     });
 
   useActionHotkeys({
-    'new-item': () => open(DRAFT_KEY),
-    'delete-item': () => {
-      if (activeKey !== null && activeKey !== DRAFT_KEY) void removeNode(activeKey);
+    "new-item": () => open(DRAFT_KEY),
+    "delete-item": () => {
+      if (activeKey !== null && activeKey !== DRAFT_KEY)
+        void removeNode(activeKey);
     },
-    'close-tab': () => {
+    "close-tab": () => {
       if (activeKey !== null) requestClose(activeKey);
     },
-    'next-tab': () => shiftActive(1),
-    'prev-tab': () => shiftActive(-1),
-    'collapse-all-folders': () => setCollapsedAll(true),
-    'expand-all-folders': () => setCollapsedAll(false),
+    "next-tab": () => shiftActive(1),
+    "prev-tab": () => shiftActive(-1),
+    "collapse-all-folders": () => setCollapsedAll(true),
+    "expand-all-folders": () => setCollapsedAll(false),
   });
 
   return (
     <div className="flex h-full flex-col">
-      {status === 'loading' ? (
+      {status === "loading" ? (
         <p className="p-4 text-sm text-muted-foreground">Loading rules…</p>
-      ) : status === 'error' ? (
+      ) : status === "error" ? (
         <p role="alert" className="p-4 text-sm text-destructive">
           Failed to load rules: {error}
         </p>
       ) : (
         <div className="flex min-h-0 flex-1">
-          <aside className="flex flex-col bg-muted/30" style={{ width: sidebar.width }}>
+          <aside
+            className="flex flex-col bg-muted/30"
+            style={{ width: sidebar.width }}
+          >
             {sidebarHeader}
             <div className="flex h-9 shrink-0 items-stretch border-b">
               <Input
@@ -126,7 +160,11 @@ export const OptionsWorkspace = ({
                 onChange={(event) => setFilter(event.target.value)}
               />
             </div>
-            <SidebarTree filter={filter} onEdit={(ruleId) => open(ruleId)} onNewRule={() => open(DRAFT_KEY)} />
+            <SidebarTree
+              filter={filter}
+              onEdit={(ruleId) => open(ruleId)}
+              onNewRule={() => open(DRAFT_KEY)}
+            />
           </aside>
 
           <div
@@ -139,7 +177,12 @@ export const OptionsWorkspace = ({
 
           <section className="flex min-w-0 flex-1 flex-col">
             <div className="flex h-9 shrink-0 items-stretch border-b bg-muted/30">
-              <RuleTabs tabs={tabs} activeKey={activeKey} onActivate={setActive} onClose={requestClose} />
+              <RuleTabs
+                tabs={tabs}
+                activeKey={activeKey}
+                onActivate={setActive}
+                onClose={requestClose}
+              />
               <button
                 type="button"
                 aria-label="New rule"
@@ -175,8 +218,16 @@ export const OptionsWorkspace = ({
       )}
       <CloseConfirmDialog
         open={pendingClose !== null}
-        ruleLabel={pendingClose !== null ? labelFor(pendingClose) : ''}
-        canSave={pendingClose !== null && draftToRule(draftFor(pendingClose), pendingClose === DRAFT_KEY ? undefined : rulesById.get(pendingClose)).ok}
+        ruleLabel={pendingClose !== null ? labelFor(pendingClose) : ""}
+        canSave={
+          pendingClose !== null &&
+          draftToRule(
+            draftFor(pendingClose),
+            pendingClose === DRAFT_KEY
+              ? undefined
+              : rulesById.get(pendingClose),
+          ).ok
+        }
         onSave={async () => {
           if (pendingClose === null) return;
           const result = await commitTab(pendingClose);

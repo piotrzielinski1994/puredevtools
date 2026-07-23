@@ -1,16 +1,28 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { emptyZoneId, type TreeFolder } from '../../shared/tree';
-import { isFolderNode, type SidebarLeaf, type SidebarNode } from './treeAdapter';
-import { cn } from '../lib/utils';
-import { useTreeDnd } from './tree-dnd';
-import { openContextMenuOnKey, useTreeNav } from './tree-nav';
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { emptyZoneId, type TreeFolder } from "../../shared/tree";
+import { cn } from "../lib/utils";
+import { useTreeDnd } from "./tree-dnd";
+import { openContextMenuOnKey, useTreeNav } from "./tree-nav";
+import {
+  isFolderNode,
+  type SidebarLeaf,
+  type SidebarNode,
+} from "./treeAdapter";
 
 type AnyNode = SidebarNode<SidebarLeaf>;
 
 export const useRowNav = (id: string) => {
-  const { rovingId, contextMenuBindings, registerRow, handleKeyDown } = useTreeNav();
+  const { rovingId, contextMenuBindings, registerRow, handleKeyDown } =
+    useTreeNav();
   return {
     tabIndex: rovingId === id ? 0 : -1,
     ref: (el: HTMLElement | null) => registerRow(id, el),
@@ -40,12 +52,17 @@ export const TreeUiProvider = TreeUiContext.Provider;
 
 export const useTreeUi = (): TreeUiContextValue => {
   const value = useContext(TreeUiContext);
-  if (!value) throw new Error('TreeRow must be used within a TreeUiProvider');
+  if (!value) throw new Error("TreeRow must be used within a TreeUiProvider");
   return value;
 };
 
 export const useRowDnd = (id: string, enabled: boolean) => {
-  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({ id, disabled: !enabled });
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({ id, disabled: !enabled });
   const { setNodeRef: setDropRef } = useDroppable({ id, disabled: !enabled });
   const { indicator } = useTreeDnd();
   const setNodeRef = (el: HTMLElement | null) => {
@@ -57,14 +74,18 @@ export const useRowDnd = (id: string, enabled: boolean) => {
     listeners: enabled ? listeners : {},
     setNodeRef,
     isDragging,
-    dropBefore: indicator?.overId === id && indicator.position === 'before',
-    dropAfter: indicator?.overId === id && indicator.position === 'after',
-    dropInside: indicator?.overId === id && indicator.position === 'inside',
+    dropBefore: indicator?.overId === id && indicator.position === "before",
+    dropAfter: indicator?.overId === id && indicator.position === "after",
+    dropInside: indicator?.overId === id && indicator.position === "inside",
   };
 };
 
 export const DropLine = () => (
-  <div aria-hidden="true" data-testid="drop-line" className="pointer-events-none h-0.5 bg-primary" />
+  <div
+    aria-hidden="true"
+    data-testid="drop-line"
+    className="pointer-events-none h-0.5 bg-primary"
+  />
 );
 
 export const LeafRow = ({
@@ -81,7 +102,14 @@ export const LeafRow = ({
   children: ReactNode;
 }) => {
   const { onContextMenu, draggable } = useTreeUi();
-  const { attributes, listeners, setNodeRef, isDragging, dropBefore, dropAfter } = useRowDnd(id, draggable);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    isDragging,
+    dropBefore,
+    dropAfter,
+  } = useRowDnd(id, draggable);
   const nav = useRowNav(id);
 
   return (
@@ -109,8 +137,8 @@ export const LeafRow = ({
         }
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
         className={cn(
-          'group flex touch-none items-center gap-2 border-b border-b-border py-1.5 pr-2 transition-colors last:border-b-0 hover:bg-accent/40',
-          isDragging && 'opacity-50',
+          "group flex touch-none items-center gap-2 border-b border-b-border py-1.5 pr-2 transition-colors last:border-b-0 hover:bg-accent/40",
+          isDragging && "opacity-50",
         )}
       >
         {children}
@@ -151,12 +179,12 @@ const RenameInput = ({ id, name }: { id: string; name: string }) => {
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         event.stopPropagation();
-        if (event.key === 'Enter') {
+        if (event.key === "Enter") {
           event.preventDefault();
           finish(true);
           return;
         }
-        if (event.key === 'Escape') {
+        if (event.key === "Escape") {
           event.preventDefault();
           finish(false);
         }
@@ -167,7 +195,13 @@ const RenameInput = ({ id, name }: { id: string; name: string }) => {
   );
 };
 
-const EmptyDropZone = ({ folderId, depth }: { folderId: string; depth: number }) => {
+const EmptyDropZone = ({
+  folderId,
+  depth,
+}: {
+  folderId: string;
+  depth: number;
+}) => {
   const zoneId = emptyZoneId(folderId);
   const { setNodeRef } = useDroppable({ id: zoneId });
   const { indicator } = useTreeDnd();
@@ -179,7 +213,10 @@ const EmptyDropZone = ({ folderId, depth }: { folderId: string; depth: number })
         aria-hidden="true"
         data-testid="empty-drop-zone"
         style={{ paddingLeft: `${depth * 14 + 12}px` }}
-        className={cn('py-1 pr-2 text-xs italic text-muted-foreground', isOver && 'ring-1 ring-inset ring-primary')}
+        className={cn(
+          "py-1 pr-2 text-xs italic text-muted-foreground",
+          isOver && "ring-1 ring-inset ring-primary",
+        )}
       >
         Drop here
       </div>
@@ -187,13 +224,31 @@ const EmptyDropZone = ({ folderId, depth }: { folderId: string; depth: number })
   );
 };
 
-const FolderRow = ({ node, depth }: { node: TreeFolder<SidebarLeaf>; depth: number }) => {
-  const { onContextMenu, renamingId, beginRename, draggable, toggleCollapse, nodeId } = useTreeUi();
-  const { activeId } = useTreeDnd();
-  const { attributes, listeners, setNodeRef, isDragging, dropBefore, dropAfter, dropInside } = useRowDnd(
-    node.id,
+const FolderRow = ({
+  node,
+  depth,
+}: {
+  node: TreeFolder<SidebarLeaf>;
+  depth: number;
+}) => {
+  const {
+    onContextMenu,
+    renamingId,
+    beginRename,
     draggable,
-  );
+    toggleCollapse,
+    nodeId,
+  } = useTreeUi();
+  const { activeId } = useTreeDnd();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    isDragging,
+    dropBefore,
+    dropAfter,
+    dropInside,
+  } = useRowDnd(node.id, draggable);
   const nav = useRowNav(node.id);
   const Chevron = node.collapsed ? ChevronRight : ChevronDown;
   const isEmpty = node.children.length === 0;
@@ -228,13 +283,17 @@ const FolderRow = ({ node, depth }: { node: TreeFolder<SidebarLeaf>; depth: numb
         onDoubleClick={draggable ? () => beginRename(node.id) : undefined}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
         className={cn(
-          'group flex cursor-pointer touch-none items-center gap-1 border-b border-b-border py-1.5 pr-2 text-sm font-medium transition-colors hover:bg-accent/40',
-          isDragging && 'opacity-50',
-          dropInside && 'ring-1 ring-inset ring-primary',
+          "group flex cursor-pointer touch-none items-center gap-1 border-b border-b-border py-1.5 pr-2 text-sm font-medium transition-colors hover:bg-accent/40",
+          isDragging && "opacity-50",
+          dropInside && "ring-1 ring-inset ring-primary",
         )}
       >
         <Chevron className="size-3.5 shrink-0 text-muted-foreground" />
-        {isRenaming ? <RenameInput id={node.id} name={node.name} /> : <span className="truncate">{node.name}</span>}
+        {isRenaming ? (
+          <RenameInput id={node.id} name={node.name} />
+        ) : (
+          <span className="truncate">{node.name}</span>
+        )}
       </div>
       {dropAfter ? <DropLine /> : null}
       {node.collapsed ? null : (
@@ -242,7 +301,9 @@ const FolderRow = ({ node, depth }: { node: TreeFolder<SidebarLeaf>; depth: numb
           {node.children.map((child) => (
             <TreeRow key={nodeId(child)} node={child} depth={depth + 1} />
           ))}
-          {isEmpty && isDragActive ? <EmptyDropZone folderId={node.id} depth={depth + 1} /> : null}
+          {isEmpty && isDragActive ? (
+            <EmptyDropZone folderId={node.id} depth={depth + 1} />
+          ) : null}
         </ul>
       )}
     </li>

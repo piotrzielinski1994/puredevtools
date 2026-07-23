@@ -27,7 +27,8 @@ const parseBody = (body: string): unknown => {
   }
 };
 
-const serializeBody = (body: unknown): string => (typeof body === 'string' ? body : JSON.stringify(body));
+const serializeBody = (body: unknown): string =>
+  typeof body === "string" ? body : JSON.stringify(body);
 
 export type RequestFacade = ReturnType<typeof createRequestFacade>;
 export type ResponseFacade = ReturnType<typeof createResponseFacade>;
@@ -43,10 +44,11 @@ export const createRequestFacade = (req: MutableRequest) => ({
     req.method = method;
   },
   getHeader: (name: string): string | null => req.headers.get(name),
-  setHeader: (name: string, value: string): void => req.headers.set(name, value),
+  setHeader: (name: string, value: string): void =>
+    req.headers.set(name, value),
   removeHeader: (name: string): void => req.headers.delete(name),
   getHeaders: (): Record<string, string> => headersToRecord(req.headers),
-  getBody: (): unknown => parseBody(req.body ?? ''),
+  getBody: (): unknown => parseBody(req.body ?? ""),
   setBody: (body: unknown): void => {
     req.body = serializeBody(body);
   },
@@ -55,7 +57,8 @@ export const createRequestFacade = (req: MutableRequest) => ({
 export const createResponseFacade = (res: MutableResponse) => ({
   getStatus: (): number => res.status,
   getHeader: (name: string): string | null => res.headers.get(name),
-  setHeader: (name: string, value: string): void => res.headers.set(name, value),
+  setHeader: (name: string, value: string): void =>
+    res.headers.set(name, value),
   removeHeader: (name: string): void => res.headers.delete(name),
   getHeaders: (): Record<string, string> => headersToRecord(res.headers),
   getBody: (): unknown => parseBody(res.body),
@@ -71,7 +74,7 @@ export const createResponseFacade = (res: MutableResponse) => ({
   },
 });
 
-const CONSOLE_PREFIX = '[puredevtools script]';
+const CONSOLE_PREFIX = "[puredevtools script]";
 
 export const createConsoleFacade = (sink: (...args: unknown[]) => void) => ({
   log: (...args: unknown[]): void => sink(CONSOLE_PREFIX, ...args),

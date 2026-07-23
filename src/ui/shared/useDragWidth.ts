@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const clampWidth = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
@@ -9,7 +9,11 @@ export type DragWidth = {
   onHandleMouseDown(event: { clientX: number; preventDefault(): void }): void;
 };
 
-export const useDragWidth = (initial: number, min: number, max: number): DragWidth => {
+export const useDragWidth = (
+  initial: number,
+  min: number,
+  max: number,
+): DragWidth => {
   const [width, setWidth] = useState(() => clampWidth(initial, min, max));
   const [isDragging, setIsDragging] = useState(false);
   const startX = useRef(0);
@@ -28,13 +32,19 @@ export const useDragWidth = (initial: number, min: number, max: number): DragWid
   useEffect(() => {
     if (!isDragging) return;
     const onMove = (event: MouseEvent) =>
-      setWidth(clampWidth(startWidth.current + (event.clientX - startX.current), min, max));
+      setWidth(
+        clampWidth(
+          startWidth.current + (event.clientX - startX.current),
+          min,
+          max,
+        ),
+      );
     const onUp = () => setIsDragging(false);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
     };
   }, [isDragging, min, max]);
 

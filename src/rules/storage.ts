@@ -1,18 +1,18 @@
-import { STORAGE_KEYS } from '../shared/constants';
-import type { Rule, TreeNode } from './model';
+import { STORAGE_KEYS } from "../shared/constants";
+import type { Rule, TreeNode } from "./model";
 import {
   addFolderNode,
   duplicateNode as duplicateTreeNode,
   flatten,
   insertNode,
+  type MoveTarget,
   moveNode as moveTreeNode,
   newFolderId,
   removeNode as removeTreeNode,
   renameFolder as renameTreeFolder,
   toggleCollapse as toggleTreeCollapse,
   updateRuleInTree,
-  type MoveTarget,
-} from './tree';
+} from "./tree";
 
 export type StorageArea = {
   get(keys: string[]): Promise<Record<string, unknown>>;
@@ -20,7 +20,7 @@ export type StorageArea = {
 };
 
 const isRuleNode = (value: unknown): value is TreeNode =>
-  typeof value === 'object' && value !== null && 'kind' in value;
+  typeof value === "object" && value !== null && "kind" in value;
 
 const stripPriority = (rule: Record<string, unknown>): Rule => {
   const rest = { ...rule };
@@ -29,7 +29,10 @@ const stripPriority = (rule: Record<string, unknown>): Rule => {
 };
 
 const migrateLegacy = (rules: unknown[]): TreeNode[] =>
-  rules.map((rule) => ({ kind: 'rule', rule: stripPriority(rule as Record<string, unknown>) }));
+  rules.map((rule) => ({
+    kind: "rule",
+    rule: stripPriority(rule as Record<string, unknown>),
+  }));
 
 export class RuleRepository {
   constructor(private readonly area: StorageArea) {}
@@ -53,7 +56,13 @@ export class RuleRepository {
 
   async addRuleNode(rule: Rule): Promise<void> {
     const tree = await this.getWorkspace();
-    await this.persist(insertNode(tree, { kind: 'rule', rule }, { parentId: null, index: tree.length }));
+    await this.persist(
+      insertNode(
+        tree,
+        { kind: "rule", rule },
+        { parentId: null, index: tree.length },
+      ),
+    );
   }
 
   async updateRule(rule: Rule): Promise<void> {
@@ -96,7 +105,7 @@ export class RuleRepository {
   async getGlobalEnabled(): Promise<boolean> {
     const stored = await this.area.get([STORAGE_KEYS.globalEnabled]);
     const value = stored[STORAGE_KEYS.globalEnabled];
-    return typeof value === 'boolean' ? value : true;
+    return typeof value === "boolean" ? value : true;
   }
 
   async setGlobalEnabled(enabled: boolean): Promise<void> {

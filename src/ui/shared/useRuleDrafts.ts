@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import type { RuleDraft } from './ruleDraft';
+import { useCallback, useMemo, useState } from "react";
+import type { RuleDraft } from "./ruleDraft";
 
 export type RuleDrafts = {
   getEdit(key: string): RuleDraft | undefined;
@@ -35,5 +35,8 @@ export const useRuleDrafts = (): RuleDrafts => {
     });
   }, []);
 
-  return useMemo(() => ({ getEdit, setEdit, discard, prune }), [getEdit, setEdit, discard, prune]);
+  return useMemo(
+    () => ({ getEdit, setEdit, discard, prune }),
+    [getEdit, setEdit, discard, prune],
+  );
 };

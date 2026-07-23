@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import type { InterceptReport } from '../engine/page/types';
-import type { PanelReportMessage, RelayPort } from './types';
-import { ReportRelay, MAX_BUFFERED } from './relay';
+import { describe, expect, it } from "vitest";
+import type { InterceptReport } from "../engine/page/types";
+import { MAX_BUFFERED, ReportRelay } from "./relay";
+import type { PanelReportMessage, RelayPort } from "./types";
 
 type FakePort = {
   posted: PanelReportMessage[];
@@ -27,10 +27,12 @@ const makePort = (): FakePort => {
   };
 };
 
-const buildReport = (overrides: Partial<InterceptReport> = {}): InterceptReport => ({
-  kind: 'rewrite',
-  method: 'GET',
-  url: 'https://api.example.com/users',
+const buildReport = (
+  overrides: Partial<InterceptReport> = {},
+): InterceptReport => ({
+  kind: "rewrite",
+  method: "GET",
+  url: "https://api.example.com/users",
   status: 200,
   body: '{"ok":true}',
   ...overrides,
@@ -38,8 +40,8 @@ const buildReport = (overrides: Partial<InterceptReport> = {}): InterceptReport 
 
 const asPort = (port: FakePort): RelayPort => port as unknown as RelayPort;
 
-describe('ReportRelay', () => {
-  it('should post only to the matching tab port when several tabs are registered (TC-001)', () => {
+describe("ReportRelay", () => {
+  it("should post only to the matching tab port when several tabs are registered (TC-001)", () => {
     const relay = new ReportRelay();
     const portA = makePort();
     const portB = makePort();
@@ -49,11 +51,11 @@ describe('ReportRelay', () => {
     const report = buildReport();
     relay.dispatch(1, report);
 
-    expect(portA.posted).toEqual([{ type: 'report', report }]);
+    expect(portA.posted).toEqual([{ type: "report", report }]);
     expect(portB.posted).toHaveLength(0);
   });
 
-  it('should not throw and post nothing when dispatching to an unregistered tab (TC-002)', () => {
+  it("should not throw and post nothing when dispatching to an unregistered tab (TC-002)", () => {
     const relay = new ReportRelay();
     const portA = makePort();
     relay.register(1, asPort(portA));
@@ -62,7 +64,7 @@ describe('ReportRelay', () => {
     expect(portA.posted).toHaveLength(0);
   });
 
-  it('should auto-unregister and post nothing after the port disconnects (TC-003)', () => {
+  it("should auto-unregister and post nothing after the port disconnects (TC-003)", () => {
     const relay = new ReportRelay();
     const portA = makePort();
     relay.register(1, asPort(portA));
@@ -73,7 +75,7 @@ describe('ReportRelay', () => {
     expect(portA.posted).toHaveLength(0);
   });
 
-  it('should post nothing after an explicit unregister of the tab', () => {
+  it("should post nothing after an explicit unregister of the tab", () => {
     const relay = new ReportRelay();
     const portA = makePort();
     relay.register(1, asPort(portA));
@@ -84,7 +86,7 @@ describe('ReportRelay', () => {
     expect(portA.posted).toHaveLength(0);
   });
 
-  it('should route to the new port only when the same tab id is re-registered', () => {
+  it("should route to the new port only when the same tab id is re-registered", () => {
     const relay = new ReportRelay();
     const oldPort = makePort();
     const newPort = makePort();
@@ -95,42 +97,42 @@ describe('ReportRelay', () => {
     relay.dispatch(1, report);
 
     expect(oldPort.posted).toHaveLength(0);
-    expect(newPort.posted).toEqual([{ type: 'report', report }]);
+    expect(newPort.posted).toEqual([{ type: "report", report }]);
   });
 
-  it('should flush reports buffered before the panel connected on register', () => {
+  it("should flush reports buffered before the panel connected on register", () => {
     const relay = new ReportRelay();
-    const early = buildReport({ url: 'https://api.x/early' });
+    const early = buildReport({ url: "https://api.x/early" });
     relay.dispatch(1, early);
 
     const port = makePort();
     relay.register(1, asPort(port));
 
-    expect(port.posted).toEqual([{ type: 'report', report: early }]);
+    expect(port.posted).toEqual([{ type: "report", report: early }]);
   });
 
-  it('should preserve buffered order and then deliver live reports', () => {
+  it("should preserve buffered order and then deliver live reports", () => {
     const relay = new ReportRelay();
-    const first = buildReport({ url: 'https://api.x/1' });
-    const second = buildReport({ url: 'https://api.x/2' });
+    const first = buildReport({ url: "https://api.x/1" });
+    const second = buildReport({ url: "https://api.x/2" });
     relay.dispatch(1, first);
     relay.dispatch(1, second);
 
     const port = makePort();
     relay.register(1, asPort(port));
-    const live = buildReport({ url: 'https://api.x/3' });
+    const live = buildReport({ url: "https://api.x/3" });
     relay.dispatch(1, live);
 
     expect(port.posted.map((m) => m.report.url)).toEqual([
-      'https://api.x/1',
-      'https://api.x/2',
-      'https://api.x/3',
+      "https://api.x/1",
+      "https://api.x/2",
+      "https://api.x/3",
     ]);
   });
 
-  it('should not replay the buffer to a second port registered after the first drained it', () => {
+  it("should not replay the buffer to a second port registered after the first drained it", () => {
     const relay = new ReportRelay();
-    relay.dispatch(1, buildReport({ url: 'https://api.x/early' }));
+    relay.dispatch(1, buildReport({ url: "https://api.x/early" }));
 
     const first = makePort();
     relay.register(1, asPort(first));
@@ -142,7 +144,7 @@ describe('ReportRelay', () => {
     expect(second.posted).toHaveLength(0);
   });
 
-  it('should cap the buffer at MAX_BUFFERED dropping the oldest', () => {
+  it("should cap the buffer at MAX_BUFFERED dropping the oldest", () => {
     const relay = new ReportRelay();
     const total = MAX_BUFFERED + 10;
     for (let index = 0; index < total; index += 1) {
@@ -153,7 +155,11 @@ describe('ReportRelay', () => {
     relay.register(1, asPort(port));
 
     expect(port.posted).toHaveLength(MAX_BUFFERED);
-    expect(port.posted[0].report.url).toBe(`https://api.x/${total - MAX_BUFFERED}`);
-    expect(port.posted[MAX_BUFFERED - 1].report.url).toBe(`https://api.x/${total - 1}`);
+    expect(port.posted[0].report.url).toBe(
+      `https://api.x/${total - MAX_BUFFERED}`,
+    );
+    expect(port.posted[MAX_BUFFERED - 1].report.url).toBe(
+      `https://api.x/${total - 1}`,
+    );
   });
 });

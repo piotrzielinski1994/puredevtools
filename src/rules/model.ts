@@ -1,13 +1,13 @@
-export type PatternKind = 'glob' | 'regex';
+export type PatternKind = "glob" | "regex";
 
 export type HttpMethod =
-  | 'GET'
-  | 'POST'
-  | 'PUT'
-  | 'PATCH'
-  | 'DELETE'
-  | 'HEAD'
-  | 'OPTIONS';
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "PATCH"
+  | "DELETE"
+  | "HEAD"
+  | "OPTIONS";
 
 export type Matchers = {
   url: { pattern: string; kind: PatternKind };
@@ -15,17 +15,17 @@ export type Matchers = {
 };
 
 export type HeaderOp =
-  | { op: 'set'; name: string; value: string }
-  | { op: 'remove'; name: string };
+  | { op: "set"; name: string; value: string }
+  | { op: "remove"; name: string };
 
 export type RuleAction =
-  | { type: 'modifyResponseHeaders'; headers: HeaderOp[] }
-  | { type: 'rewriteBody'; body: string; contentType?: string }
-  | { type: 'modifyRequestHeaders'; headers: HeaderOp[] }
-  | { type: 'rewriteRequestBody'; body: string }
-  | { type: 'rewriteRequestUrl'; target: string }
-  | { type: 'preScript'; source: string }
-  | { type: 'postScript'; source: string };
+  | { type: "modifyResponseHeaders"; headers: HeaderOp[] }
+  | { type: "rewriteBody"; body: string; contentType?: string }
+  | { type: "modifyRequestHeaders"; headers: HeaderOp[] }
+  | { type: "rewriteRequestBody"; body: string }
+  | { type: "rewriteRequestUrl"; target: string }
+  | { type: "preScript"; source: string }
+  | { type: "postScript"; source: string };
 
 export type Rule = {
   id: string;
@@ -35,10 +35,10 @@ export type Rule = {
   actions: RuleAction[];
 };
 
-export type RuleNode = { kind: 'rule'; rule: Rule };
+export type RuleNode = { kind: "rule"; rule: Rule };
 
 export type FolderNode = {
-  kind: 'folder';
+  kind: "folder";
   id: string;
   name: string;
   collapsed: boolean;

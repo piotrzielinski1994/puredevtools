@@ -1,5 +1,5 @@
-import type { InterceptReport } from '../engine/page/types';
-import type { RelayPort } from './types';
+import type { InterceptReport } from "../engine/page/types";
+import type { RelayPort } from "./types";
 
 export const MAX_BUFFERED = 100;
 
@@ -11,7 +11,9 @@ export class ReportRelay {
     this.ports.set(tabId, port);
     const buffered = this.buffers.get(tabId);
     if (buffered) {
-      buffered.forEach((report) => port.postMessage({ type: 'report', report }));
+      buffered.forEach((report) => {
+        port.postMessage({ type: "report", report });
+      });
       this.buffers.delete(tabId);
     }
     port.onDisconnect.addListener(() => {
@@ -22,7 +24,7 @@ export class ReportRelay {
   dispatch(tabId: number, report: InterceptReport): void {
     const port = this.ports.get(tabId);
     if (port) {
-      port.postMessage({ type: 'report', report });
+      port.postMessage({ type: "report", report });
       return;
     }
     this.buffer(tabId, report);
@@ -36,6 +38,11 @@ export class ReportRelay {
   private buffer(tabId: number, report: InterceptReport): void {
     const existing = this.buffers.get(tabId) ?? [];
     const next = [...existing, report];
-    this.buffers.set(tabId, next.length > MAX_BUFFERED ? next.slice(next.length - MAX_BUFFERED) : next);
+    this.buffers.set(
+      tabId,
+      next.length > MAX_BUFFERED
+        ? next.slice(next.length - MAX_BUFFERED)
+        : next,
+    );
   }
 }

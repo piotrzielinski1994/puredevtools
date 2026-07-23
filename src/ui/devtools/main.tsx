@@ -1,18 +1,23 @@
-import { StrictMode, useEffect, useReducer, useRef } from 'react';
-import { createRoot } from 'react-dom/client';
-import { HotkeysProvider } from '@tanstack/react-hotkeys';
-import browser from 'webextension-polyfill';
-import { emptyLog, reduceLog } from '../../devtools/reportLog';
-import type { PanelConnectMessage, PanelReportMessage } from '../../devtools/types';
-import { PANEL_PORT_NAME } from '../../devtools/types';
-import { ShortcutsProvider } from '../shared/ShortcutsProvider';
-import { useActionHotkeys } from '../shared/useActionHotkeys';
-import { useTheme } from '../shared/useTheme';
-import '../globals.css';
-import { InterceptTable } from './InterceptTable';
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
+import { StrictMode, useEffect, useReducer, useRef } from "react";
+import { createRoot } from "react-dom/client";
+import browser from "webextension-polyfill";
+import { emptyLog, reduceLog } from "../../devtools/reportLog";
+import type {
+  PanelConnectMessage,
+  PanelReportMessage,
+} from "../../devtools/types";
+import { PANEL_PORT_NAME } from "../../devtools/types";
+import { ShortcutsProvider } from "../shared/ShortcutsProvider";
+import { useActionHotkeys } from "../shared/useActionHotkeys";
+import { useTheme } from "../shared/useTheme";
+import "../globals.css";
+import { InterceptTable } from "./InterceptTable";
 
 const isReportMessage = (message: unknown): message is PanelReportMessage =>
-  typeof message === 'object' && message !== null && (message as { type?: unknown }).type === 'report';
+  typeof message === "object" &&
+  message !== null &&
+  (message as { type?: unknown }).type === "report";
 
 const inspectedTabId = (): number | undefined => {
   try {
@@ -31,39 +36,50 @@ export const Panel = () => {
     const tabId = inspectedTabId();
     if (tabId === undefined) return undefined;
     const port = browser.runtime.connect({ name: PANEL_PORT_NAME });
-    const init: PanelConnectMessage = { type: 'panel-init', tabId };
+    const init: PanelConnectMessage = { type: "panel-init", tabId };
     port.postMessage(init);
     const onMessage = (message: unknown): void => {
-      if (isReportMessage(message)) dispatch({ type: 'report', report: message.report });
+      if (isReportMessage(message))
+        dispatch({ type: "report", report: message.report });
     };
     port.onMessage.addListener(onMessage);
     return () => port.disconnect();
   }, []);
 
   useActionHotkeys({
-    'clear-log': () => dispatch({ type: 'clear' }),
-    'focus-filter': () => filterInputRef.current?.focus(),
+    "clear-log": () => dispatch({ type: "clear" }),
+    "focus-filter": () => filterInputRef.current?.focus(),
   });
 
   return (
     <InterceptTable
       entries={log.entries}
-      onClear={() => dispatch({ type: 'clear' })}
+      onClear={() => dispatch({ type: "clear" })}
       filterInputRef={filterInputRef}
     />
   );
 };
 
 const paintError = (root: HTMLElement, error: unknown): void => {
-  const message = error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error);
+  const message =
+    error instanceof Error
+      ? `${error.message}\n${error.stack ?? ""}`
+      : String(error);
   root.textContent = `puredevtools panel failed to start:\n${message}`;
-  root.setAttribute('style', 'white-space:pre-wrap;font-family:monospace;font-size:12px;padding:12px;color:#b91c1c');
+  root.setAttribute(
+    "style",
+    "white-space:pre-wrap;font-family:monospace;font-size:12px;padding:12px;color:#b91c1c",
+  );
 };
 
-const root = document.getElementById('root');
+const root = document.getElementById("root");
 if (root) {
-  window.addEventListener('error', (event) => paintError(root, event.error ?? event.message));
-  window.addEventListener('unhandledrejection', (event) => paintError(root, event.reason));
+  window.addEventListener("error", (event) =>
+    paintError(root, event.error ?? event.message),
+  );
+  window.addEventListener("unhandledrejection", (event) =>
+    paintError(root, event.reason),
+  );
   try {
     createRoot(root).render(
       <StrictMode>

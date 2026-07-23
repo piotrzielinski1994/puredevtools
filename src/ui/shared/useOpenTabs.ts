@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
-export const DRAFT_KEY = 'new:draft';
+export const DRAFT_KEY = "new:draft";
 
 export type OpenTabsState = { openKeys: string[]; activeKey: string | null };
 
@@ -26,7 +26,8 @@ const adjacentKey = (keys: string[], removedIndex: number): string | null => {
 
 const stripDraft = (state: OpenTabsState): OpenTabsState => {
   const openKeys = state.openKeys.filter((key) => key !== DRAFT_KEY);
-  const activeKey = state.activeKey === DRAFT_KEY ? (openKeys.at(-1) ?? null) : state.activeKey;
+  const activeKey =
+    state.activeKey === DRAFT_KEY ? (openKeys.at(-1) ?? null) : state.activeKey;
   return { openKeys, activeKey };
 };
 
@@ -40,9 +41,15 @@ const reconcile = (loaded: OpenTabsState, ruleIds: string[]): OpenTabsState => {
   return { openKeys, activeKey };
 };
 
-export const useOpenTabs = (ruleIds: string[], opts: OpenTabsOptions = {}): OpenTabs => {
+export const useOpenTabs = (
+  ruleIds: string[],
+  opts: OpenTabsOptions = {},
+): OpenTabs => {
   const { store, ready = false } = opts;
-  const [state, setState] = useState<OpenTabsState>({ openKeys: [], activeKey: null });
+  const [state, setState] = useState<OpenTabsState>({
+    openKeys: [],
+    activeKey: null,
+  });
 
   const hydratedRef = useRef(false);
   const ruleIdsRef = useRef(ruleIds);
@@ -68,15 +75,21 @@ export const useOpenTabs = (ruleIds: string[], opts: OpenTabsOptions = {}): Open
 
   useEffect(() => {
     setState((current) => {
-      const survives = (key: string) => key === DRAFT_KEY || ruleIds.includes(key);
+      const survives = (key: string) =>
+        key === DRAFT_KEY || ruleIds.includes(key);
       const nextKeys = current.openKeys.filter(survives);
       if (nextKeys.length === current.openKeys.length) return current;
       if (current.activeKey !== null && survives(current.activeKey)) {
         return { openKeys: nextKeys, activeKey: current.activeKey };
       }
       const removedIndex = current.openKeys.findIndex((key) => !survives(key));
-      const remainingBeforeRemoved = current.openKeys.slice(0, removedIndex).filter(survives).length;
-      return { openKeys: nextKeys, activeKey: adjacentKey(nextKeys, remainingBeforeRemoved) };
+      const remainingBeforeRemoved = current.openKeys
+        .slice(0, removedIndex)
+        .filter(survives).length;
+      return {
+        openKeys: nextKeys,
+        activeKey: adjacentKey(nextKeys, remainingBeforeRemoved),
+      };
     });
   }, [ruleIds]);
 
@@ -92,11 +105,13 @@ export const useOpenTabs = (ruleIds: string[], opts: OpenTabsOptions = {}): Open
       const index = current.openKeys.indexOf(key);
       if (index === -1) return current;
       const nextKeys = current.openKeys.filter((open) => open !== key);
-      if (current.activeKey !== key) return { openKeys: nextKeys, activeKey: current.activeKey };
+      if (current.activeKey !== key)
+        return { openKeys: nextKeys, activeKey: current.activeKey };
       return { openKeys: nextKeys, activeKey: adjacentKey(nextKeys, index) };
     });
 
-  const setActive = (key: string) => setState((current) => ({ ...current, activeKey: key }));
+  const setActive = (key: string) =>
+    setState((current) => ({ ...current, activeKey: key }));
 
   return { ...state, open, close, setActive };
 };

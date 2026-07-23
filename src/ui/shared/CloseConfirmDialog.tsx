@@ -1,5 +1,5 @@
-import { Dialog } from '../components/ui/dialog';
-import { Button } from '../components/ui/button';
+import { Button } from "../components/ui/button";
+import { Dialog } from "../components/ui/dialog";
 
 export type CloseConfirmDialogProps = {
   open: boolean;
@@ -10,12 +10,19 @@ export type CloseConfirmDialogProps = {
   onCancel(): void;
 };
 
-export const CloseConfirmDialog = ({ open, ruleLabel, canSave, onSave, onDiscard, onCancel }: CloseConfirmDialogProps) => (
+export const CloseConfirmDialog = ({
+  open,
+  ruleLabel,
+  canSave,
+  onSave,
+  onDiscard,
+  onCancel,
+}: CloseConfirmDialogProps) => (
   <Dialog open={open} onClose={onCancel} title="Unsaved changes">
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
         "{ruleLabel}" has unsaved changes.
-        {!canSave ? ' Add a URL pattern to save, or discard.' : null}
+        {!canSave ? " Add a URL pattern to save, or discard." : null}
       </p>
       <div className="flex justify-end gap-2">
         <Button type="button" disabled={!canSave} onClick={onSave}>

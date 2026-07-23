@@ -1,14 +1,14 @@
-import type { Target } from '../shared/types';
+import type { Target } from "../shared/types";
 
 type ManifestBackground =
-  | { service_worker: string; type?: 'module' }
-  | { scripts: string[]; type?: 'module' };
+  | { service_worker: string; type?: "module" }
+  | { scripts: string[]; type?: "module" };
 
 export type ContentScript = {
   matches: string[];
   js: string[];
-  run_at: 'document_start';
-  world?: 'MAIN' | 'ISOLATED';
+  run_at: "document_start";
+  world?: "MAIN" | "ISOLATED";
   all_frames?: boolean;
 };
 
@@ -24,43 +24,60 @@ export type Manifest = {
   options_ui: { page: string; open_in_tab: boolean };
   content_scripts: ContentScript[];
   devtools_page: string;
-  browser_specific_settings?: { gecko: { id: string; strict_min_version: string } };
+  browser_specific_settings?: {
+    gecko: { id: string; strict_min_version: string };
+  };
 };
 
-const PAGE_MAIN_ENTRY = 'src/content/page-main.ts';
-const BRIDGE_ENTRY = 'src/content/bridge.ts';
+const PAGE_MAIN_ENTRY = "src/content/page-main.ts";
+const BRIDGE_ENTRY = "src/content/bridge.ts";
 
 const CONTENT_SCRIPTS: ContentScript[] = [
-  { matches: ['<all_urls>'], js: [PAGE_MAIN_ENTRY], run_at: 'document_start', world: 'MAIN', all_frames: true },
-  { matches: ['<all_urls>'], js: [BRIDGE_ENTRY], run_at: 'document_start', world: 'ISOLATED', all_frames: true },
+  {
+    matches: ["<all_urls>"],
+    js: [PAGE_MAIN_ENTRY],
+    run_at: "document_start",
+    world: "MAIN",
+    all_frames: true,
+  },
+  {
+    matches: ["<all_urls>"],
+    js: [BRIDGE_ENTRY],
+    run_at: "document_start",
+    world: "ISOLATED",
+    all_frames: true,
+  },
 ];
 
 const SHARED = {
   manifest_version: 3,
-  name: 'puredevtools',
-  version: '0.1.0',
+  name: "puredevtools",
+  version: "0.1.0",
   description:
-    'Override HTTP response headers and bodies for a page\'s fetch/XHR calls directly in the browser.',
-  host_permissions: ['<all_urls>'],
-  action: { default_popup: 'src/ui/popup/index.html' },
-  options_ui: { page: 'src/ui/options/index.html', open_in_tab: true },
+    "Override HTTP response headers and bodies for a page's fetch/XHR calls directly in the browser.",
+  host_permissions: ["<all_urls>"],
+  action: { default_popup: "src/ui/popup/index.html" },
+  options_ui: { page: "src/ui/options/index.html", open_in_tab: true },
   content_scripts: CONTENT_SCRIPTS,
-  devtools_page: 'src/devtools/devtools.html',
+  devtools_page: "src/devtools/devtools.html",
 } satisfies Partial<Manifest>;
 
-const BACKGROUND_ENTRY = 'src/background/index.ts';
-const GECKO_ID = 'puredevtools@puredevtools.dev';
+const BACKGROUND_ENTRY = "src/background/index.ts";
+const GECKO_ID = "puredevtools@puredevtools.dev";
 
-const byTarget: Record<Target, Pick<Manifest, 'permissions' | 'background'> & Partial<Manifest>> = {
+const byTarget: Record<
+  Target,
+  Pick<Manifest, "permissions" | "background"> & Partial<Manifest>
+> = {
   chrome: {
-    permissions: ['storage', 'cookies'],
-    background: { service_worker: BACKGROUND_ENTRY, type: 'module' },
+    permissions: ["storage", "cookies"],
+    background: { service_worker: BACKGROUND_ENTRY, type: "module" },
   },
   firefox: {
-    permissions: ['storage', 'cookies'],
-    background: { scripts: [BACKGROUND_ENTRY], type: 'module' },
+    permissions: ["storage", "cookies"],
+    background: { scripts: [BACKGROUND_ENTRY], type: "module" },
     browser_specific_settings: {
-      gecko: { id: GECKO_ID, strict_min_version: '128.0' },
+      gecko: { id: GECKO_ID, strict_min_version: "128.0" },
     },
   },
 };

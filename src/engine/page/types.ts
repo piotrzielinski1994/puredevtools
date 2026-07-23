@@ -1,9 +1,9 @@
-import type { HeaderOp } from '../../rules/model';
+import type { HeaderOp } from "../../rules/model";
 
 export type Interception =
-  | { kind: 'passthrough' }
+  | { kind: "passthrough" }
   | {
-      kind: 'override';
+      kind: "override";
       headerOps: HeaderOp[];
       body?: string;
       contentType?: string;
@@ -15,7 +15,7 @@ export type Interception =
     };
 
 export type InterceptReport = {
-  kind: 'rewrite';
+  kind: "rewrite";
   method: string;
   url: string;
   status: number;
@@ -28,4 +28,4 @@ export type InterceptReport = {
 
 export type Sink = (report: InterceptReport) => void;
 
-export type RuleProvider = () => import('../../rules/model').Rule[];
+export type RuleProvider = () => import("../../rules/model").Rule[];

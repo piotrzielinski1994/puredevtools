@@ -1,11 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { HotkeysProvider } from '@tanstack/react-hotkeys';
-import type { ReactNode } from 'react';
-import type { ShortcutActionId, ShortcutOverrides } from '../../shortcuts/registry';
-import { ShortcutsProvider } from './ShortcutsProvider';
-import { useActionHotkeys } from './useActionHotkeys';
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  ShortcutActionId,
+  ShortcutOverrides,
+} from "../../shortcuts/registry";
+import { ShortcutsProvider } from "./ShortcutsProvider";
+import { useActionHotkeys } from "./useActionHotkeys";
 
 // jsdom reports a non-mac platform, so Mod resolves to Control - the tests fire
 // Control-based combos to trigger a "Mod+..".
@@ -29,16 +32,23 @@ const mock = vi.hoisted(() => {
   };
 });
 
-vi.mock('webextension-polyfill', () => ({
+vi.mock("webextension-polyfill", () => ({
   default: {
     storage: {
       local: { get: mock.get, set: mock.set },
-      onChanged: { addListener: mock.addListener, removeListener: mock.removeListener },
+      onChanged: {
+        addListener: mock.addListener,
+        removeListener: mock.removeListener,
+      },
     },
   },
 }));
 
-const Harness = ({ handlers }: { handlers: Partial<Record<ShortcutActionId, () => void>> }) => {
+const Harness = ({
+  handlers,
+}: {
+  handlers: Partial<Record<ShortcutActionId, () => void>>;
+}) => {
   useActionHotkeys(handlers);
   return (
     <div>
@@ -48,8 +58,11 @@ const Harness = ({ handlers }: { handlers: Partial<Record<ShortcutActionId, () =
   );
 };
 
-const withProviders = (children: ReactNode, overrides: ShortcutOverrides = {}) => {
-  mock.backing['puredevtools.shortcuts'] = overrides;
+const withProviders = (
+  children: ReactNode,
+  overrides: ShortcutOverrides = {},
+) => {
+  mock.backing["puredevtools.shortcuts"] = overrides;
   return (
     <HotkeysProvider>
       <ShortcutsProvider>{children}</ShortcutsProvider>
@@ -63,87 +76,92 @@ const renderHarness = (
 ) => render(withProviders(<Harness handlers={handlers} />, overrides));
 
 beforeEach(() => {
-  Object.keys(mock.backing).forEach((key) => delete mock.backing[key]);
+  Object.keys(mock.backing).forEach((key) => {
+    delete mock.backing[key];
+  });
 });
 
-describe('useActionHotkeys', () => {
+describe("useActionHotkeys", () => {
   // TC-008 behavior: the default hotkey fires its handler (toggle-theme = Mod+Shift+L).
-  it('should run the handler if the action default hotkey is pressed', async () => {
+  it("should run the handler if the action default hotkey is pressed", async () => {
     const user = userEvent.setup();
     const toggle = vi.fn();
 
-    renderHarness({ 'toggle-theme': toggle });
-    await screen.findByTestId('ready');
+    renderHarness({ "toggle-theme": toggle });
+    await screen.findByTestId("ready");
 
-    await user.keyboard('{Control>}{Shift>}l{/Shift}{/Control}');
+    await user.keyboard("{Control>}{Shift>}l{/Shift}{/Control}");
 
     expect(toggle).toHaveBeenCalledTimes(1);
   });
 
   // TC-008 behavior: an overridden hotkey fires the handler.
-  it('should run the handler on the overridden hotkey if an override is set', async () => {
+  it("should run the handler on the overridden hotkey if an override is set", async () => {
     const user = userEvent.setup();
     const toggle = vi.fn();
 
-    renderHarness({ 'toggle-theme': toggle }, { 'toggle-theme': ['Mod+J'] });
-    await screen.findByTestId('ready');
+    renderHarness({ "toggle-theme": toggle }, { "toggle-theme": ["Mod+J"] });
+    await screen.findByTestId("ready");
 
-    await user.keyboard('{Control>}j{/Control}');
+    await user.keyboard("{Control>}j{/Control}");
 
     expect(toggle).toHaveBeenCalledTimes(1);
   });
 
   // TC-009 behavior: every binding of a multi-binding action fires the handler.
-  it('should run the handler on each bound hotkey if the action has several', async () => {
+  it("should run the handler on each bound hotkey if the action has several", async () => {
     const user = userEvent.setup();
     const toggle = vi.fn();
 
-    renderHarness({ 'toggle-theme': toggle }, { 'toggle-theme': ['Mod+J', 'Mod+K'] });
-    await screen.findByTestId('ready');
+    renderHarness(
+      { "toggle-theme": toggle },
+      { "toggle-theme": ["Mod+J", "Mod+K"] },
+    );
+    await screen.findByTestId("ready");
 
-    await user.keyboard('{Control>}j{/Control}');
-    await user.keyboard('{Control>}k{/Control}');
+    await user.keyboard("{Control>}j{/Control}");
+    await user.keyboard("{Control>}k{/Control}");
 
     expect(toggle).toHaveBeenCalledTimes(2);
   });
 
   // TC-010 behavior: a disabled ([]) action never fires.
-  it('should not run the handler if the action is disabled with an empty list', async () => {
+  it("should not run the handler if the action is disabled with an empty list", async () => {
     const user = userEvent.setup();
     const toggle = vi.fn();
 
-    renderHarness({ 'toggle-theme': toggle }, { 'toggle-theme': [] });
-    await screen.findByTestId('ready');
+    renderHarness({ "toggle-theme": toggle }, { "toggle-theme": [] });
+    await screen.findByTestId("ready");
 
-    await user.keyboard('{Control>}{Shift>}l{/Shift}{/Control}');
+    await user.keyboard("{Control>}{Shift>}l{/Shift}{/Control}");
 
     expect(toggle).not.toHaveBeenCalled();
   });
 
   // AC-004 behavior: only the surface provided handlers are active.
-  it('should not fire an action whose handler is not supplied', async () => {
+  it("should not fire an action whose handler is not supplied", async () => {
     const user = userEvent.setup();
     const toggle = vi.fn();
 
-    renderHarness({ 'toggle-theme': toggle });
-    await screen.findByTestId('ready');
+    renderHarness({ "toggle-theme": toggle });
+    await screen.findByTestId("ready");
 
     // toggle-global (Mod+Shift+G) has no handler here.
-    await user.keyboard('{Control>}{Shift>}g{/Shift}{/Control}');
+    await user.keyboard("{Control>}{Shift>}g{/Shift}{/Control}");
 
     expect(toggle).not.toHaveBeenCalled();
   });
 
   // AC-004 behavior: a Mod-combo still fires while focus is in a text input.
-  it('should run a Mod-combo handler even if focus is in a text input', async () => {
+  it("should run a Mod-combo handler even if focus is in a text input", async () => {
     const user = userEvent.setup();
     const toggle = vi.fn();
 
-    renderHarness({ 'toggle-theme': toggle });
-    await screen.findByTestId('ready');
+    renderHarness({ "toggle-theme": toggle });
+    await screen.findByTestId("ready");
 
-    await user.click(screen.getByTestId('text-input'));
-    await user.keyboard('{Control>}{Shift>}l{/Shift}{/Control}');
+    await user.click(screen.getByTestId("text-input"));
+    await user.keyboard("{Control>}{Shift>}l{/Shift}{/Control}");
 
     expect(toggle).toHaveBeenCalledTimes(1);
   });
