@@ -1,0 +1,42 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+  "extends": ["@pziel/pureui/biome"],
+  "files": {
+    "includes": [
+      "!!**/dist",
+      "!!**/node_modules",
+      "!!**/coverage",
+      "!!**/docs",
+      "!!**/storybook-static"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "a11y": "off",
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noArrayIndexKey": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error",
+        "useExhaustiveDependencies": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.{ts,tsx}"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noConstructorReturn": "off"
+          }
+        }
+      }
+    }
+  ]
+}

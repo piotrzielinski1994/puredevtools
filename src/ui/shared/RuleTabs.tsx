@@ -1,5 +1,5 @@
-import { X } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from "@pziel/pureui";
+import { X } from "lucide-react";
 
 export type RuleTab = { key: string; label: string; isDirty?: boolean };
 
@@ -10,18 +10,28 @@ export type RuleTabsProps = {
   onClose(key: string): void;
 };
 
-export const RuleTabs = ({ tabs, activeKey, onActivate, onClose }: RuleTabsProps) => (
-  <div role="tablist" className="flex h-full min-w-0 items-stretch overflow-x-auto">
+export const RuleTabs = ({
+  tabs,
+  activeKey,
+  onActivate,
+  onClose,
+}: RuleTabsProps) => (
+  <div
+    role="tablist"
+    className="flex h-full min-w-0 items-stretch overflow-x-auto"
+  >
     {tabs.map((tab) => {
       const isActive = tab.key === activeKey;
       return (
         <div
           key={tab.key}
           role="tab"
-          aria-current={isActive ? 'true' : undefined}
+          aria-current={isActive ? "true" : undefined}
           className={cn(
-            'flex items-center border-r border-r-border text-sm',
-            isActive ? 'bg-background text-foreground' : 'text-muted-foreground',
+            "flex items-center border-r border-r-border text-sm",
+            isActive
+              ? "bg-background text-foreground"
+              : "text-muted-foreground",
           )}
         >
           <button
@@ -32,7 +42,10 @@ export const RuleTabs = ({ tabs, activeKey, onActivate, onClose }: RuleTabsProps
             {tab.label}
           </button>
           {tab.isDirty ? (
-            <span aria-label="Unsaved changes" className="mr-1 size-1.5 shrink-0 bg-current" />
+            <span
+              aria-label="Unsaved changes"
+              className="mr-1 size-1.5 shrink-0 bg-current"
+            />
           ) : null}
           <button
             type="button"

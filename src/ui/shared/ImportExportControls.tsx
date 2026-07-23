@@ -1,16 +1,21 @@
-import { useRef } from 'react';
-import { Download, Upload } from 'lucide-react';
-import { useToast } from '../components/ui/toast';
-import { useRules } from './RulesProvider';
-import { useActionHotkeys } from './useActionHotkeys';
+import { Download, Upload } from "lucide-react";
+import { useRef } from "react";
+import { useToast } from "../components/ui/toast";
+import { useRules } from "./RulesProvider";
+import { useActionHotkeys } from "./useActionHotkeys";
 
-const REPLACE_MESSAGE = 'Import will replace all current rules. Continue?';
+const REPLACE_MESSAGE = "Import will replace all current rules. Continue?";
 
-const readFile = async (file: File): Promise<{ ok: true; value: string } | { ok: false; error: string }> => {
+const readFile = async (
+  file: File,
+): Promise<{ ok: true; value: string } | { ok: false; error: string }> => {
   try {
     return { ok: true, value: await file.text() };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 };
 
@@ -20,26 +25,26 @@ export const ImportExportControls = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useActionHotkeys({
-    'import-rules': () => fileInputRef.current?.click(),
-    'export-rules': () => void exportRules(),
+    "import-rules": () => fileInputRef.current?.click(),
+    "export-rules": () => void exportRules(),
   });
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    event.target.value = '';
+    event.target.value = "";
     if (!file) return;
     if (!window.confirm(REPLACE_MESSAGE)) return;
     const text = await readFile(file);
     if (!text.ok) {
-      show(`Import failed: ${text.error}`, 'error');
+      show(`Import failed: ${text.error}`, "error");
       return;
     }
-    const outcome = await importRules(text.value, 'replace');
+    const outcome = await importRules(text.value, "replace");
     if (outcome.ok) {
-      show('Rules imported.', 'success');
+      show("Rules imported.", "success");
       return;
     }
-    show(`Import failed: ${outcome.error}`, 'error');
+    show(`Import failed: ${outcome.error}`, "error");
   };
 
   return (

@@ -14,13 +14,13 @@ Briefing for Claude Code. Read [README.md](README.md) first - build/dev commands
 ## Stack
 
 - **Browser extension**, Manifest V3, one codebase targeting **Chromium (MV3) and Firefox**.
-- **Vite 5** + **`@crxjs/vite-plugin`** - bundles the extension; `TARGET=chrome|firefox` selects the browser variant (`dev:chrome`/`build:firefox` etc).
-- **React 18 + TypeScript** - UI (popup, options page, DevTools panel).
-- **Tailwind v4** (`@tailwindcss/vite`) + shadcn-style primitives (`class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`) in `src/ui/components/ui`.
+- **Vite 8** + **`@crxjs/vite-plugin`** (peer allows vite ^8) - bundles the extension; `TARGET=chrome|firefox` selects the browser variant (`dev:chrome`/`build:firefox` etc). The crxjs+manifest-emitter Vite config is bespoke and stays local - the Tauri-shaped `@pziel/pureui` `./vite`/`./vitest` presets do NOT fit an extension build.
+- **React 19 + TypeScript** - UI (popup, options page, DevTools panel).
+- **Tailwind v4** (`@tailwindcss/vite`). **Shares `@pziel/pureui`** (the pure* suite lib): `cn`, `Button`, `Input`, and the Radix `Select`/`Dialog` compounds come from `@pziel/pureui`; design tokens via `@import "@pziel/pureui/styles/theme.css"` in `src/ui/globals.css`. Only the primitives pureui does NOT ship stay local in `src/ui/components/ui` (`checkbox`, `label`, `textarea`, `switch`, `toast` - `class-variance-authority` + `lucide-react`). pureui's peer wants React 19 / Vite 8 (why R10 modernized first).
 - **`webextension-polyfill`** - promise-based cross-browser WebExtension API. Import `browser` from it; do not touch the global `chrome.*` directly.
 - **`zod` v3** - validate/parse anything crossing a boundary (message payloads, stored + imported rules).
-- **Vitest** (+ `@testing-library/react`, jsdom) - the only test layer. No Playwright/E2E.
-- **ESLint** (flat config). Package manager **npm**. Node managed by **mise** (`mise.toml` pins node 22) - no `.nvmrc`.
+- **Vitest 4** (+ `@testing-library/react`, jsdom) - the only test layer. No Playwright/E2E. The per-path env split (jsdom for `src/ui/**` + `src/engine/page/**`, node elsewhere) is a `test.projects` workspace (Vitest 4 removed `environmentMatchGlobs`). `patchFetch.test.ts` is pinned to the node env: Vitest 4's jsdom compat `Request` wrapper drops method/headers when copying a Request-with-body.
+- **Biome** (`biome.json` extends `@pziel/pureui/biome`, shared with the pure* suite; `npm run lint` = `biome check .`, `lint:fix` writes). Package manager **npm**. Node managed by **mise** (`mise.toml` pins node 22) - no `.nvmrc`.
 
 ## Cross-browser
 

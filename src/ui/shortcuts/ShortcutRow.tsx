@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import { formatForDisplay } from '@tanstack/hotkeys';
-import { Button } from '../components/ui/button';
-import { useRecordHotkey } from '../shared/useRecordHotkey';
-import { useShortcuts } from '../shared/shortcutsContext';
-import { findConflict } from '../../shortcuts/resolve';
-import { SHORTCUT_ACTIONS, type ShortcutAction, type ShortcutActionId } from '../../shortcuts/registry';
+import { Button } from "@pziel/pureui";
+import { formatForDisplay } from "@tanstack/hotkeys";
+import { useState } from "react";
+import {
+  SHORTCUT_ACTIONS,
+  type ShortcutAction,
+  type ShortcutActionId,
+} from "../../shortcuts/registry";
+import { findConflict } from "../../shortcuts/resolve";
+import { useShortcuts } from "../shared/shortcutsContext";
+import { useRecordHotkey } from "../shared/useRecordHotkey";
 
 const actionName = (id: ShortcutActionId): string =>
   SHORTCUT_ACTIONS.find((action) => action.id === id)?.name ?? id;
@@ -16,8 +20,14 @@ export type ShortcutRowProps = {
   hasOverride: boolean;
 };
 
-export const ShortcutRow = ({ action, bindings, effective, hasOverride }: ShortcutRowProps) => {
-  const { addShortcut, removeShortcut, replaceShortcut, resetShortcut } = useShortcuts();
+export const ShortcutRow = ({
+  action,
+  bindings,
+  effective,
+  hasOverride,
+}: ShortcutRowProps) => {
+  const { addShortcut, removeShortcut, replaceShortcut, resetShortcut } =
+    useShortcuts();
   const [conflictName, setConflictName] = useState<string | null>(null);
   const [editingBinding, setEditingBinding] = useState<string | null>(null);
 
@@ -69,7 +79,10 @@ export const ShortcutRow = ({ action, bindings, effective, hasOverride }: Shortc
         ) : null}
         {bindings.map((binding) =>
           recorder.isRecording && editingBinding === binding ? (
-            <span key={binding} className="font-mono text-xs text-muted-foreground">
+            <span
+              key={binding}
+              className="font-mono text-xs text-muted-foreground"
+            >
               Press keys…
             </span>
           ) : (
@@ -97,7 +110,9 @@ export const ShortcutRow = ({ action, bindings, effective, hasOverride }: Shortc
           ),
         )}
         {recorder.isRecording && editingBinding === null ? (
-          <span className="font-mono text-xs text-muted-foreground">Press keys…</span>
+          <span className="font-mono text-xs text-muted-foreground">
+            Press keys…
+          </span>
         ) : null}
         {conflictName !== null ? (
           <span role="alert" className="text-xs text-destructive">
@@ -106,7 +121,12 @@ export const ShortcutRow = ({ action, bindings, effective, hasOverride }: Shortc
         ) : null}
       </div>
       {recorder.isRecording ? (
-        <Button type="button" variant="ghost" size="sm" onClick={cancelRecording}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={cancelRecording}
+        >
           Cancel
         </Button>
       ) : (

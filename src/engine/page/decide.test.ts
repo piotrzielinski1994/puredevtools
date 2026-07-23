@@ -1,238 +1,327 @@
-import { describe, it, expect } from 'vitest';
-import type { Matchers, Rule, RuleAction } from '../../rules/model';
-import type { RequestDescriptor } from '../../rules/model';
-import type { Interception } from './types';
-import { decideInterception } from './decide';
+import { describe, expect, it } from "vitest";
+import type {
+  Matchers,
+  RequestDescriptor,
+  Rule,
+  RuleAction,
+} from "../../rules/model";
+import { decideInterception } from "./decide";
+import type { Interception } from "./types";
 
 const buildRule = (
   actions: RuleAction[],
-  matchers: Matchers = { url: { pattern: 'https://api.x/*', kind: 'glob' } },
+  matchers: Matchers = { url: { pattern: "https://api.x/*", kind: "glob" } },
   overrides: Partial<Rule> = {},
 ): Rule => ({
-  id: 'rule-1',
-  name: 'test rule',
+  id: "rule-1",
+  name: "test rule",
   enabled: true,
   matchers,
   actions,
   ...overrides,
 });
 
-const descriptor = (overrides: Partial<RequestDescriptor> = {}): RequestDescriptor => ({
-  url: 'https://api.x/users',
-  method: 'GET',
+const descriptor = (
+  overrides: Partial<RequestDescriptor> = {},
+): RequestDescriptor => ({
+  url: "https://api.x/users",
+  method: "GET",
   ...overrides,
 });
 
 const isOverride = (
   interception: Interception,
-): interception is Extract<Interception, { kind: 'override' }> => interception.kind === 'override';
+): interception is Extract<Interception, { kind: "override" }> =>
+  interception.kind === "override";
 
-describe('decideInterception (AC-001, AC-006)', () => {
-  it('should map a rewriteBody rule to an override carrying the body and content type (AC-002)', () => {
-    const rule = buildRule([{ type: 'rewriteBody', body: '<p>new</p>', contentType: 'text/html' }]);
+describe("decideInterception (AC-001, AC-006)", () => {
+  it("should map a rewriteBody rule to an override carrying the body and content type (AC-002)", () => {
+    const rule = buildRule([
+      { type: "rewriteBody", body: "<p>new</p>", contentType: "text/html" },
+    ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.body).toBe('<p>new</p>');
-    expect(result.contentType).toBe('text/html');
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.body).toBe("<p>new</p>");
+    expect(result.contentType).toBe("text/html");
     expect(result.headerOps).toEqual([]);
   });
 
-  it('should map a modifyResponseHeaders rule to an override carrying the header ops and no body (AC-003)', () => {
+  it("should map a modifyResponseHeaders rule to an override carrying the header ops and no body (AC-003)", () => {
     const rule = buildRule([
-      { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Test', value: 'on' }] },
+      {
+        type: "modifyResponseHeaders",
+        headers: [{ op: "set", name: "X-Test", value: "on" }],
+      },
     ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.headerOps).toEqual([{ op: 'set', name: 'X-Test', value: 'on' }]);
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.headerOps).toEqual([
+      { op: "set", name: "X-Test", value: "on" },
+    ]);
     expect(result.body).toBeUndefined();
   });
 
-  it('should combine header ops and body when a rule carries both actions (AC-004)', () => {
+  it("should combine header ops and body when a rule carries both actions (AC-004)", () => {
     const rule = buildRule([
-      { type: 'modifyResponseHeaders', headers: [{ op: 'remove', name: 'Set-Cookie' }] },
-      { type: 'rewriteBody', body: '{"x":1}' },
+      {
+        type: "modifyResponseHeaders",
+        headers: [{ op: "remove", name: "Set-Cookie" }],
+      },
+      { type: "rewriteBody", body: '{"x":1}' },
     ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.headerOps).toEqual([{ op: 'remove', name: 'Set-Cookie' }]);
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.headerOps).toEqual([{ op: "remove", name: "Set-Cookie" }]);
     expect(result.body).toBe('{"x":1}');
   });
 
-  it('should return passthrough if no rule matches the request (AC-006)', () => {
-    const rule = buildRule([{ type: 'rewriteBody', body: 'x' }], {
-      url: { pattern: 'https://other.x/*', kind: 'glob' },
+  it("should return passthrough if no rule matches the request (AC-006)", () => {
+    const rule = buildRule([{ type: "rewriteBody", body: "x" }], {
+      url: { pattern: "https://other.x/*", kind: "glob" },
     });
-    expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
-  });
-
-  it('should return passthrough if the matched rule is disabled (AC-006)', () => {
-    const rule = buildRule([{ type: 'rewriteBody', body: 'x' }], undefined, { enabled: false });
-    expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
-  });
-
-  it('should return passthrough if global interception is disabled (AC-006)', () => {
-    const rule = buildRule([{ type: 'rewriteBody', body: 'x' }]);
-    expect(decideInterception([rule], descriptor(), false)).toEqual({ kind: 'passthrough' });
-  });
-
-  it('should return passthrough if the matched rule carries no response action', () => {
-    const rule = buildRule([]);
-    expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
-  });
-
-  it('should not match when the method filter excludes the request method (AC-001, TC-005)', () => {
-    const rule = buildRule([{ type: 'rewriteBody', body: 'x' }], {
-      url: { pattern: 'https://api.x/*', kind: 'glob' },
-      methods: ['POST'],
+    expect(decideInterception([rule], descriptor(), true)).toEqual({
+      kind: "passthrough",
     });
-    expect(decideInterception([rule], descriptor({ method: 'GET' }), true)).toEqual({ kind: 'passthrough' });
-    expect(isOverride(decideInterception([rule], descriptor({ method: 'POST' }), true))).toBe(true);
   });
 
-  it('should let the first enabled matching rule win over a later matching rule', () => {
-    const first = buildRule([{ type: 'rewriteBody', body: 'first' }], undefined, { id: 'first' });
-    const second = buildRule([{ type: 'rewriteBody', body: 'second' }], undefined, { id: 'second' });
-    const result = decideInterception([first, second], descriptor(), true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.body).toBe('first');
-  });
-
-  it('should skip a disabled earlier rule and use the next enabled matching rule', () => {
-    const disabledFirst = buildRule([{ type: 'rewriteBody', body: 'first' }], undefined, {
-      id: 'first',
+  it("should return passthrough if the matched rule is disabled (AC-006)", () => {
+    const rule = buildRule([{ type: "rewriteBody", body: "x" }], undefined, {
       enabled: false,
     });
-    const enabledSecond = buildRule([{ type: 'rewriteBody', body: 'second' }], undefined, { id: 'second' });
-    const result = decideInterception([disabledFirst, enabledSecond], descriptor(), true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.body).toBe('second');
+    expect(decideInterception([rule], descriptor(), true)).toEqual({
+      kind: "passthrough",
+    });
   });
 
-  it('should treat a rule with an invalid regex url pattern as passthrough without throwing', () => {
-    const rule = buildRule([{ type: 'rewriteBody', body: 'x' }], { url: { pattern: '[', kind: 'regex' } });
+  it("should return passthrough if global interception is disabled (AC-006)", () => {
+    const rule = buildRule([{ type: "rewriteBody", body: "x" }]);
+    expect(decideInterception([rule], descriptor(), false)).toEqual({
+      kind: "passthrough",
+    });
+  });
+
+  it("should return passthrough if the matched rule carries no response action", () => {
+    const rule = buildRule([]);
+    expect(decideInterception([rule], descriptor(), true)).toEqual({
+      kind: "passthrough",
+    });
+  });
+
+  it("should not match when the method filter excludes the request method (AC-001, TC-005)", () => {
+    const rule = buildRule([{ type: "rewriteBody", body: "x" }], {
+      url: { pattern: "https://api.x/*", kind: "glob" },
+      methods: ["POST"],
+    });
+    expect(
+      decideInterception([rule], descriptor({ method: "GET" }), true),
+    ).toEqual({ kind: "passthrough" });
+    expect(
+      isOverride(
+        decideInterception([rule], descriptor({ method: "POST" }), true),
+      ),
+    ).toBe(true);
+  });
+
+  it("should let the first enabled matching rule win over a later matching rule", () => {
+    const first = buildRule(
+      [{ type: "rewriteBody", body: "first" }],
+      undefined,
+      { id: "first" },
+    );
+    const second = buildRule(
+      [{ type: "rewriteBody", body: "second" }],
+      undefined,
+      { id: "second" },
+    );
+    const result = decideInterception([first, second], descriptor(), true);
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.body).toBe("first");
+  });
+
+  it("should skip a disabled earlier rule and use the next enabled matching rule", () => {
+    const disabledFirst = buildRule(
+      [{ type: "rewriteBody", body: "first" }],
+      undefined,
+      {
+        id: "first",
+        enabled: false,
+      },
+    );
+    const enabledSecond = buildRule(
+      [{ type: "rewriteBody", body: "second" }],
+      undefined,
+      { id: "second" },
+    );
+    const result = decideInterception(
+      [disabledFirst, enabledSecond],
+      descriptor(),
+      true,
+    );
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.body).toBe("second");
+  });
+
+  it("should treat a rule with an invalid regex url pattern as passthrough without throwing", () => {
+    const rule = buildRule([{ type: "rewriteBody", body: "x" }], {
+      url: { pattern: "[", kind: "regex" },
+    });
     expect(() => decideInterception([rule], descriptor(), true)).not.toThrow();
-    expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
+    expect(decideInterception([rule], descriptor(), true)).toEqual({
+      kind: "passthrough",
+    });
   });
 
-  it('should map request-side actions to an override carrying requestHeaderOps and requestBody (TC-003)', () => {
+  it("should map request-side actions to an override carrying requestHeaderOps and requestBody (TC-003)", () => {
     const rule = buildRule([
-      { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
-      { type: 'rewriteRequestBody', body: '{"q":2}' },
+      {
+        type: "modifyRequestHeaders",
+        headers: [{ op: "set", name: "X-Env", value: "staging" }],
+      },
+      { type: "rewriteRequestBody", body: '{"q":2}' },
     ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.requestHeaderOps).toEqual([{ op: 'set', name: 'X-Env', value: 'staging' }]);
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.requestHeaderOps).toEqual([
+      { op: "set", name: "X-Env", value: "staging" },
+    ]);
     expect(result.requestBody).toBe('{"q":2}');
   });
 
-  it('should override (not passthrough) for a request-only rule with empty response ops and undefined body (TC-004)', () => {
+  it("should override (not passthrough) for a request-only rule with empty response ops and undefined body (TC-004)", () => {
     const rule = buildRule([
-      { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
-      { type: 'rewriteRequestBody', body: '{"q":2}' },
+      {
+        type: "modifyRequestHeaders",
+        headers: [{ op: "set", name: "X-Env", value: "staging" }],
+      },
+      { type: "rewriteRequestBody", body: '{"q":2}' },
     ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
+    if (!isOverride(result)) throw new Error("expected override");
     expect(result.headerOps).toEqual([]);
     expect(result.body).toBeUndefined();
-    expect(result.requestHeaderOps).toEqual([{ op: 'set', name: 'X-Env', value: 'staging' }]);
+    expect(result.requestHeaderOps).toEqual([
+      { op: "set", name: "X-Env", value: "staging" },
+    ]);
     expect(result.requestBody).toBe('{"q":2}');
   });
 
-  it('should map a preScript-only rule to an override carrying the preScript source (AC-002)', () => {
+  it("should map a preScript-only rule to an override carrying the preScript source (AC-002)", () => {
     // behavior: a rule whose only action is a preScript still overrides (not passthrough)
-    const rule = buildRule([{ type: 'preScript', source: 'req.setHeader("x-a","1");' }]);
+    const rule = buildRule([
+      { type: "preScript", source: 'req.setHeader("x-a","1");' },
+    ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
+    if (!isOverride(result)) throw new Error("expected override");
     expect(result.preScript).toBe('req.setHeader("x-a","1");');
     expect(result.postScript).toBeUndefined();
     expect(result.headerOps).toEqual([]);
     expect(result.body).toBeUndefined();
   });
 
-  it('should map a postScript-only rule to an override carrying the postScript source (AC-002)', () => {
+  it("should map a postScript-only rule to an override carrying the postScript source (AC-002)", () => {
     // behavior: a response-only script rule overrides and carries the postScript source
-    const rule = buildRule([{ type: 'postScript', source: 'res.setBody("changed");' }]);
+    const rule = buildRule([
+      { type: "postScript", source: 'res.setBody("changed");' },
+    ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
+    if (!isOverride(result)) throw new Error("expected override");
     expect(result.postScript).toBe('res.setBody("changed");');
     expect(result.preScript).toBeUndefined();
   });
 
-  it('should carry both script sources alongside declarative ops when a rule has all (AC-002, AC-013)', () => {
+  it("should carry both script sources alongside declarative ops when a rule has all (AC-002, AC-013)", () => {
     // behavior: scripts coexist with header/body ops on the same override
     const rule = buildRule([
-      { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }] },
-      { type: 'preScript', source: 'req.setBody("pre");' },
-      { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Resp', value: 'on' }] },
-      { type: 'postScript', source: 'res.setBody("post");' },
+      {
+        type: "modifyRequestHeaders",
+        headers: [{ op: "set", name: "X-Env", value: "staging" }],
+      },
+      { type: "preScript", source: 'req.setBody("pre");' },
+      {
+        type: "modifyResponseHeaders",
+        headers: [{ op: "set", name: "X-Resp", value: "on" }],
+      },
+      { type: "postScript", source: 'res.setBody("post");' },
     ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
+    if (!isOverride(result)) throw new Error("expected override");
     expect(result.preScript).toBe('req.setBody("pre");');
     expect(result.postScript).toBe('res.setBody("post");');
-    expect(result.requestHeaderOps).toEqual([{ op: 'set', name: 'X-Env', value: 'staging' }]);
-    expect(result.headerOps).toEqual([{ op: 'set', name: 'X-Resp', value: 'on' }]);
+    expect(result.requestHeaderOps).toEqual([
+      { op: "set", name: "X-Env", value: "staging" },
+    ]);
+    expect(result.headerOps).toEqual([
+      { op: "set", name: "X-Resp", value: "on" },
+    ]);
   });
 
-  it('should return passthrough for a rule carrying zero actions (AC-002)', () => {
+  it("should return passthrough for a rule carrying zero actions (AC-002)", () => {
     // behavior: no actions at all is still passthrough (scripts are opt-in)
     const rule = buildRule([]);
-    expect(decideInterception([rule], descriptor(), true)).toEqual({ kind: 'passthrough' });
+    expect(decideInterception([rule], descriptor(), true)).toEqual({
+      kind: "passthrough",
+    });
   });
 
-  it('should map a rewriteRequestUrl-only rule to an override carrying the resolved requestUrl (TC-008, AC-003)', () => {
+  it("should map a rewriteRequestUrl-only rule to an override carrying the resolved requestUrl (TC-008, AC-003)", () => {
     // behavior: a rule whose only action is rewriteRequestUrl still overrides (not passthrough),
     // and requestUrl holds the URL resolved from the descriptor url + target (origin swap here).
-    const rule = buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000' }]);
+    const rule = buildRule([
+      { type: "rewriteRequestUrl", target: "http://localhost:3000" },
+    ]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.requestUrl).toBe('http://localhost:3000/users');
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.requestUrl).toBe("http://localhost:3000/users");
     expect(result.headerOps).toEqual([]);
     expect(result.body).toBeUndefined();
     expect(result.requestHeaderOps).toEqual([]);
     expect(result.requestBody).toBeUndefined();
   });
 
-  it('should resolve a full-replace target against the descriptor url on the override requestUrl (TC-008, AC-003)', () => {
+  it("should resolve a full-replace target against the descriptor url on the override requestUrl (TC-008, AC-003)", () => {
     // behavior: an explicit target path resolves to a full replace, backfilling the original query
-    const rule = buildRule([{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }]);
+    const rule = buildRule([
+      { type: "rewriteRequestUrl", target: "http://localhost:3000/mock" },
+    ]);
     const result = decideInterception(
       [rule],
-      descriptor({ url: 'https://api.x/users?page=2' }),
+      descriptor({ url: "https://api.x/users?page=2" }),
       true,
     );
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
-    expect(result.requestUrl).toBe('http://localhost:3000/mock?page=2');
+    if (!isOverride(result)) throw new Error("expected override");
+    expect(result.requestUrl).toBe("http://localhost:3000/mock?page=2");
   });
 
-  it('should leave requestUrl undefined on an override that carries no rewriteRequestUrl action (TC-008, AC-003)', () => {
+  it("should leave requestUrl undefined on an override that carries no rewriteRequestUrl action (TC-008, AC-003)", () => {
     // behavior: a rule without the URL-rewrite action does not populate requestUrl
-    const rule = buildRule([{ type: 'rewriteBody', body: 'x' }]);
+    const rule = buildRule([{ type: "rewriteBody", body: "x" }]);
     const result = decideInterception([rule], descriptor(), true);
     expect(isOverride(result)).toBe(true);
-    if (!isOverride(result)) throw new Error('expected override');
+    if (!isOverride(result)) throw new Error("expected override");
     expect(result.requestUrl).toBeUndefined();
   });
 
-  it('should ignore legacy stored action types and fall through to passthrough (AC-006, rollout)', () => {
+  it("should ignore legacy stored action types and fall through to passthrough (AC-006, rollout)", () => {
     const legacy = {
-      id: 'legacy',
-      name: 'x',
+      id: "legacy",
+      name: "x",
       enabled: true,
       priority: 0,
-      matchers: { url: { pattern: 'https://api.x/*', kind: 'glob' } },
-      actions: [{ type: 'mock', status: 200, headers: [], body: 'x' }],
+      matchers: { url: { pattern: "https://api.x/*", kind: "glob" } },
+      actions: [{ type: "mock", status: 200, headers: [], body: "x" }],
     } as unknown as Rule;
-    expect(decideInterception([legacy], descriptor(), true)).toEqual({ kind: 'passthrough' });
+    expect(decideInterception([legacy], descriptor(), true)).toEqual({
+      kind: "passthrough",
+    });
   });
 });

@@ -1,133 +1,164 @@
-import { describe, it, expect } from 'vitest';
-import type { Rule } from '../../rules/model';
-import { emptyDraft, ruleToDraft, draftToRule, draftsEqual, type RuleDraft, type OpRow } from './ruleDraft';
+import { describe, expect, it } from "vitest";
+import type { Rule } from "../../rules/model";
+import {
+  draftsEqual,
+  draftToRule,
+  emptyDraft,
+  type OpRow,
+  type RuleDraft,
+  ruleToDraft,
+} from "./ruleDraft";
 
 const buildRule = (overrides: Partial<Rule> = {}): Rule => ({
-  id: 'rule-1',
-  name: 'existing rule',
+  id: "rule-1",
+  name: "existing rule",
   enabled: true,
-  matchers: { url: { pattern: 'https://example.com/*', kind: 'glob' } },
+  matchers: { url: { pattern: "https://example.com/*", kind: "glob" } },
   actions: [],
   ...overrides,
 });
 
 const baseDraft = (overrides: Partial<RuleDraft> = {}): RuleDraft => ({
-  name: 'alpha',
-  pattern: 'https://api.test.dev/*',
-  kind: 'glob',
-  methods: ['GET'],
+  name: "alpha",
+  pattern: "https://api.test.dev/*",
+  kind: "glob",
+  methods: ["GET"],
   responseOps: [],
-  rewriteBody: '',
+  rewriteBody: "",
   requestOps: [],
-  requestBody: '',
-  requestUrl: '',
-  preScript: '',
-  postScript: '',
+  requestBody: "",
+  requestUrl: "",
+  preScript: "",
+  postScript: "",
   ...overrides,
 });
 
-describe('emptyDraft', () => {
-  it('should return an all-empty glob draft with no methods, ops or body', () => {
+describe("emptyDraft", () => {
+  it("should return an all-empty glob draft with no methods, ops or body", () => {
     // behavior: the blank projection used to seed a new-rule tab
     expect(emptyDraft()).toEqual({
-      name: '',
-      pattern: '',
-      kind: 'glob',
+      name: "",
+      pattern: "",
+      kind: "glob",
       methods: [],
       responseOps: [],
-      rewriteBody: '',
+      rewriteBody: "",
       requestOps: [],
-      requestBody: '',
-      requestUrl: '',
-      preScript: '',
-      postScript: '',
+      requestBody: "",
+      requestUrl: "",
+      preScript: "",
+      postScript: "",
     });
   });
 
-  it('should blank the preScript and postScript fields', () => {
+  it("should blank the preScript and postScript fields", () => {
     // behavior: a new-rule draft starts with empty script sources
-    expect(emptyDraft().preScript).toBe('');
-    expect(emptyDraft().postScript).toBe('');
+    expect(emptyDraft().preScript).toBe("");
+    expect(emptyDraft().postScript).toBe("");
   });
 });
 
-describe('ruleToDraft', () => {
-  it('should prefill name, pattern and kind from the rule', () => {
+describe("ruleToDraft", () => {
+  it("should prefill name, pattern and kind from the rule", () => {
     // behavior: the editable projection mirrors the saved rule's match fields
     const draft = ruleToDraft(
-      buildRule({ name: 'prefilled', matchers: { url: { pattern: 'https://prefill.test/*', kind: 'regex' } } }),
+      buildRule({
+        name: "prefilled",
+        matchers: { url: { pattern: "https://prefill.test/*", kind: "regex" } },
+      }),
     );
 
-    expect(draft.name).toBe('prefilled');
-    expect(draft.pattern).toBe('https://prefill.test/*');
-    expect(draft.kind).toBe('regex');
+    expect(draft.name).toBe("prefilled");
+    expect(draft.pattern).toBe("https://prefill.test/*");
+    expect(draft.kind).toBe("regex");
   });
 
-  it('should prefill methods from the rule matchers, defaulting to an empty list', () => {
+  it("should prefill methods from the rule matchers, defaulting to an empty list", () => {
     // behavior: methods carry across; a rule without methods yields []
-    expect(ruleToDraft(buildRule({ matchers: { url: { pattern: 'p', kind: 'glob' }, methods: ['GET', 'POST'] } })).methods).toEqual(['GET', 'POST']);
+    expect(
+      ruleToDraft(
+        buildRule({
+          matchers: {
+            url: { pattern: "p", kind: "glob" },
+            methods: ["GET", "POST"],
+          },
+        }),
+      ).methods,
+    ).toEqual(["GET", "POST"]);
     expect(ruleToDraft(buildRule()).methods).toEqual([]);
   });
 
-  it('should prefill responseOps and rewriteBody from the rule actions', () => {
+  it("should prefill responseOps and rewriteBody from the rule actions", () => {
     // behavior: response header ops and body-rewrite project back into editable rows
     const draft = ruleToDraft(
       buildRule({
         actions: [
-          { type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }, { op: 'remove', name: 'Set-Cookie' }] },
-          { type: 'rewriteBody', body: '{"pre":true}' },
+          {
+            type: "modifyResponseHeaders",
+            headers: [
+              { op: "set", name: "X-Env", value: "staging" },
+              { op: "remove", name: "Set-Cookie" },
+            ],
+          },
+          { type: "rewriteBody", body: '{"pre":true}' },
         ],
       }),
     );
 
     expect(draft.responseOps).toEqual([
-      { op: 'set', name: 'X-Env', value: 'staging' },
-      { op: 'remove', name: 'Set-Cookie', value: '' },
+      { op: "set", name: "X-Env", value: "staging" },
+      { op: "remove", name: "Set-Cookie", value: "" },
     ]);
     expect(draft.rewriteBody).toBe('{"pre":true}');
   });
 
-  it('should default responseOps and rewriteBody to empty when the rule has no such actions', () => {
+  it("should default responseOps and rewriteBody to empty when the rule has no such actions", () => {
     // behavior: absent actions project to an empty row list and empty body
     const draft = ruleToDraft(buildRule());
 
     expect(draft.responseOps).toEqual([]);
-    expect(draft.rewriteBody).toBe('');
+    expect(draft.rewriteBody).toBe("");
   });
 
-  it('should prefill requestOps and requestBody from the request-side actions (TC-011)', () => {
+  it("should prefill requestOps and requestBody from the request-side actions (TC-011)", () => {
     // behavior: request header ops and body-rewrite project back into editable rows
     const draft = ruleToDraft(
       buildRule({
         actions: [
-          { type: 'modifyRequestHeaders', headers: [{ op: 'set', name: 'X-Env', value: 'staging' }, { op: 'remove', name: 'X-Secret' }] },
-          { type: 'rewriteRequestBody', body: '{"q":2}' },
+          {
+            type: "modifyRequestHeaders",
+            headers: [
+              { op: "set", name: "X-Env", value: "staging" },
+              { op: "remove", name: "X-Secret" },
+            ],
+          },
+          { type: "rewriteRequestBody", body: '{"q":2}' },
         ],
       }),
     );
 
     expect(draft.requestOps).toEqual([
-      { op: 'set', name: 'X-Env', value: 'staging' },
-      { op: 'remove', name: 'X-Secret', value: '' },
+      { op: "set", name: "X-Env", value: "staging" },
+      { op: "remove", name: "X-Secret", value: "" },
     ]);
     expect(draft.requestBody).toBe('{"q":2}');
   });
 
-  it('should default requestOps and requestBody to empty when the rule has no such actions (TC-011)', () => {
+  it("should default requestOps and requestBody to empty when the rule has no such actions (TC-011)", () => {
     // behavior: absent request actions project to an empty row list and empty body
     const draft = ruleToDraft(buildRule());
 
     expect(draft.requestOps).toEqual([]);
-    expect(draft.requestBody).toBe('');
+    expect(draft.requestBody).toBe("");
   });
 
-  it('should prefill preScript and postScript from the rule script actions', () => {
+  it("should prefill preScript and postScript from the rule script actions", () => {
     // behavior: script action sources project back into the draft's script fields
     const draft = ruleToDraft(
       buildRule({
         actions: [
-          { type: 'preScript', source: 'req.setHeader("x","1");' },
-          { type: 'postScript', source: 'res.setBody("y");' },
+          { type: "preScript", source: 'req.setHeader("x","1");' },
+          { type: "postScript", source: 'res.setBody("y");' },
         ],
       }),
     );
@@ -136,305 +167,434 @@ describe('ruleToDraft', () => {
     expect(draft.postScript).toBe('res.setBody("y");');
   });
 
-  it('should default preScript and postScript to empty when the rule has no script actions', () => {
+  it("should default preScript and postScript to empty when the rule has no script actions", () => {
     // behavior: absent script actions project to empty strings
     const draft = ruleToDraft(buildRule());
 
-    expect(draft.preScript).toBe('');
-    expect(draft.postScript).toBe('');
+    expect(draft.preScript).toBe("");
+    expect(draft.postScript).toBe("");
   });
 
-  it('should prefill requestUrl from a rewriteRequestUrl action target (TC-013)', () => {
+  it("should prefill requestUrl from a rewriteRequestUrl action target (TC-013)", () => {
     // behavior: the URL-rewrite action's target projects back into the draft's requestUrl field
     const draft = ruleToDraft(
-      buildRule({ actions: [{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }] }),
+      buildRule({
+        actions: [
+          { type: "rewriteRequestUrl", target: "http://localhost:3000/mock" },
+        ],
+      }),
     );
 
-    expect(draft.requestUrl).toBe('http://localhost:3000/mock');
+    expect(draft.requestUrl).toBe("http://localhost:3000/mock");
   });
 
-  it('should default requestUrl to empty when the rule has no rewriteRequestUrl action (TC-013)', () => {
+  it("should default requestUrl to empty when the rule has no rewriteRequestUrl action (TC-013)", () => {
     // behavior: absent URL-rewrite action projects to an empty requestUrl
-    expect(ruleToDraft(buildRule()).requestUrl).toBe('');
+    expect(ruleToDraft(buildRule()).requestUrl).toBe("");
   });
 });
 
-describe('draftToRule', () => {
-  it('should build a Rule with matchers, methods, header ops and body from a valid draft', () => {
+describe("draftToRule", () => {
+  it("should build a Rule with matchers, methods, header ops and body from a valid draft", () => {
     // behavior: the happy path assembles a full Rule from the editable projection
     const result = draftToRule(
       baseDraft({
-        name: 'my rule',
-        pattern: 'https://api.test.dev/*',
-        kind: 'glob',
-        methods: ['GET', 'POST'],
-        responseOps: [{ op: 'set', name: 'X-Test', value: 'on' }],
-        rewriteBody: 'new-body',
+        name: "my rule",
+        pattern: "https://api.test.dev/*",
+        kind: "glob",
+        methods: ["GET", "POST"],
+        responseOps: [{ op: "set", name: "X-Test", value: "on" }],
+        rewriteBody: "new-body",
       }),
     );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.name).toBe('my rule');
-    expect(result.rule.matchers.url).toEqual({ pattern: 'https://api.test.dev/*', kind: 'glob' });
-    expect(result.rule.matchers.methods).toEqual(['GET', 'POST']);
-    expect(result.rule.actions).toContainEqual({ type: 'modifyResponseHeaders', headers: [{ op: 'set', name: 'X-Test', value: 'on' }] });
-    expect(result.rule.actions).toContainEqual({ type: 'rewriteBody', body: 'new-body' });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.name).toBe("my rule");
+    expect(result.rule.matchers.url).toEqual({
+      pattern: "https://api.test.dev/*",
+      kind: "glob",
+    });
+    expect(result.rule.matchers.methods).toEqual(["GET", "POST"]);
+    expect(result.rule.actions).toContainEqual({
+      type: "modifyResponseHeaders",
+      headers: [{ op: "set", name: "X-Test", value: "on" }],
+    });
+    expect(result.rule.actions).toContainEqual({
+      type: "rewriteBody",
+      body: "new-body",
+    });
   });
 
-  it('should build a remove header op without a value field', () => {
+  it("should build a remove header op without a value field", () => {
     // behavior: a remove row projects to a { op, name } header op only
-    const result = draftToRule(baseDraft({ responseOps: [{ op: 'remove', name: 'Set-Cookie', value: '' }] }));
+    const result = draftToRule(
+      baseDraft({
+        responseOps: [{ op: "remove", name: "Set-Cookie", value: "" }],
+      }),
+    );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions).toContainEqual({ type: 'modifyResponseHeaders', headers: [{ op: 'remove', name: 'Set-Cookie' }] });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.actions).toContainEqual({
+      type: "modifyResponseHeaders",
+      headers: [{ op: "remove", name: "Set-Cookie" }],
+    });
   });
 
-  it('should omit response-header ops whose name is blank', () => {
+  it("should omit response-header ops whose name is blank", () => {
     // behavior: empty-name rows are dropped so no zero-name header ships
-    const result = draftToRule(baseDraft({ responseOps: [{ op: 'set', name: '  ', value: 'x' }] }));
+    const result = draftToRule(
+      baseDraft({ responseOps: [{ op: "set", name: "  ", value: "x" }] }),
+    );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions.some((action) => action.type === 'modifyResponseHeaders')).toBe(false);
+    if (!result.ok) throw new Error("expected ok");
+    expect(
+      result.rule.actions.some(
+        (action) => action.type === "modifyResponseHeaders",
+      ),
+    ).toBe(false);
   });
 
-  it('should omit the methods key when the draft has no methods selected', () => {
+  it("should omit the methods key when the draft has no methods selected", () => {
     // behavior: an empty methods list means "any method" (no methods matcher)
     const result = draftToRule(baseDraft({ methods: [] }));
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
+    if (!result.ok) throw new Error("expected ok");
     expect(result.rule.matchers.methods).toBeUndefined();
   });
 
-  it('should omit the rewriteBody action when the body is blank', () => {
+  it("should omit the rewriteBody action when the body is blank", () => {
     // behavior: an empty body does not produce a rewriteBody action
-    const result = draftToRule(baseDraft({ rewriteBody: '' }));
+    const result = draftToRule(baseDraft({ rewriteBody: "" }));
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions.some((action) => action.type === 'rewriteBody')).toBe(false);
+    if (!result.ok) throw new Error("expected ok");
+    expect(
+      result.rule.actions.some((action) => action.type === "rewriteBody"),
+    ).toBe(false);
   });
 
-  it('should emit modifyRequestHeaders and rewriteRequestBody actions when request fields are non-empty (TC-011)', () => {
+  it("should emit modifyRequestHeaders and rewriteRequestBody actions when request fields are non-empty (TC-011)", () => {
     // behavior: request ops and body project to the two request-side actions
     const result = draftToRule(
       baseDraft({
-        requestOps: [{ op: 'set', name: 'X-Env', value: 'staging' }, { op: 'remove', name: 'X-Secret', value: '' }],
+        requestOps: [
+          { op: "set", name: "X-Env", value: "staging" },
+          { op: "remove", name: "X-Secret", value: "" },
+        ],
         requestBody: '{"q":2}',
       }),
     );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
+    if (!result.ok) throw new Error("expected ok");
     expect(result.rule.actions).toContainEqual({
-      type: 'modifyRequestHeaders',
-      headers: [{ op: 'set', name: 'X-Env', value: 'staging' }, { op: 'remove', name: 'X-Secret' }],
+      type: "modifyRequestHeaders",
+      headers: [
+        { op: "set", name: "X-Env", value: "staging" },
+        { op: "remove", name: "X-Secret" },
+      ],
     });
-    expect(result.rule.actions).toContainEqual({ type: 'rewriteRequestBody', body: '{"q":2}' });
+    expect(result.rule.actions).toContainEqual({
+      type: "rewriteRequestBody",
+      body: '{"q":2}',
+    });
   });
 
-  it('should omit both request-side actions when request fields are empty (TC-011)', () => {
+  it("should omit both request-side actions when request fields are empty (TC-011)", () => {
     // behavior: empty request ops and blank request body emit no request action
-    const result = draftToRule(baseDraft({ requestOps: [], requestBody: '' }));
+    const result = draftToRule(baseDraft({ requestOps: [], requestBody: "" }));
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions.some((action) => action.type === 'modifyRequestHeaders')).toBe(false);
-    expect(result.rule.actions.some((action) => action.type === 'rewriteRequestBody')).toBe(false);
+    if (!result.ok) throw new Error("expected ok");
+    expect(
+      result.rule.actions.some(
+        (action) => action.type === "modifyRequestHeaders",
+      ),
+    ).toBe(false);
+    expect(
+      result.rule.actions.some(
+        (action) => action.type === "rewriteRequestBody",
+      ),
+    ).toBe(false);
   });
 
-  it('should omit request-header ops whose name is blank (TC-011)', () => {
+  it("should omit request-header ops whose name is blank (TC-011)", () => {
     // behavior: empty-name request rows are dropped so no zero-name header ships
-    const result = draftToRule(baseDraft({ requestOps: [{ op: 'set', name: '  ', value: 'x' }] }));
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions.some((action) => action.type === 'modifyRequestHeaders')).toBe(false);
-  });
-
-  it('should emit preScript and postScript actions when the script fields are non-empty', () => {
-    // behavior: non-empty script sources project to the two script actions
     const result = draftToRule(
-      baseDraft({ preScript: 'req.setUrl("https://x/v2");', postScript: 'res.setBody("z");' }),
+      baseDraft({ requestOps: [{ op: "set", name: "  ", value: "x" }] }),
     );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions).toContainEqual({ type: 'preScript', source: 'req.setUrl("https://x/v2");' });
-    expect(result.rule.actions).toContainEqual({ type: 'postScript', source: 'res.setBody("z");' });
+    if (!result.ok) throw new Error("expected ok");
+    expect(
+      result.rule.actions.some(
+        (action) => action.type === "modifyRequestHeaders",
+      ),
+    ).toBe(false);
   });
 
-  it('should omit both script actions when the script fields are empty', () => {
+  it("should emit preScript and postScript actions when the script fields are non-empty", () => {
+    // behavior: non-empty script sources project to the two script actions
+    const result = draftToRule(
+      baseDraft({
+        preScript: 'req.setUrl("https://x/v2");',
+        postScript: 'res.setBody("z");',
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.actions).toContainEqual({
+      type: "preScript",
+      source: 'req.setUrl("https://x/v2");',
+    });
+    expect(result.rule.actions).toContainEqual({
+      type: "postScript",
+      source: 'res.setBody("z");',
+    });
+  });
+
+  it("should omit both script actions when the script fields are empty", () => {
     // behavior: empty script sources emit no script action
-    const result = draftToRule(baseDraft({ preScript: '', postScript: '' }));
+    const result = draftToRule(baseDraft({ preScript: "", postScript: "" }));
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions.some((action) => action.type === 'preScript')).toBe(false);
-    expect(result.rule.actions.some((action) => action.type === 'postScript')).toBe(false);
+    if (!result.ok) throw new Error("expected ok");
+    expect(
+      result.rule.actions.some((action) => action.type === "preScript"),
+    ).toBe(false);
+    expect(
+      result.rule.actions.some((action) => action.type === "postScript"),
+    ).toBe(false);
   });
 
-  it('should omit a script action whose source is whitespace-only', () => {
+  it("should omit a script action whose source is whitespace-only", () => {
     // behavior: a whitespace-only script trims to empty and emits no action
-    const result = draftToRule(baseDraft({ preScript: '   \n\t ', postScript: '\n' }));
+    const result = draftToRule(
+      baseDraft({ preScript: "   \n\t ", postScript: "\n" }),
+    );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions.some((action) => action.type === 'preScript')).toBe(false);
-    expect(result.rule.actions.some((action) => action.type === 'postScript')).toBe(false);
+    if (!result.ok) throw new Error("expected ok");
+    expect(
+      result.rule.actions.some((action) => action.type === "preScript"),
+    ).toBe(false);
+    expect(
+      result.rule.actions.some((action) => action.type === "postScript"),
+    ).toBe(false);
   });
 
-  it('should preserve the script source verbatim (no trimming of the stored source)', () => {
+  it("should preserve the script source verbatim (no trimming of the stored source)", () => {
     // behavior: only emptiness is trimmed; a non-empty source ships exactly as typed
-    const source = '  const x = 1;\n  req.setBody(String(x));  ';
+    const source = "  const x = 1;\n  req.setBody(String(x));  ";
     const result = draftToRule(baseDraft({ preScript: source }));
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions).toContainEqual({ type: 'preScript', source });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.actions).toContainEqual({ type: "preScript", source });
   });
 
-  it('should round-trip a rule with scripts through ruleToDraft and draftToRule preserving sources', () => {
+  it("should round-trip a rule with scripts through ruleToDraft and draftToRule preserving sources", () => {
     // behavior: rule -> draft -> rule keeps both script sources intact
     const rule = buildRule({
       actions: [
-        { type: 'preScript', source: 'req.setHeader("a","1");' },
-        { type: 'postScript', source: 'res.setBody(res.getBody());' },
+        { type: "preScript", source: 'req.setHeader("a","1");' },
+        { type: "postScript", source: "res.setBody(res.getBody());" },
       ],
     });
 
     const result = draftToRule(ruleToDraft(rule), rule);
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions).toContainEqual({ type: 'preScript', source: 'req.setHeader("a","1");' });
-    expect(result.rule.actions).toContainEqual({ type: 'postScript', source: 'res.setBody(res.getBody());' });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.actions).toContainEqual({
+      type: "preScript",
+      source: 'req.setHeader("a","1");',
+    });
+    expect(result.rule.actions).toContainEqual({
+      type: "postScript",
+      source: "res.setBody(res.getBody());",
+    });
   });
 
-  it('should emit a rewriteRequestUrl action when requestUrl is non-empty (TC-013)', () => {
+  it("should emit a rewriteRequestUrl action when requestUrl is non-empty (TC-013)", () => {
     // behavior: a non-empty requestUrl projects to the URL-rewrite action carrying its target
-    const result = draftToRule(baseDraft({ requestUrl: 'http://localhost:3000' }));
+    const result = draftToRule(
+      baseDraft({ requestUrl: "http://localhost:3000" }),
+    );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions).toContainEqual({ type: 'rewriteRequestUrl', target: 'http://localhost:3000' });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.actions).toContainEqual({
+      type: "rewriteRequestUrl",
+      target: "http://localhost:3000",
+    });
   });
 
-  it('should round-trip a rewriteRequestUrl target through ruleToDraft and draftToRule (TC-013)', () => {
+  it("should round-trip a rewriteRequestUrl target through ruleToDraft and draftToRule (TC-013)", () => {
     // behavior: rule -> draft -> rule keeps the URL-rewrite target intact
-    const rule = buildRule({ actions: [{ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' }] });
+    const rule = buildRule({
+      actions: [
+        { type: "rewriteRequestUrl", target: "http://localhost:3000/mock" },
+      ],
+    });
 
     const result = draftToRule(ruleToDraft(rule), rule);
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.actions).toContainEqual({ type: 'rewriteRequestUrl', target: 'http://localhost:3000/mock' });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.actions).toContainEqual({
+      type: "rewriteRequestUrl",
+      target: "http://localhost:3000/mock",
+    });
   });
 
-  it('should fail with an error when the pattern is empty', () => {
+  it("should fail with an error when the pattern is empty", () => {
     // behavior: an empty URL pattern is invalid and returns the error branch
-    const result = draftToRule(baseDraft({ pattern: '' }));
+    const result = draftToRule(baseDraft({ pattern: "" }));
 
     expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('expected error');
+    if (result.ok) throw new Error("expected error");
     expect(result.error).toMatch(/pattern/i);
   });
 
-  it('should fail with an error when a regex pattern is invalid', () => {
+  it("should fail with an error when a regex pattern is invalid", () => {
     // behavior: an uncompilable regex pattern returns the error branch
-    const result = draftToRule(baseDraft({ pattern: '[', kind: 'regex' }));
+    const result = draftToRule(baseDraft({ pattern: "[", kind: "regex" }));
 
     expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('expected error');
+    if (result.ok) throw new Error("expected error");
     expect(result.error).toMatch(/regular expression|regex/i);
   });
 
-  it('should preserve id and enabled from the baseline rule', () => {
+  it("should preserve id and enabled from the baseline rule", () => {
     // behavior: editing keeps the saved rule's identity and enabled flag
-    const result = draftToRule(baseDraft({ name: 'renamed' }), buildRule({ id: 'edit-me', enabled: false }));
+    const result = draftToRule(
+      baseDraft({ name: "renamed" }),
+      buildRule({ id: "edit-me", enabled: false }),
+    );
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
-    expect(result.rule.id).toBe('edit-me');
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.rule.id).toBe("edit-me");
     expect(result.rule.enabled).toBe(false);
-    expect(result.rule.name).toBe('renamed');
+    expect(result.rule.name).toBe("renamed");
   });
 
-  it('should mint a fresh id and default enabled to true when there is no baseline', () => {
+  it("should mint a fresh id and default enabled to true when there is no baseline", () => {
     // behavior: a brand-new draft gets a generated id and is enabled by default
-    const result = draftToRule(baseDraft({ name: 'brand new' }));
+    const result = draftToRule(baseDraft({ name: "brand new" }));
 
     expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error('expected ok');
+    if (!result.ok) throw new Error("expected ok");
     expect(result.rule.id).toMatch(/^rule-/);
     expect(result.rule.enabled).toBe(true);
   });
 });
 
-describe('draftsEqual', () => {
-  it('should return true for two identical drafts', () => {
+describe("draftsEqual", () => {
+  it("should return true for two identical drafts", () => {
     // behavior: an unchanged draft equals its baseline (revert-to-clean)
     expect(draftsEqual(baseDraft(), baseDraft())).toBe(true);
   });
 
-  it('should return false when a scalar field differs', () => {
+  it("should return false when a scalar field differs", () => {
     // behavior: a changed field (name) reads as not equal (dirty)
-    expect(draftsEqual(baseDraft({ name: 'one' }), baseDraft({ name: 'two' }))).toBe(false);
+    expect(
+      draftsEqual(baseDraft({ name: "one" }), baseDraft({ name: "two" })),
+    ).toBe(false);
   });
 
-  it('should treat methods as equal regardless of their order', () => {
+  it("should treat methods as equal regardless of their order", () => {
     // behavior: method toggle order must not read as dirty
-    expect(draftsEqual(baseDraft({ methods: ['GET', 'POST'] }), baseDraft({ methods: ['POST', 'GET'] }))).toBe(true);
+    expect(
+      draftsEqual(
+        baseDraft({ methods: ["GET", "POST"] }),
+        baseDraft({ methods: ["POST", "GET"] }),
+      ),
+    ).toBe(true);
   });
 
-  it('should treat reordered responseOps as not equal', () => {
+  it("should treat reordered responseOps as not equal", () => {
     // behavior: response-op row order is user-meaningful, so a reorder is dirty
-    const a: OpRow[] = [{ op: 'set', name: 'A', value: '1' }, { op: 'set', name: 'B', value: '2' }];
-    const b: OpRow[] = [{ op: 'set', name: 'B', value: '2' }, { op: 'set', name: 'A', value: '1' }];
+    const a: OpRow[] = [
+      { op: "set", name: "A", value: "1" },
+      { op: "set", name: "B", value: "2" },
+    ];
+    const b: OpRow[] = [
+      { op: "set", name: "B", value: "2" },
+      { op: "set", name: "A", value: "1" },
+    ];
 
-    expect(draftsEqual(baseDraft({ responseOps: a }), baseDraft({ responseOps: b }))).toBe(false);
+    expect(
+      draftsEqual(baseDraft({ responseOps: a }), baseDraft({ responseOps: b })),
+    ).toBe(false);
   });
 
-  it('should return false when requestOps differ (TC-013)', () => {
+  it("should return false when requestOps differ (TC-013)", () => {
     // behavior: a changed request-op row reads as dirty
-    const a: OpRow[] = [{ op: 'set', name: 'X-Env', value: 'staging' }];
-    const b: OpRow[] = [{ op: 'set', name: 'X-Env', value: 'prod' }];
+    const a: OpRow[] = [{ op: "set", name: "X-Env", value: "staging" }];
+    const b: OpRow[] = [{ op: "set", name: "X-Env", value: "prod" }];
 
-    expect(draftsEqual(baseDraft({ requestOps: a }), baseDraft({ requestOps: b }))).toBe(false);
+    expect(
+      draftsEqual(baseDraft({ requestOps: a }), baseDraft({ requestOps: b })),
+    ).toBe(false);
   });
 
-  it('should return false when requestBody differs (TC-013)', () => {
+  it("should return false when requestBody differs (TC-013)", () => {
     // behavior: a changed request body reads as dirty
-    expect(draftsEqual(baseDraft({ requestBody: '{"q":1}' }), baseDraft({ requestBody: '{"q":2}' }))).toBe(false);
+    expect(
+      draftsEqual(
+        baseDraft({ requestBody: '{"q":1}' }),
+        baseDraft({ requestBody: '{"q":2}' }),
+      ),
+    ).toBe(false);
   });
 
-  it('should return false when preScript differs', () => {
+  it("should return false when preScript differs", () => {
     // behavior: a changed pre-script source reads as dirty
-    expect(draftsEqual(baseDraft({ preScript: 'req.setUrl("a");' }), baseDraft({ preScript: 'req.setUrl("b");' }))).toBe(false);
+    expect(
+      draftsEqual(
+        baseDraft({ preScript: 'req.setUrl("a");' }),
+        baseDraft({ preScript: 'req.setUrl("b");' }),
+      ),
+    ).toBe(false);
   });
 
-  it('should return false when postScript differs', () => {
+  it("should return false when postScript differs", () => {
     // behavior: a changed post-script source reads as dirty
-    expect(draftsEqual(baseDraft({ postScript: 'res.setBody("a");' }), baseDraft({ postScript: 'res.setBody("b");' }))).toBe(false);
+    expect(
+      draftsEqual(
+        baseDraft({ postScript: 'res.setBody("a");' }),
+        baseDraft({ postScript: 'res.setBody("b");' }),
+      ),
+    ).toBe(false);
   });
 
-  it('should return true when both drafts share identical script sources', () => {
+  it("should return true when both drafts share identical script sources", () => {
     // behavior: equal script fields do not read as dirty
-    const a = baseDraft({ preScript: 'req.setUrl("x");', postScript: 'res.setBody("y");' });
-    const b = baseDraft({ preScript: 'req.setUrl("x");', postScript: 'res.setBody("y");' });
+    const a = baseDraft({
+      preScript: 'req.setUrl("x");',
+      postScript: 'res.setBody("y");',
+    });
+    const b = baseDraft({
+      preScript: 'req.setUrl("x");',
+      postScript: 'res.setBody("y");',
+    });
 
     expect(draftsEqual(a, b)).toBe(true);
   });
 
-  it('should return false when requestUrl differs (TC-013)', () => {
+  it("should return false when requestUrl differs (TC-013)", () => {
     // behavior: a changed URL-rewrite target reads as dirty
     expect(
       draftsEqual(
-        baseDraft({ requestUrl: 'http://localhost:3000' }),
-        baseDraft({ requestUrl: 'http://localhost:4000' }),
+        baseDraft({ requestUrl: "http://localhost:3000" }),
+        baseDraft({ requestUrl: "http://localhost:4000" }),
       ),
     ).toBe(false);
   });

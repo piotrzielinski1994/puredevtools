@@ -1,13 +1,13 @@
-import type { ReactNode } from 'react';
-import type { MoveTarget, TreeFolder } from '../../shared/tree';
-import type { ContextMenuItem } from './ContextMenu';
+import type { ReactNode } from "react";
+import type { MoveTarget, TreeFolder } from "../../shared/tree";
+import type { ContextMenuItem } from "./ContextMenu";
 
 export type SidebarLeaf = { kind: string };
 export type SidebarNode<Leaf extends SidebarLeaf> = Leaf | TreeFolder<Leaf>;
 
 export const isFolderNode = <Leaf extends SidebarLeaf>(
   node: SidebarNode<Leaf>,
-): node is TreeFolder<Leaf> => node.kind === 'folder';
+): node is TreeFolder<Leaf> => node.kind === "folder";
 
 export type TreeAdapter<Leaf extends SidebarLeaf> = {
   workspace: Array<SidebarNode<Leaf>>;

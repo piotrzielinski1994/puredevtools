@@ -1,4 +1,4 @@
-import type { Rule } from './model';
+import type { Rule } from "./model";
 
 export const copyRule = (rule: Rule, id: string, name: string): Rule => ({
   ...rule,
@@ -11,4 +11,5 @@ export const copyRule = (rule: Rule, id: string, name: string): Rule => ({
   actions: rule.actions.map((action) => ({ ...action })),
 });
 
-export const cloneRule = (rule: Rule, newId: string): Rule => copyRule(rule, newId, `${rule.name} (copy)`);
+export const cloneRule = (rule: Rule, newId: string): Rule =>
+  copyRule(rule, newId, `${rule.name} (copy)`);

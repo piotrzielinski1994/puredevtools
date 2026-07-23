@@ -1,8 +1,8 @@
-import type { Rule } from '../rules/model';
-import type { InterceptReport } from '../engine/page/types';
+import type { InterceptReport } from "../engine/page/types";
+import type { Rule } from "../rules/model";
 
-export const RULES_CHANNEL = 'puredevtools:rules-sync';
-export const REPORT_CHANNEL = 'puredevtools:intercept-report';
+export const RULES_CHANNEL = "puredevtools:rules-sync";
+export const REPORT_CHANNEL = "puredevtools:intercept-report";
 
 export type RulesSyncMessage = {
   source: typeof RULES_CHANNEL;
@@ -16,14 +16,16 @@ export type ReportChannelMessage = {
 };
 
 export const isRulesSyncMessage = (data: unknown): data is RulesSyncMessage =>
-  typeof data === 'object' &&
+  typeof data === "object" &&
   data !== null &&
   (data as { source?: unknown }).source === RULES_CHANNEL &&
   Array.isArray((data as { rules?: unknown }).rules);
 
-export const isReportChannelMessage = (data: unknown): data is ReportChannelMessage =>
-  typeof data === 'object' &&
+export const isReportChannelMessage = (
+  data: unknown,
+): data is ReportChannelMessage =>
+  typeof data === "object" &&
   data !== null &&
   (data as { source?: unknown }).source === REPORT_CHANNEL &&
-  typeof (data as { report?: unknown }).report === 'object' &&
+  typeof (data as { report?: unknown }).report === "object" &&
   (data as { report?: unknown }).report !== null;

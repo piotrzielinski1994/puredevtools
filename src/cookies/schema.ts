@@ -1,5 +1,11 @@
-import { z } from 'zod';
-import type { CookieFolderNode, CookieMapping, CookieMappingNode, CookieSyncState, CookieTreeNode } from './model';
+import { z } from "zod";
+import type {
+  CookieFolderNode,
+  CookieMapping,
+  CookieMappingNode,
+  CookieSyncState,
+  CookieTreeNode,
+} from "./model";
 
 export const cookieMappingSchema = z
   .object({
@@ -13,13 +19,13 @@ export const cookieMappingSchema = z
   .strict() satisfies z.ZodType<CookieMapping>;
 
 const mappingNodeSchema = z
-  .object({ kind: z.literal('mapping'), mapping: cookieMappingSchema })
+  .object({ kind: z.literal("mapping"), mapping: cookieMappingSchema })
   .strict() satisfies z.ZodType<CookieMappingNode>;
 
 const folderNodeSchema: z.ZodType<CookieFolderNode> = z.lazy(() =>
   z
     .object({
-      kind: z.literal('folder'),
+      kind: z.literal("folder"),
       id: z.string().min(1),
       name: z.string(),
       collapsed: z.boolean(),
@@ -28,7 +34,10 @@ const folderNodeSchema: z.ZodType<CookieFolderNode> = z.lazy(() =>
     .strict(),
 );
 
-const treeNodeSchema: z.ZodType<CookieTreeNode> = z.union([mappingNodeSchema, folderNodeSchema]);
+const treeNodeSchema: z.ZodType<CookieTreeNode> = z.union([
+  mappingNodeSchema,
+  folderNodeSchema,
+]);
 
 export const cookieTreeSchema = z.array(treeNodeSchema);
 

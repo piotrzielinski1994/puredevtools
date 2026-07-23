@@ -1,13 +1,21 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import type { Rule, TreeNode } from '../../rules/model';
-import { flatten, type MoveTarget } from '../../rules/tree';
-import type { ImportMode, ImportOutcome, UiGateway } from './gateway';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import type { Rule, TreeNode } from "../../rules/model";
+import { flatten, type MoveTarget } from "../../rules/tree";
+import type { ImportMode, ImportOutcome, UiGateway } from "./gateway";
 
 export type RulesContextValue = {
   workspace: TreeNode[];
   rules: Rule[];
   globalEnabled: boolean;
-  status: 'loading' | 'ready' | 'error';
+  status: "loading" | "ready" | "error";
   error?: string;
   addRule(rule: Rule): Promise<void>;
   updateRule(rule: Rule): Promise<void>;
@@ -36,10 +44,16 @@ const nextCopyId = (rules: Rule[], baseId: string): string => {
   return candidate;
 };
 
-export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; children: ReactNode }) => {
+export const RulesProvider = ({
+  gateway,
+  children,
+}: {
+  gateway: UiGateway;
+  children: ReactNode;
+}) => {
   const [workspace, setWorkspace] = useState<TreeNode[]>([]);
   const [globalEnabled, setGlobalEnabled] = useState(true);
-  const [status, setStatus] = useState<RulesContextValue['status']>('loading');
+  const [status, setStatus] = useState<RulesContextValue["status"]>("loading");
   const [error, setError] = useState<string | undefined>(undefined);
 
   const rules = useMemo(() => flatten(workspace), [workspace]);
@@ -59,18 +73,20 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
       try {
         await refresh();
         if (!active) return;
-        setStatus('ready');
+        setStatus("ready");
       } catch (loadError) {
         if (!active) return;
-        setError(loadError instanceof Error ? loadError.message : String(loadError));
-        setStatus('error');
+        setError(
+          loadError instanceof Error ? loadError.message : String(loadError),
+        );
+        setStatus("error");
       }
     };
     void load();
     return () => {
       active = false;
     };
-  }, [gateway, refresh]);
+  }, [refresh]);
 
   const addRule = useCallback(
     async (rule: Rule) => {
@@ -156,7 +172,7 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
   const exportRules = useCallback(() => gateway.exportToFile(), [gateway]);
 
   const importRules = useCallback(
-    async (json: string, mode: ImportMode = 'replace') => {
+    async (json: string, mode: ImportMode = "replace") => {
       const outcome = await gateway.importFromFile(json, mode);
       if (outcome.ok) await refresh();
       return outcome;
@@ -184,11 +200,13 @@ export const RulesProvider = ({ gateway, children }: { gateway: UiGateway; child
     importRules,
   };
 
-  return <RulesContext.Provider value={value}>{children}</RulesContext.Provider>;
+  return (
+    <RulesContext.Provider value={value}>{children}</RulesContext.Provider>
+  );
 };
 
 export const useRules = (): RulesContextValue => {
   const value = useContext(RulesContext);
-  if (!value) throw new Error('useRules must be used within a RulesProvider');
+  if (!value) throw new Error("useRules must be used within a RulesProvider");
   return value;
 };

@@ -1,20 +1,23 @@
-import type { TreeNode } from './model';
-import { treeOps } from './tree';
 import {
+  type DropPosition,
   emptyZoneId,
+  type MoveTarget,
+  type NodeLocation,
   parseEmptyZoneId,
   projectDropPosition,
   ROOT_ZONE_ID,
-  type DropPosition,
-  type MoveTarget,
-  type NodeLocation,
-} from '../shared/tree';
+} from "../shared/tree";
+import type { TreeNode } from "./model";
+import { treeOps } from "./tree";
 
-export { emptyZoneId, parseEmptyZoneId, projectDropPosition, ROOT_ZONE_ID };
 export type { DropPosition, NodeLocation };
+export { emptyZoneId, parseEmptyZoneId, projectDropPosition, ROOT_ZONE_ID };
 
-export const locateNode = (tree: TreeNode[], id: string, parentId: string | null = null): NodeLocation | null =>
-  treeOps.locateNode(tree, id, parentId);
+export const locateNode = (
+  tree: TreeNode[],
+  id: string,
+  parentId: string | null = null,
+): NodeLocation | null => treeOps.locateNode(tree, id, parentId);
 
 export const dropTarget = (
   tree: TreeNode[],

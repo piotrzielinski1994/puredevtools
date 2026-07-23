@@ -1,17 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { HotkeysProvider } from '@tanstack/react-hotkeys';
-import { formatForDisplay } from '@tanstack/hotkeys';
-import { STORAGE_KEYS } from '../../shared/constants';
+import { formatForDisplay } from "@tanstack/hotkeys";
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { STORAGE_KEYS } from "../../shared/constants";
 import {
   SHORTCUT_ACTIONS,
   type ShortcutActionId,
   type ShortcutOverrides,
-} from '../../shortcuts/registry';
-import { resolveShortcuts } from '../../shortcuts/resolve';
-import { ShortcutsProvider } from '../shared/ShortcutsProvider';
-import { ShortcutRow } from './ShortcutRow';
+} from "../../shortcuts/registry";
+import { resolveShortcuts } from "../../shortcuts/resolve";
+import { ShortcutsProvider } from "../shared/ShortcutsProvider";
+import { ShortcutRow } from "./ShortcutRow";
 
 // jsdom reports non-mac, so Control+Y canonicalizes to the free "Mod+Y".
 
@@ -34,22 +34,25 @@ const mock = vi.hoisted(() => {
   };
 });
 
-vi.mock('webextension-polyfill', () => ({
+vi.mock("webextension-polyfill", () => ({
   default: {
     storage: {
       local: { get: mock.get, set: mock.set },
-      onChanged: { addListener: mock.addListener, removeListener: mock.removeListener },
+      onChanged: {
+        addListener: mock.addListener,
+        removeListener: mock.removeListener,
+      },
     },
   },
 }));
 
-const SAVE_RULE = SHORTCUT_ACTIONS.find((a) => a.id === 'save-rule')!;
+const SAVE_RULE = SHORTCUT_ACTIONS.find((a) => a.id === "save-rule")!;
 
 const renderRow = (overrides: ShortcutOverrides = {}) => {
   mock.backing[STORAGE_KEYS.shortcuts] = overrides;
   const effective = resolveShortcuts(overrides);
-  const bindings = effective['save-rule'];
-  const hasOverride = Object.prototype.hasOwnProperty.call(overrides, 'save-rule');
+  const bindings = effective["save-rule"];
+  const hasOverride = Object.hasOwn(overrides, "save-rule");
   return render(
     <HotkeysProvider>
       <ShortcutsProvider>
@@ -65,128 +68,138 @@ const renderRow = (overrides: ShortcutOverrides = {}) => {
 };
 
 const persistedOverrides = () => {
-  const call = mock.set.mock.calls.at(-1)?.[0] as Record<string, unknown> | undefined;
+  const call = mock.set.mock.calls.at(-1)?.[0] as
+    | Record<string, unknown>
+    | undefined;
   return call?.[STORAGE_KEYS.shortcuts] as ShortcutOverrides | undefined;
 };
 
 const owns = (id: ShortcutActionId) => resolveShortcuts({})[id][0];
 
 beforeEach(() => {
-  Object.keys(mock.backing).forEach((key) => delete mock.backing[key]);
+  Object.keys(mock.backing).forEach((key) => {
+    delete mock.backing[key];
+  });
   mock.set.mockClear();
 });
 
-describe('ShortcutRow', () => {
+describe("ShortcutRow", () => {
   // TC-026 behavior: the row shows the action name and its binding chip.
-  it('should render the action name and its binding chip', async () => {
+  it("should render the action name and its binding chip", async () => {
     renderRow();
     expect(await screen.findByText(SAVE_RULE.name)).toBeInTheDocument();
-    expect(screen.getByText(formatForDisplay(SAVE_RULE.defaultHotkey))).toBeInTheDocument();
+    expect(
+      screen.getByText(formatForDisplay(SAVE_RULE.defaultHotkey)),
+    ).toBeInTheDocument();
   });
 
   // TC-027 behavior: clicking a chip arms the recorder in that chip place.
-  it('should turn a binding chip into a recorder if the chip is clicked', async () => {
+  it("should turn a binding chip into a recorder if the chip is clicked", async () => {
     const user = userEvent.setup();
-    renderRow({ 'save-rule': ['Mod+J'] });
+    renderRow({ "save-rule": ["Mod+J"] });
 
-    const chip = await screen.findByRole('button', {
-      name: `Edit ${formatForDisplay('Mod+J')} for ${SAVE_RULE.name}`,
+    const chip = await screen.findByRole("button", {
+      name: `Edit ${formatForDisplay("Mod+J")} for ${SAVE_RULE.name}`,
     });
     await user.click(chip);
 
-    expect(await screen.findByText('Press keys…')).toBeInTheDocument();
-    expect(screen.queryByText(formatForDisplay('Mod+J'))).not.toBeInTheDocument();
+    expect(await screen.findByText("Press keys…")).toBeInTheDocument();
+    expect(
+      screen.queryByText(formatForDisplay("Mod+J")),
+    ).not.toBeInTheDocument();
   });
 
   // TC-027, AC-011 side-effect-contract: recording a free combo replaces the chip in place.
-  it('should replace the clicked binding in place if a free combo is recorded', async () => {
+  it("should replace the clicked binding in place if a free combo is recorded", async () => {
     const user = userEvent.setup();
-    renderRow({ 'save-rule': ['Mod+J', 'Mod+G'] });
+    renderRow({ "save-rule": ["Mod+J", "Mod+G"] });
 
-    const chip = await screen.findByRole('button', {
-      name: `Edit ${formatForDisplay('Mod+J')} for ${SAVE_RULE.name}`,
+    const chip = await screen.findByRole("button", {
+      name: `Edit ${formatForDisplay("Mod+J")} for ${SAVE_RULE.name}`,
     });
     await user.click(chip);
-    await user.keyboard('{Control>}y{/Control}');
+    await user.keyboard("{Control>}y{/Control}");
 
     await waitFor(() =>
-      expect(persistedOverrides()?.['save-rule']).toEqual(['Mod+Y', 'Mod+G']),
+      expect(persistedOverrides()?.["save-rule"]).toEqual(["Mod+Y", "Mod+G"]),
     );
   });
 
   // TC-030, AC-011 behavior: editing to a combo owned by another action is blocked.
-  it('should keep the clicked binding and alert if an edit conflicts', async () => {
+  it("should keep the clicked binding and alert if an edit conflicts", async () => {
     const user = userEvent.setup();
-    renderRow({ 'save-rule': ['Mod+J'] });
+    renderRow({ "save-rule": ["Mod+J"] });
 
-    const chip = await screen.findByRole('button', {
-      name: `Edit ${formatForDisplay('Mod+J')} for ${SAVE_RULE.name}`,
+    const chip = await screen.findByRole("button", {
+      name: `Edit ${formatForDisplay("Mod+J")} for ${SAVE_RULE.name}`,
     });
     await user.click(chip);
 
     // delete-item owns Mod+Backspace by default -> conflict.
-    const deleteKey = owns('delete-item');
+    const deleteKey = owns("delete-item");
     void deleteKey;
-    await user.keyboard('{Control>}{Backspace}{/Control}');
+    await user.keyboard("{Control>}{Backspace}{/Control}");
 
-    const alert = await screen.findByRole('alert');
+    const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/delete/i);
     expect(mock.set).not.toHaveBeenCalled();
-    expect(screen.getByText(formatForDisplay('Mod+J'))).toBeInTheDocument();
+    expect(screen.getByText(formatForDisplay("Mod+J"))).toBeInTheDocument();
   });
 
   // TC-027 behavior: cancelling an edit restores the original chip untouched.
-  it('should restore the binding chip if the edit recorder is cancelled', async () => {
+  it("should restore the binding chip if the edit recorder is cancelled", async () => {
     const user = userEvent.setup();
-    renderRow({ 'save-rule': ['Mod+J'] });
+    renderRow({ "save-rule": ["Mod+J"] });
 
-    const chip = await screen.findByRole('button', {
-      name: `Edit ${formatForDisplay('Mod+J')} for ${SAVE_RULE.name}`,
+    const chip = await screen.findByRole("button", {
+      name: `Edit ${formatForDisplay("Mod+J")} for ${SAVE_RULE.name}`,
     });
     await user.click(chip);
-    await screen.findByText('Press keys…');
+    await screen.findByText("Press keys…");
 
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
 
     expect(
-      await screen.findByRole('button', {
-        name: `Edit ${formatForDisplay('Mod+J')} for ${SAVE_RULE.name}`,
+      await screen.findByRole("button", {
+        name: `Edit ${formatForDisplay("Mod+J")} for ${SAVE_RULE.name}`,
       }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Press keys…')).not.toBeInTheDocument();
+    expect(screen.queryByText("Press keys…")).not.toBeInTheDocument();
   });
 
   // TC-027 behavior: pressing Escape while editing restores the original chip.
-  it('should restore the binding chip if Escape is pressed while editing', async () => {
+  it("should restore the binding chip if Escape is pressed while editing", async () => {
     const user = userEvent.setup();
-    renderRow({ 'save-rule': ['Mod+J'] });
+    renderRow({ "save-rule": ["Mod+J"] });
 
-    const chip = await screen.findByRole('button', {
-      name: `Edit ${formatForDisplay('Mod+J')} for ${SAVE_RULE.name}`,
+    const chip = await screen.findByRole("button", {
+      name: `Edit ${formatForDisplay("Mod+J")} for ${SAVE_RULE.name}`,
     });
     await user.click(chip);
-    await screen.findByText('Press keys…');
+    await screen.findByText("Press keys…");
 
-    await user.keyboard('{Escape}');
+    await user.keyboard("{Escape}");
 
     expect(
-      await screen.findByRole('button', {
-        name: `Edit ${formatForDisplay('Mod+J')} for ${SAVE_RULE.name}`,
+      await screen.findByRole("button", {
+        name: `Edit ${formatForDisplay("Mod+J")} for ${SAVE_RULE.name}`,
       }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Press keys…')).not.toBeInTheDocument();
+    expect(screen.queryByText("Press keys…")).not.toBeInTheDocument();
   });
 
   // TC-028, AC-004 side-effect-contract: removing one binding drops just that binding.
-  it('should persist the removal of one binding if its remove control is clicked', async () => {
+  it("should persist the removal of one binding if its remove control is clicked", async () => {
     const user = userEvent.setup();
-    renderRow({ 'save-rule': ['Mod+J', 'Mod+Y'] });
+    renderRow({ "save-rule": ["Mod+J", "Mod+Y"] });
 
-    const removeButton = await screen.findByRole('button', {
-      name: `Remove ${formatForDisplay('Mod+Y')} from ${SAVE_RULE.name}`,
+    const removeButton = await screen.findByRole("button", {
+      name: `Remove ${formatForDisplay("Mod+Y")} from ${SAVE_RULE.name}`,
     });
     await user.click(removeButton);
 
-    await waitFor(() => expect(persistedOverrides()?.['save-rule']).toEqual(['Mod+J']));
+    await waitFor(() =>
+      expect(persistedOverrides()?.["save-rule"]).toEqual(["Mod+J"]),
+    );
   });
 });

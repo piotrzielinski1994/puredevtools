@@ -1,7 +1,7 @@
-import { GlobalSwitch } from './GlobalSwitch';
-import { ImportExportControls } from './ImportExportControls';
-import { ThemeSwitch } from './ThemeSwitch';
-import { useTheme } from './useTheme';
+import { GlobalSwitch } from "./GlobalSwitch";
+import { ImportExportControls } from "./ImportExportControls";
+import { ThemeSwitch } from "./ThemeSwitch";
+import { useTheme } from "./useTheme";
 
 export const SidebarChrome = () => {
   const [theme, setTheme] = useTheme();

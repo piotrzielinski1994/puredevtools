@@ -1,10 +1,18 @@
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import type { FolderNode, RuleNode, TreeNode } from '../../rules/model';
-import { nodeId } from '../../rules/tree';
-import { Switch } from '../components/ui/switch';
-import { useRules } from '../shared/RulesProvider';
+import { ChevronDown, ChevronRight } from "lucide-react";
+import type { FolderNode, RuleNode, TreeNode } from "../../rules/model";
+import { nodeId } from "../../rules/tree";
+import { Switch } from "../components/ui/switch";
+import { useRules } from "../shared/RulesProvider";
 
-const PopupFolderRow = ({ node, depth, onEdit }: { node: FolderNode; depth: number; onEdit(): void }) => {
+const PopupFolderRow = ({
+  node,
+  depth,
+  onEdit,
+}: {
+  node: FolderNode;
+  depth: number;
+  onEdit(): void;
+}) => {
   const { toggleCollapse } = useRules();
   const Chevron = node.collapsed ? ChevronRight : ChevronDown;
   return (
@@ -23,7 +31,12 @@ const PopupFolderRow = ({ node, depth, onEdit }: { node: FolderNode; depth: numb
       {node.collapsed ? null : (
         <ul className="flex list-none flex-col p-0">
           {node.children.map((child) => (
-            <PopupRow key={nodeId(child)} node={child} depth={depth + 1} onEdit={onEdit} />
+            <PopupRow
+              key={nodeId(child)}
+              node={child}
+              depth={depth + 1}
+              onEdit={onEdit}
+            />
           ))}
         </ul>
       )}
@@ -31,7 +44,15 @@ const PopupFolderRow = ({ node, depth, onEdit }: { node: FolderNode; depth: numb
   );
 };
 
-const PopupRuleRow = ({ node, depth, onEdit }: { node: RuleNode; depth: number; onEdit(): void }) => {
+const PopupRuleRow = ({
+  node,
+  depth,
+  onEdit,
+}: {
+  node: RuleNode;
+  depth: number;
+  onEdit(): void;
+}) => {
   const { updateRule } = useRules();
   const rule = node.rule;
   return (
@@ -50,7 +71,9 @@ const PopupRuleRow = ({ node, depth, onEdit }: { node: RuleNode; depth: number; 
         aria-label={`Edit: ${rule.name}`}
         onClick={onEdit}
       >
-        <p className={`truncate text-sm font-medium ${rule.enabled ? '' : 'text-muted-foreground line-through'}`}>
+        <p
+          className={`truncate text-sm font-medium ${rule.enabled ? "" : "text-muted-foreground line-through"}`}
+        >
           {rule.name}
         </p>
       </button>
@@ -58,8 +81,17 @@ const PopupRuleRow = ({ node, depth, onEdit }: { node: RuleNode; depth: number; 
   );
 };
 
-const PopupRow = ({ node, depth, onEdit }: { node: TreeNode; depth: number; onEdit(): void }) => {
-  if (node.kind === 'folder') return <PopupFolderRow node={node} depth={depth} onEdit={onEdit} />;
+const PopupRow = ({
+  node,
+  depth,
+  onEdit,
+}: {
+  node: TreeNode;
+  depth: number;
+  onEdit(): void;
+}) => {
+  if (node.kind === "folder")
+    return <PopupFolderRow node={node} depth={depth} onEdit={onEdit} />;
   return <PopupRuleRow node={node} depth={depth} onEdit={onEdit} />;
 };
 
@@ -69,12 +101,14 @@ export const PopupTree = ({ onEdit }: { onEdit(): void }) => {
     return (
       <div className="border border-dashed border-border px-3 py-6 text-center">
         <p className="text-sm font-medium">No rules yet.</p>
-        <p className="mt-1 text-xs text-muted-foreground">Add one in options to start.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Add one in options to start.
+        </p>
       </div>
     );
   }
   return (
-    <ul role="tree" aria-label="Rules" className="flex list-none flex-col p-0">
+    <ul aria-label="Rules" className="flex list-none flex-col p-0">
       {workspace.map((node) => (
         <PopupRow key={nodeId(node)} node={node} depth={0} onEdit={onEdit} />
       ))}

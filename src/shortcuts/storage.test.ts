@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { STORAGE_KEYS } from '../shared/constants';
-import type { StorageArea } from '../rules/storage';
-import type { ShortcutOverrides } from './registry';
-import { ShortcutsRepository } from './storage';
+import { describe, expect, it } from "vitest";
+import type { StorageArea } from "../rules/storage";
+import { STORAGE_KEYS } from "../shared/constants";
+import type { ShortcutOverrides } from "./registry";
+import { ShortcutsRepository } from "./storage";
 
 const createFakeStorageArea = (
   initial: Record<string, unknown> = {},
@@ -23,24 +23,27 @@ const createFakeStorageArea = (
   };
 };
 
-describe('ShortcutsRepository', () => {
+describe("ShortcutsRepository", () => {
   // behavior: a missing key yields an empty overrides map.
-  it('should return an empty overrides map when the key is missing', async () => {
+  it("should return an empty overrides map when the key is missing", async () => {
     const repo = new ShortcutsRepository(createFakeStorageArea());
     expect(await repo.getOverrides()).toEqual({});
   });
 
   // TC-032 behavior: a malformed stored value falls back to {} (schema .catch).
-  it('should return an empty overrides map when the stored value is malformed', async () => {
+  it("should return an empty overrides map when the stored value is malformed", async () => {
     const repo = new ShortcutsRepository(
-      createFakeStorageArea({ [STORAGE_KEYS.shortcuts]: 'not an object' }),
+      createFakeStorageArea({ [STORAGE_KEYS.shortcuts]: "not an object" }),
     );
     expect(await repo.getOverrides()).toEqual({});
   });
 
   // behavior: a valid stored value is parsed and returned.
-  it('should return the parsed overrides when the stored value is valid', async () => {
-    const overrides: ShortcutOverrides = { 'save-rule': ['Mod+E'], 'toggle-theme': [] };
+  it("should return the parsed overrides when the stored value is valid", async () => {
+    const overrides: ShortcutOverrides = {
+      "save-rule": ["Mod+E"],
+      "toggle-theme": [],
+    };
     const repo = new ShortcutsRepository(
       createFakeStorageArea({ [STORAGE_KEYS.shortcuts]: overrides }),
     );
@@ -48,10 +51,10 @@ describe('ShortcutsRepository', () => {
   });
 
   // side-effect-contract: save persists under the shortcuts key.
-  it('should persist the overrides under the shortcuts key', async () => {
+  it("should persist the overrides under the shortcuts key", async () => {
     const area = createFakeStorageArea();
     const repo = new ShortcutsRepository(area);
-    const overrides: ShortcutOverrides = { 'save-rule': ['Mod+E'] };
+    const overrides: ShortcutOverrides = { "save-rule": ["Mod+E"] };
 
     await repo.save(overrides);
 
@@ -59,10 +62,13 @@ describe('ShortcutsRepository', () => {
   });
 
   // TC-032 side-effect-contract: a saved value round-trips back through getOverrides.
-  it('should round-trip a saved overrides map back through getOverrides', async () => {
+  it("should round-trip a saved overrides map back through getOverrides", async () => {
     const area = createFakeStorageArea();
     const repo = new ShortcutsRepository(area);
-    const overrides: ShortcutOverrides = { 'delete-item': ['Mod+Alt+D'], 'save-rule': [] };
+    const overrides: ShortcutOverrides = {
+      "delete-item": ["Mod+Alt+D"],
+      "save-rule": [],
+    };
 
     await repo.save(overrides);
 

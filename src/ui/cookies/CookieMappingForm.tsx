@@ -1,7 +1,6 @@
-import { RefreshCw, Trash2 } from 'lucide-react';
-import type { CookieMapping } from '../../cookies/model';
-import { Input } from '../components/ui/input';
-import { Button } from '../components/ui/button';
+import { Button, Input } from "@pziel/pureui";
+import { RefreshCw, Trash2 } from "lucide-react";
+import type { CookieMapping } from "../../cookies/model";
 
 const parseNames = (raw: string): string[] =>
   raw
@@ -9,7 +8,7 @@ const parseNames = (raw: string): string[] =>
     .map((name) => name.trim())
     .filter((name) => name.length > 0);
 
-const namesToText = (names: string[]): string => names.join(', ');
+const namesToText = (names: string[]): string => names.join(", ");
 
 type Props = {
   mapping: CookieMapping;
@@ -18,7 +17,12 @@ type Props = {
   onSync: () => void;
 };
 
-export const CookieMappingForm = ({ mapping, onChange, onDelete, onSync }: Props) => (
+export const CookieMappingForm = ({
+  mapping,
+  onChange,
+  onDelete,
+  onSync,
+}: Props) => (
   <div className="flex flex-col gap-3 p-4">
     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
       Name
@@ -37,7 +41,9 @@ export const CookieMappingForm = ({ mapping, onChange, onDelete, onSync }: Props
         className="font-mono"
         placeholder="https://app.prod.com"
         value={mapping.sourceUrl}
-        onChange={(event) => onChange({ ...mapping, sourceUrl: event.target.value })}
+        onChange={(event) =>
+          onChange({ ...mapping, sourceUrl: event.target.value })
+        }
       />
     </label>
     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -47,7 +53,9 @@ export const CookieMappingForm = ({ mapping, onChange, onDelete, onSync }: Props
         className="font-mono"
         placeholder="http://localhost:3000"
         value={mapping.targetUrl}
-        onChange={(event) => onChange({ ...mapping, targetUrl: event.target.value })}
+        onChange={(event) =>
+          onChange({ ...mapping, targetUrl: event.target.value })
+        }
       />
     </label>
     <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -57,7 +65,9 @@ export const CookieMappingForm = ({ mapping, onChange, onDelete, onSync }: Props
         className="font-mono"
         placeholder="auth, sid, refresh"
         value={namesToText(mapping.cookieNames)}
-        onChange={(event) => onChange({ ...mapping, cookieNames: parseNames(event.target.value) })}
+        onChange={(event) =>
+          onChange({ ...mapping, cookieNames: parseNames(event.target.value) })
+        }
       />
     </label>
     <div className="flex items-center gap-2 pt-1">
@@ -66,13 +76,21 @@ export const CookieMappingForm = ({ mapping, onChange, onDelete, onSync }: Props
         variant="outline"
         size="sm"
         aria-label="Sync now"
-        disabled={mapping.sourceUrl.trim() === '' || mapping.targetUrl.trim() === ''}
+        disabled={
+          mapping.sourceUrl.trim() === "" || mapping.targetUrl.trim() === ""
+        }
         onClick={onSync}
       >
         <RefreshCw />
         Sync now
       </Button>
-      <Button type="button" variant="ghost" size="icon" aria-label="Delete mapping" onClick={onDelete}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Delete mapping"
+        onClick={onDelete}
+      >
         <Trash2 />
       </Button>
     </div>

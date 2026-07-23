@@ -1,1 +1,1 @@
-export type ScriptStage = 'pre' | 'post';
+export type ScriptStage = "pre" | "post";

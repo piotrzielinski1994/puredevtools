@@ -1,4 +1,4 @@
-import type { Cookies } from 'webextension-polyfill';
+import type { Cookies } from "webextension-polyfill";
 
 export type CookieMapping = {
   id: string;
@@ -9,10 +9,10 @@ export type CookieMapping = {
   cookieNames: string[];
 };
 
-export type CookieMappingNode = { kind: 'mapping'; mapping: CookieMapping };
+export type CookieMappingNode = { kind: "mapping"; mapping: CookieMapping };
 
 export type CookieFolderNode = {
-  kind: 'folder';
+  kind: "folder";
   id: string;
   name: string;
   collapsed: boolean;
@@ -25,7 +25,7 @@ export type CookieSyncState = {
   tree: CookieTreeNode[];
 };
 
-export type SkipReason = 'not-found' | 'set-rejected';
+export type SkipReason = "not-found" | "set-rejected";
 
 export type SyncResult = {
   copied: string[];

@@ -1,6 +1,6 @@
 const isJsonObjectOrArray = (text: string): boolean => {
   const trimmed = text.trim();
-  if (trimmed[0] !== '{' && trimmed[0] !== '[') return false;
+  if (trimmed[0] !== "{" && trimmed[0] !== "[") return false;
   try {
     JSON.parse(trimmed);
     return true;
@@ -15,7 +15,7 @@ export const bodyToDisk = (body: string): unknown => {
 };
 
 export const diskToBody = (value: unknown): string => {
-  if (value === undefined || value === null) return '';
-  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value;
   return JSON.stringify(value, null, 2);
 };

@@ -1,5 +1,5 @@
 export type TreeFolder<Leaf> = {
-  kind: 'folder';
+  kind: "folder";
   id: string;
   name: string;
   collapsed: boolean;
@@ -10,33 +10,34 @@ export type MoveTarget = { parentId: string | null; index: number };
 
 export type NodeLocation = { parentId: string | null; index: number };
 
-export type DropPosition = 'before' | 'after' | 'inside';
+export type DropPosition = "before" | "after" | "inside";
 
-const EMPTY_ZONE_PREFIX = 'empty-zone:';
+const EMPTY_ZONE_PREFIX = "empty-zone:";
 
-export const emptyZoneId = (folderId: string): string => `${EMPTY_ZONE_PREFIX}${folderId}`;
+export const emptyZoneId = (folderId: string): string =>
+  `${EMPTY_ZONE_PREFIX}${folderId}`;
 
 export const parseEmptyZoneId = (id: string): string | null =>
   id.startsWith(EMPTY_ZONE_PREFIX) ? id.slice(EMPTY_ZONE_PREFIX.length) : null;
 
-export const ROOT_ZONE_ID = 'root-zone';
+export const ROOT_ZONE_ID = "root-zone";
 
 export const projectDropPosition = (
   pointerY: number,
   rect: { top: number; height: number },
   isFolder: boolean,
 ): DropPosition => {
-  if (rect.height <= 0) return 'before';
+  if (rect.height <= 0) return "before";
   const fraction = (pointerY - rect.top) / rect.height;
-  if (!isFolder) return fraction < 0.5 ? 'before' : 'after';
-  if (fraction < 0.25) return 'before';
-  if (fraction > 0.75) return 'after';
-  return 'inside';
+  if (!isFolder) return fraction < 0.5 ? "before" : "after";
+  if (fraction < 0.25) return "before";
+  if (fraction > 0.75) return "after";
+  return "inside";
 };
 
 const isFolderNode = <Leaf extends { kind: string }>(
   node: Leaf | TreeFolder<Leaf>,
-): node is TreeFolder<Leaf> => node.kind === 'folder';
+): node is TreeFolder<Leaf> => node.kind === "folder";
 
 export const findNodeBy = <Leaf extends { kind: string }>(
   tree: Array<Leaf | TreeFolder<Leaf>>,
@@ -81,17 +82,19 @@ export const dropTargetBy = <Leaf extends { kind: string }>(
     if (!folder || !isFolderNode(folder)) return null;
     return { parentId: emptyZoneFolderId, index: folder.children.length };
   }
-  if (position === 'inside') {
+  if (position === "inside") {
     const over = findNodeBy(tree, overId, nodeId);
     if (!over || !isFolderNode(over)) return null;
     return { parentId: overId, index: over.children.length };
   }
   const location = locateNodeBy(tree, overId, nodeId);
   if (!location) return null;
-  const rawIndex = position === 'before' ? location.index : location.index + 1;
+  const rawIndex = position === "before" ? location.index : location.index + 1;
   const dragLocation = locateNodeBy(tree, dragId, nodeId);
-  const isSameParent = dragLocation !== null && dragLocation.parentId === location.parentId;
-  const index = isSameParent && dragLocation.index < rawIndex ? rawIndex - 1 : rawIndex;
+  const isSameParent =
+    dragLocation !== null && dragLocation.parentId === location.parentId;
+  const index =
+    isSameParent && dragLocation.index < rawIndex ? rawIndex - 1 : rawIndex;
   return { parentId: location.parentId, index };
 };
 
@@ -110,12 +113,15 @@ export type LeafConfig<Leaf extends { kind: string }, Payload> = {
 
 const isFolder = <Leaf extends { kind: string }>(
   node: Leaf | TreeFolder<Leaf>,
-): node is TreeFolder<Leaf> => node.kind === 'folder';
+): node is TreeFolder<Leaf> => node.kind === "folder";
 
 export type TreeOps<Leaf extends { kind: string }, Payload> = {
   nodeId(node: Leaf | TreeFolder<Leaf>): string;
   flatten(tree: Array<Leaf | TreeFolder<Leaf>>): Payload[];
-  findNode(tree: Array<Leaf | TreeFolder<Leaf>>, id: string): Leaf | TreeFolder<Leaf> | undefined;
+  findNode(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    id: string,
+  ): Leaf | TreeFolder<Leaf> | undefined;
   containsId(node: Leaf | TreeFolder<Leaf>, id: string): boolean;
   removeNode(
     tree: Array<Leaf | TreeFolder<Leaf>>,
@@ -126,16 +132,41 @@ export type TreeOps<Leaf extends { kind: string }, Payload> = {
     toInsert: Leaf | TreeFolder<Leaf>,
     target: MoveTarget,
   ): Array<Leaf | TreeFolder<Leaf>>;
-  moveNode(tree: Array<Leaf | TreeFolder<Leaf>>, dragId: string, target: MoveTarget): Array<Leaf | TreeFolder<Leaf>>;
-  renameFolder(tree: Array<Leaf | TreeFolder<Leaf>>, id: string, name: string): Array<Leaf | TreeFolder<Leaf>>;
-  toggleCollapse(tree: Array<Leaf | TreeFolder<Leaf>>, id: string): Array<Leaf | TreeFolder<Leaf>>;
+  moveNode(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    dragId: string,
+    target: MoveTarget,
+  ): Array<Leaf | TreeFolder<Leaf>>;
+  renameFolder(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    id: string,
+    name: string,
+  ): Array<Leaf | TreeFolder<Leaf>>;
+  toggleCollapse(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    id: string,
+  ): Array<Leaf | TreeFolder<Leaf>>;
   walkLeafIds(tree: Array<Leaf | TreeFolder<Leaf>>): string[];
-  updateLeafInTree(tree: Array<Leaf | TreeFolder<Leaf>>, payload: Payload): Array<Leaf | TreeFolder<Leaf>>;
+  updateLeafInTree(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    payload: Payload,
+  ): Array<Leaf | TreeFolder<Leaf>>;
   collectFolderIds(tree: Array<Leaf | TreeFolder<Leaf>>): Set<string>;
   newFolderId(tree: Array<Leaf | TreeFolder<Leaf>>): string;
-  addFolderNode(tree: Array<Leaf | TreeFolder<Leaf>>, parentId: string | null, id: string): Array<Leaf | TreeFolder<Leaf>>;
-  duplicateNode(tree: Array<Leaf | TreeFolder<Leaf>>, id: string): Array<Leaf | TreeFolder<Leaf>>;
-  locateNode(tree: Array<Leaf | TreeFolder<Leaf>>, id: string, parentId?: string | null): NodeLocation | null;
+  addFolderNode(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    parentId: string | null,
+    id: string,
+  ): Array<Leaf | TreeFolder<Leaf>>;
+  duplicateNode(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    id: string,
+  ): Array<Leaf | TreeFolder<Leaf>>;
+  locateNode(
+    tree: Array<Leaf | TreeFolder<Leaf>>,
+    id: string,
+    parentId?: string | null,
+  ): NodeLocation | null;
   dropTarget(
     tree: Array<Leaf | TreeFolder<Leaf>>,
     dragId: string,
@@ -149,10 +180,13 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
 ): TreeOps<Leaf, Payload> => {
   type Node = Leaf | TreeFolder<Leaf>;
 
-  const nodeId = (node: Node): string => (isFolder(node) ? node.id : config.leafId(node));
+  const nodeId = (node: Node): string =>
+    isFolder(node) ? node.id : config.leafId(node);
 
   const flatten = (tree: Node[]): Payload[] =>
-    tree.flatMap((node) => (isFolder(node) ? flatten(node.children) : [config.fromLeaf(node)]));
+    tree.flatMap((node) =>
+      isFolder(node) ? flatten(node.children) : [config.fromLeaf(node)],
+    );
 
   const findNode = (tree: Node[], id: string): Node | undefined => {
     const direct = tree.find((node) => nodeId(node) === id);
@@ -169,17 +203,25 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
     return node.children.some((child) => containsId(child, id));
   };
 
-  const removeNode = (tree: Node[], id: string): { tree: Node[]; node?: Node } => {
+  const removeNode = (
+    tree: Node[],
+    id: string,
+  ): { tree: Node[]; node?: Node } => {
     const removed = findNode(tree, id);
     const without = tree.flatMap<Node>((node) => {
       if (nodeId(node) === id) return [];
-      if (isFolder(node)) return [{ ...node, children: removeNode(node.children, id).tree }];
+      if (isFolder(node))
+        return [{ ...node, children: removeNode(node.children, id).tree }];
       return [node];
     });
     return { tree: without, node: removed };
   };
 
-  const insertNode = (tree: Node[], toInsert: Node, target: MoveTarget): Node[] => {
+  const insertNode = (
+    tree: Node[],
+    toInsert: Node,
+    target: MoveTarget,
+  ): Node[] => {
     if (target.parentId === null) {
       const at = Math.max(0, Math.min(target.index, tree.length));
       return [...tree.slice(0, at), toInsert, ...tree.slice(at)];
@@ -188,13 +230,24 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
       if (!isFolder(node)) return node;
       if (node.id === target.parentId) {
         const at = Math.max(0, Math.min(target.index, node.children.length));
-        return { ...node, children: [...node.children.slice(0, at), toInsert, ...node.children.slice(at)] };
+        return {
+          ...node,
+          children: [
+            ...node.children.slice(0, at),
+            toInsert,
+            ...node.children.slice(at),
+          ],
+        };
       }
       return { ...node, children: insertNode(node.children, toInsert, target) };
     });
   };
 
-  const moveNode = (tree: Node[], dragId: string, target: MoveTarget): Node[] => {
+  const moveNode = (
+    tree: Node[],
+    dragId: string,
+    target: MoveTarget,
+  ): Node[] => {
     const dragged = findNode(tree, dragId);
     if (!dragged) return tree;
     if (target.parentId !== null) {
@@ -207,7 +260,7 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
   };
 
   const renameFolder = (tree: Node[], id: string, name: string): Node[] => {
-    if (name.trim() === '') return tree;
+    if (name.trim() === "") return tree;
     return tree.map((node) => {
       if (!isFolder(node)) return node;
       if (node.id === id) return { ...node, name };
@@ -223,12 +276,17 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
     });
 
   const walkLeafIds = (tree: Node[]): string[] =>
-    tree.flatMap((node) => (isFolder(node) ? walkLeafIds(node.children) : [config.leafId(node)]));
+    tree.flatMap((node) =>
+      isFolder(node) ? walkLeafIds(node.children) : [config.leafId(node)],
+    );
 
   const updateLeafInTree = (tree: Node[], payload: Payload): Node[] =>
     tree.map((node) => {
-      if (isFolder(node)) return { ...node, children: updateLeafInTree(node.children, payload) };
-      return config.leafId(node) === config.payloadId(payload) ? config.toLeaf(payload) : node;
+      if (isFolder(node))
+        return { ...node, children: updateLeafInTree(node.children, payload) };
+      return config.leafId(node) === config.payloadId(payload)
+        ? config.toLeaf(payload)
+        : node;
     });
 
   const collectFolderIds = (tree: Node[]): Set<string> => {
@@ -252,13 +310,30 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
     return next(taken.size + 1);
   };
 
-  const addFolderNode = (tree: Node[], parentId: string | null, id: string): Node[] => {
-    const folder: TreeFolder<Leaf> = { kind: 'folder', id, name: 'New folder', collapsed: false, children: [] };
+  const addFolderNode = (
+    tree: Node[],
+    parentId: string | null,
+    id: string,
+  ): Node[] => {
+    const folder: TreeFolder<Leaf> = {
+      kind: "folder",
+      id,
+      name: "New folder",
+      collapsed: false,
+      children: [],
+    };
     if (parentId === null) return [...tree, folder];
-    return insertNode(tree, folder, { parentId, index: Number.MAX_SAFE_INTEGER });
+    return insertNode(tree, folder, {
+      parentId,
+      index: Number.MAX_SAFE_INTEGER,
+    });
   };
 
-  const locate = (tree: Node[], id: string, parentId: string | null): MoveTarget | null => {
+  const locate = (
+    tree: Node[],
+    id: string,
+    parentId: string | null,
+  ): MoveTarget | null => {
     const index = tree.findIndex((node) => nodeId(node) === id);
     if (index !== -1) return { parentId, index };
     return (
@@ -294,10 +369,19 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
     };
   };
 
-  const cloneSubtree = (node: Node, mint: IdMinters, renameTop: boolean): Node => {
-    if (!isFolder(node)) return config.cloneLeaf(node, mint.leafId(config.leafId(node)), renameTop);
+  const cloneSubtree = (
+    node: Node,
+    mint: IdMinters,
+    renameTop: boolean,
+  ): Node => {
+    if (!isFolder(node))
+      return config.cloneLeaf(
+        node,
+        mint.leafId(config.leafId(node)),
+        renameTop,
+      );
     return {
-      kind: 'folder',
+      kind: "folder",
       id: mint.folderId(),
       name: renameTop ? `${node.name} (copy)` : node.name,
       collapsed: node.collapsed,
@@ -310,14 +394,24 @@ export const createTreeOps = <Leaf extends { kind: string }, Payload>(
     const location = locate(tree, id, null);
     if (!source || !location) return tree;
     const clone = cloneSubtree(source, makeMinters(tree), true);
-    return insertNode(tree, clone, { parentId: location.parentId, index: location.index + 1 });
+    return insertNode(tree, clone, {
+      parentId: location.parentId,
+      index: location.index + 1,
+    });
   };
 
-  const locateNode = (tree: Node[], id: string, parentId: string | null = null): NodeLocation | null =>
-    locateNodeBy(tree, id, nodeId, parentId);
+  const locateNode = (
+    tree: Node[],
+    id: string,
+    parentId: string | null = null,
+  ): NodeLocation | null => locateNodeBy(tree, id, nodeId, parentId);
 
-  const dropTarget = (tree: Node[], dragId: string, overId: string, position: DropPosition): MoveTarget | null =>
-    dropTargetBy(tree, dragId, overId, position, nodeId);
+  const dropTarget = (
+    tree: Node[],
+    dragId: string,
+    overId: string,
+    position: DropPosition,
+  ): MoveTarget | null => dropTargetBy(tree, dragId, overId, position, nodeId);
 
   return {
     nodeId,

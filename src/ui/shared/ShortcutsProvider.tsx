@@ -1,17 +1,31 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import browser from 'webextension-polyfill';
-import { STORAGE_KEYS } from '../../shared/constants';
-import type { ShortcutActionId, ShortcutOverrides } from '../../shortcuts/registry';
-import { resolveShortcuts, safeNormalize } from '../../shortcuts/resolve';
-import { shortcutOverridesSchema } from '../../shortcuts/schema';
-import { ShortcutsContext, type ShortcutsContextValue } from './shortcutsContext';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import browser from "webextension-polyfill";
+import { STORAGE_KEYS } from "../../shared/constants";
+import type {
+  ShortcutActionId,
+  ShortcutOverrides,
+} from "../../shortcuts/registry";
+import { resolveShortcuts, safeNormalize } from "../../shortcuts/resolve";
+import { shortcutOverridesSchema } from "../../shortcuts/schema";
+import {
+  ShortcutsContext,
+  type ShortcutsContextValue,
+} from "./shortcutsContext";
 
-export { useShortcutOverrides, useShortcuts } from './shortcutsContext';
-export type { ShortcutMutators } from './shortcutsContext';
+export type { ShortcutMutators } from "./shortcutsContext";
+export { useShortcutOverrides, useShortcuts } from "./shortcutsContext";
 
 const readOverrides = async (): Promise<ShortcutOverrides> => {
   const stored = await browser.storage.local.get([STORAGE_KEYS.shortcuts]);
-  return shortcutOverridesSchema.parse(stored[STORAGE_KEYS.shortcuts]) as ShortcutOverrides;
+  return shortcutOverridesSchema.parse(
+    stored[STORAGE_KEYS.shortcuts],
+  ) as ShortcutOverrides;
 };
 
 const writeOverrides = async (overrides: ShortcutOverrides): Promise<void> => {
@@ -34,9 +48,12 @@ export const ShortcutsProvider = ({ children }: { children: ReactNode }) => {
       changes: Record<string, browser.Storage.StorageChange>,
       areaName: string,
     ): void => {
-      if (areaName !== 'local') return;
+      if (areaName !== "local") return;
       const change = changes[STORAGE_KEYS.shortcuts];
-      if (change) setOverrides(shortcutOverridesSchema.parse(change.newValue) as ShortcutOverrides);
+      if (change)
+        setOverrides(
+          shortcutOverridesSchema.parse(change.newValue) as ShortcutOverrides,
+        );
     };
     browser.storage.onChanged.addListener(listener);
     return () => {
@@ -45,12 +62,15 @@ export const ShortcutsProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const update = useCallback((next: (base: ShortcutOverrides) => ShortcutOverrides) => {
-    const nextOverrides = next(overridesRef.current);
-    overridesRef.current = nextOverrides;
-    setOverrides(nextOverrides);
-    void writeOverrides(nextOverrides);
-  }, []);
+  const update = useCallback(
+    (next: (base: ShortcutOverrides) => ShortcutOverrides) => {
+      const nextOverrides = next(overridesRef.current);
+      overridesRef.current = nextOverrides;
+      setOverrides(nextOverrides);
+      void writeOverrides(nextOverrides);
+    },
+    [],
+  );
 
   const addShortcut = useCallback(
     (id: ShortcutActionId, hotkey: string) =>
@@ -69,7 +89,10 @@ export const ShortcutsProvider = ({ children }: { children: ReactNode }) => {
       update((base) => {
         const normalized = safeNormalize(hotkey) ?? hotkey;
         const current = resolveShortcuts(base)[id];
-        return { ...base, [id]: current.filter((binding) => binding !== normalized) };
+        return {
+          ...base,
+          [id]: current.filter((binding) => binding !== normalized),
+        };
       }),
     [update],
   );
@@ -82,15 +105,24 @@ export const ShortcutsProvider = ({ children }: { children: ReactNode }) => {
         const normalizedOld = safeNormalize(oldHotkey) ?? oldHotkey;
         const current = resolveShortcuts(base)[id];
         if (!current.includes(normalizedOld)) return base;
-        const swapped = current.map((binding) => (binding === normalizedOld ? normalizedNew : binding));
-        return { ...base, [id]: swapped.filter((binding, index) => swapped.indexOf(binding) === index) };
+        const swapped = current.map((binding) =>
+          binding === normalizedOld ? normalizedNew : binding,
+        );
+        return {
+          ...base,
+          [id]: swapped.filter(
+            (binding, index) => swapped.indexOf(binding) === index,
+          ),
+        };
       }),
     [update],
   );
 
   const resetShortcut = useCallback(
     (id: ShortcutActionId) =>
-      update((base) => Object.fromEntries(Object.entries(base).filter(([key]) => key !== id))),
+      update((base) =>
+        Object.fromEntries(Object.entries(base).filter(([key]) => key !== id)),
+      ),
     [update],
   );
 
@@ -102,5 +134,9 @@ export const ShortcutsProvider = ({ children }: { children: ReactNode }) => {
     resetShortcut,
   };
 
-  return <ShortcutsContext.Provider value={value}>{children}</ShortcutsContext.Provider>;
+  return (
+    <ShortcutsContext.Provider value={value}>
+      {children}
+    </ShortcutsContext.Provider>
+  );
 };
