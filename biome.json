@@ -19,6 +19,7 @@
       },
       "correctness": {
         "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error",
         "useExhaustiveDependencies": "off"
       },
       "style": {
