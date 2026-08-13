@@ -39,6 +39,66 @@ Briefing for Claude Code. Read [README.md](README.md) first - build/dev commands
 - Rules are data (serializable, `zod`-schema'd in `src/rules/schema.ts`), stored via `browser.storage`; the page layer applies rules, the UI edits them. Import/export round-trips through the same schema. The matchers schema is `.strict()` so a stored/imported rule carrying a removed field (e.g. `resourceTypes`) fails import.
 - The stored source of truth is a **workspace tree** (`FolderNode | RuleNode`, arbitrary nesting, mixed root - `src/rules/tree.ts`, `schema.ts`), NOT a flat `Rule[]`. `RuleRepository.getAll()` returns `flatten(workspace)` (DFS pre-order), so the engine (`decide.ts` first-match over the ordered array), `content/bridge.ts`, and `match.ts` stay tree-agnostic - preserve that flat ordered contract when touching storage. `Rule` has no `priority`; tree position is the sole ordering and equals match precedence. The sidebar DnD ports requi with `@dnd-kit/core` core primitives only (per-row `useDraggable`+`useDroppable` + manual drop projection in `tree-locate.ts`), never `@dnd-kit/sortable`. Deleting a folder deletes its whole subtree. See [docs/adr.md](docs/adr.md) 2026-07-12.
 
+## Architecture
+
+Single manifest source (`src/manifest/index.ts`) generates both Chrome and Firefox variants; the
+rule model and UI are browser-agnostic, with a **single enforcement mechanism**:
+
+- **Page layer** (cross-browser): a MAIN-world content script (`src/content/page-main.ts`)
+  monkey-patches `window.fetch` and `XMLHttpRequest`. On a matching rule it rewrites the request
+  URL, applies the request-header ops + body rewrite, runs the pre-request script, forwards the
+  real request, then applies the response-header ops + body rewrite and runs the post-response
+  script before the page's callback sees the response (the same mechanism MockExpress/Requestly
+  use). Scripts run via `AsyncFunction` in the page context (`src/engine/page/script/`), gated by a
+  re-entrancy guard. An ISOLATED-world bridge (`src/content/bridge.ts`) syncs rules from storage
+  into the page. Every override is logged to the page console as `[puredevtools] rewrote ...` and
+  forwarded to the DevTools panel.
+- **DevTools panel** (cross-browser): a `devtools_page` registers a "puredevtools" panel
+  (`src/ui/devtools/`) rendering an intercept-only network table. Reports flow page sink -> bridge
+  -> background relay (keyed by the inspected tab id) -> panel, so each panel shows only the traffic
+  for the tab it inspects.
+
+There is no network layer for interception: `declarativeNetRequest`/`webRequest` are not used.
+Permissions: `storage` (rules + settings) and `cookies` (Cookie sync only). Adding a permission is
+ADR-worthy.
+
+## Platform limitations
+
+- **Only `fetch`/`XHR` are overridden** - not main-frame document navigation, sub-resource tags, or
+  WebSocket traffic. Intercepting document navigation on Chrome would require `chrome.debugger` (a
+  yellow "being debugged" banner) and has no cross-browser equivalent.
+- **The request is always forwarded** - no canned/no-forward mock mode; the original status is
+  preserved.
+- **Request mutation caveats:** a body attached to a `GET`/`HEAD` is applied as-is and may make
+  `fetch` throw (same as page code doing it); on XHR a header **`remove`** is a no-op (no XHR API to
+  unset a header) and browser-controlled headers (`Cookie`, `User-Agent`, `Host`, ...) cannot be
+  set or removed.
+- **Request URL rewrite:** an **origin-only** target swaps only scheme/host/port and keeps
+  path/query/hash; a target with an explicit **path** replaces the URL but preserves query/hash;
+  root-relative (`/mock`) and protocol-relative (`//host`) targets resolve against the original
+  request; empty/unparseable = no-op. The declarative rewrite runs before any pre-request script, so
+  a script's `setUrl` still wins.
+- **Scripts run as `AsyncFunction` in the page's MAIN world**, so they are subject to the visited
+  page's Content-Security-Policy: without `'unsafe-eval'` a script fails to construct and is
+  **skipped** (a `[puredevtools script]` error is logged, the declarative ops still apply). A script
+  that **throws** at runtime is likewise skipped (partial effect discarded). There is **no execution
+  timeout** - an infinite loop hangs the page exactly as page-authored code would. A `fetch`/`XHR`
+  issued from inside a script is **not** re-intercepted (a global re-entrancy guard; an unrelated
+  request fired during a script's `await` window is also passed through). On the XHR path a pre-script
+  `setUrl`/`setMethod` re-opens the delegate before send.
+- **DevTools Network panel shows the original upstream bytes** (below the `fetch`/XHR patch). To see
+  what the UI received: read the rendered page, the `[puredevtools]` console log, or call the
+  endpoint from the DevTools console.
+- **Page patch lands slightly after `document_start`** (the MAIN-world module content script) - a
+  request fired in the first microtask of page load can bypass it. Inherent to MV3.
+- **XHR (page layer):** asynchronous XHR only; `xhr.addEventListener('load', ...)` consumers are not
+  notified in v1; `responseType` json/blob, `responseURL`, and `statusText` are not emulated.
+- **URL matching:** glob (`*`, `?`) and regex supported; relative request URLs resolve against the
+  page origin before matching.
+- **Rule precedence:** the first enabled matching rule wins (no accumulation in v1); precedence is
+  the depth-first, top-to-bottom order of the sidebar tree, so moving a rule between folders changes
+  which rule wins.
+
 ## Learning from conversation
 
 If during a session you learn something project-specific that future-you would otherwise have to re-derive - a non-obvious convention the user prefers, a constraint that bit us, a browser-API quirk - append it to [docs/learnings.md](docs/learnings.md).
@@ -77,8 +137,8 @@ Keep terms consistent with [docs/glossary.md](docs/glossary.md). When a new doma
   - New convention or gotcha that future-you would miss -> add to CLAUDE.md (or docs/learnings.md).
   - Removed feature or file referenced in either doc -> remove the reference.
 - No duplicates between README.md and CLAUDE.md. Each fact lives in exactly one place:
-  - README.md = onboarding facts a human needs to run/load the extension: build/dev commands, load-unpacked steps, usage, architecture overview, platform limitations, repo layout.
-  - CLAUDE.md = working rules for an agent editing this repo: conventions, gotchas, "how to add a feature", invariants.
+  - README.md = human onboarding: what the extension is, build/load steps, commands, usage overview, user-facing limitations. No agent-facing internals.
+  - CLAUDE.md = working rules for an agent editing this repo: conventions, gotchas, architecture + platform internals, "how to add a feature", invariants.
   - If a fact would fit both, put it in CLAUDE.md and link from README only if a human reader needs the pointer.
 - If neither doc needs to change, say so explicitly in the pre-commit summary so it's a deliberate decision, not an oversight.
 
