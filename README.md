@@ -20,13 +20,8 @@ Load unpacked:
 
 | Command | Description |
 | --- | --- |
-| `npm run dev:chrome` | Watch-mode dev build for Chrome. |
-| `npm run dev:firefox` | Watch-mode dev build for Firefox. |
-| `npm run build:chrome` | Production build -> `dist/chrome`. |
-| `npm run build:firefox` | Production build -> `dist/firefox`. |
-| `npm test` | Vitest suite (run once). |
-| `npm run typecheck` | `tsc --noEmit`. |
-| `npm run lint` | Biome check. |
+| `npm run dev:chrome` / `npm run dev:firefox` | Watch-mode dev build for the given browser. |
+| `npm run build:chrome` / `npm run build:firefox` | Production build -> `dist/chrome` / `dist/firefox`. |
 
 ## Usage
 
